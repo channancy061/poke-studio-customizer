@@ -1,0 +1,142 @@
+<!--
+  Pixel Lab control styles for Avalonia 11 (on top of FluentTheme).
+  Include in App.axaml:
+
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://PokeStudio/Theme/PixelLab.Colors.axaml" />
+        <ResourceInclude Source="avares://PokeStudio/Theme/PixelLab.Tokens.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://PokeStudio/Theme/PixelLab.Controls.axaml" />
+  </Application.Styles>
+
+  Switch theme at runtime with Application.Current.RequestedThemeVariant = ThemeVariant.Light / Dark / Default.
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Window -->
+  <Style Selector="Window">
+    <Setter Property="Background" Value="{DynamicResource PL.BgBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PL.TextBrush}" />
+    <Setter Property="FontFamily" Value="{StaticResource PL.FontUi}" />
+    <Setter Property="FontSize" Value="{StaticResource PL.FontSizeBody}" />
+    <Setter Property="MinWidth" Value="1024" />
+    <Setter Property="MinHeight" Value="700" />
+  </Style>
+
+  <!-- Text classes: <TextBlock Classes="title" /> -->
+  <Style Selector="TextBlock.display"><Setter Property="FontSize" Value="{StaticResource PL.FontSizeDisplay}" /><Setter Property="FontWeight" Value="ExtraBold" /><Setter Property="LineHeight" Value="{StaticResource PL.LineHeightDisplay}" /></Style>
+  <Style Selector="TextBlock.title"><Setter Property="FontSize" Value="{StaticResource PL.FontSizeTitle}" /><Setter Property="FontWeight" Value="ExtraBold" /><Setter Property="LineHeight" Value="{StaticResource PL.LineHeightTitle}" /></Style>
+  <Style Selector="TextBlock.heading"><Setter Property="FontSize" Value="{StaticResource PL.FontSizeHeading}" /><Setter Property="FontWeight" Value="Bold" /></Style>
+  <Style Selector="TextBlock.subhead"><Setter Property="FontSize" Value="{StaticResource PL.FontSizeSubhead}" /><Setter Property="FontWeight" Value="Bold" /></Style>
+  <Style Selector="TextBlock.small"><Setter Property="FontSize" Value="{StaticResource PL.FontSizeSmall}" /></Style>
+  <Style Selector="TextBlock.caption"><Setter Property="FontSize" Value="{StaticResource PL.FontSizeCaption}" /><Setter Property="FontWeight" Value="SemiBold" /></Style>
+  <Style Selector="TextBlock.muted"><Setter Property="Foreground" Value="{DynamicResource PL.Text2Brush}" /></Style>
+  <Style Selector="TextBlock.pixel"><Setter Property="FontFamily" Value="{StaticResource PL.FontPixel}" /><Setter Property="FontSize" Value="12" /></Style>
+  <Style Selector="TextBlock.mono"><Setter Property="FontFamily" Value="{StaticResource PL.FontMono}" /><Setter Property="FontSize" Value="12" /></Style>
+
+  <!-- Focus: one visible ring for every focusable control (keyboard only) -->
+  <Style Selector="Button, ToggleButton, ToggleSwitch, CheckBox, RadioButton, ListBoxItem, TabItem, Slider, ComboBox, TextBox, NumericUpDown, HyperlinkButton">
+    <Setter Property="FocusAdorner">
+      <FocusAdornerTemplate>
+        <Border BorderBrush="{DynamicResource PL.FocusBrush}" BorderThickness="3" CornerRadius="10" Margin="-5" />
+      </FocusAdornerTemplate>
+    </Setter>
+  </Style>
+
+  <!-- Buttons: Classes="primary | secondary | quiet | ghost | danger" + "sm | lg | icon" -->
+  <Style Selector="Button">
+    <Setter Property="MinHeight" Value="{StaticResource PL.ControlHeight}" />
+    <Setter Property="Padding" Value="{StaticResource PL.PadControl}" />
+    <Setter Property="CornerRadius" Value="{StaticResource PL.RadiusMd}" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="BorderThickness" Value="{StaticResource PL.BorderControl}" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Background" Value="{DynamicResource PL.Surface2Brush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PL.BorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PL.TextBrush}" />
+    <Setter Property="Transitions">
+      <Transitions><BrushTransition Property="Background" Duration="0:0:0.08" /></Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Button.sm"><Setter Property="MinHeight" Value="{StaticResource PL.ControlHeightSm}" /><Setter Property="Padding" Value="10,0" /><Setter Property="FontSize" Value="13" /></Style>
+  <Style Selector="Button.lg"><Setter Property="MinHeight" Value="{StaticResource PL.ControlHeightLg}" /><Setter Property="Padding" Value="20,0" /><Setter Property="FontSize" Value="15" /></Style>
+  <Style Selector="Button.icon"><Setter Property="Width" Value="{StaticResource PL.ControlHeight}" /><Setter Property="Padding" Value="0" /><Setter Property="HorizontalContentAlignment" Value="Center" /></Style>
+
+  <Style Selector="Button.primary"><Setter Property="Background" Value="{DynamicResource PL.PrimaryBrush}" /><Setter Property="BorderBrush" Value="Transparent" /><Setter Property="Foreground" Value="{DynamicResource PL.OnPrimaryBrush}" /></Style>
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource PL.PrimaryHoverBrush}" /><Setter Property="Foreground" Value="{DynamicResource PL.OnPrimaryBrush}" /></Style>
+  <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource PL.PrimaryPressedBrush}" /></Style>
+
+  <Style Selector="Button.secondary"><Setter Property="Background" Value="Transparent" /><Setter Property="BorderBrush" Value="{DynamicResource PL.SecondaryBrush}" /><Setter Property="Foreground" Value="{DynamicResource PL.SecondaryTextBrush}" /></Style>
+  <Style Selector="Button.secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource PL.SecondarySoftBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource PL.SecondaryBrush}" /><Setter Property="Foreground" Value="{DynamicResource PL.SecondaryTextBrush}" /></Style>
+
+  <Style Selector="Button.quiet:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource PL.Surface3Brush}" /></Style>
+
+  <Style Selector="Button.ghost"><Setter Property="Background" Value="Transparent" /><Setter Property="BorderBrush" Value="Transparent" /></Style>
+  <Style Selector="Button.ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource PL.Surface2Brush}" /></Style>
+
+  <Style Selector="Button.danger"><Setter Property="Background" Value="{DynamicResource PL.ErrorBrush}" /><Setter Property="BorderBrush" Value="Transparent" /><Setter Property="Foreground" Value="{DynamicResource PL.OnErrorBrush}" /></Style>
+  <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Opacity" Value="0.4" /></Style>
+
+  <!-- Inputs -->
+  <Style Selector="TextBox, ComboBox, AutoCompleteBox, NumericUpDown">
+    <Setter Property="MinHeight" Value="{StaticResource PL.ControlHeight}" />
+    <Setter Property="CornerRadius" Value="{StaticResource PL.RadiusMd}" />
+    <Setter Property="BorderThickness" Value="{StaticResource PL.BorderControl}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PL.BorderStrongBrush}" />
+    <Setter Property="Background" Value="{DynamicResource PL.BgBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PL.TextBrush}" />
+  </Style>
+  <Style Selector="TextBox:focus /template/ Border#PART_BorderElement"><Setter Property="BorderBrush" Value="{DynamicResource PL.PrimaryBrush}" /></Style>
+  <Style Selector="TextBox:error /template/ Border#PART_BorderElement"><Setter Property="BorderBrush" Value="{DynamicResource PL.ErrorBrush}" /></Style>
+  <Style Selector="TextBox /template/ TextBlock#PART_Watermark, TextBox /template/ TextBlock#PART_FloatingWatermark"><Setter Property="Foreground" Value="{DynamicResource PL.Text3Brush}" /></Style>
+
+  <!-- Toggle switch: always show On/Off text so state never relies on colour -->
+  <Style Selector="ToggleSwitch">
+    <Setter Property="OnContent" Value="On" />
+    <Setter Property="OffContent" Value="Off" />
+  </Style>
+  <Style Selector="ToggleSwitch:checked /template/ Border#SwitchKnobBounds"><Setter Property="Background" Value="{DynamicResource PL.SecondaryBrush}" /></Style>
+
+  <!-- Slider + value pill: pair every Slider with a NumericUpDown bound to the same value -->
+  <Style Selector="Slider"><Setter Property="Foreground" Value="{DynamicResource PL.PrimaryBrush}" /><Setter Property="SmallChange" Value="1" /><Setter Property="LargeChange" Value="10" /></Style>
+
+  <!-- Cards -->
+  <Style Selector="Border.card">
+    <Setter Property="Background" Value="{DynamicResource PL.Surface1Brush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PL.BorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{StaticResource PL.RadiusLg}" />
+    <Setter Property="Padding" Value="{StaticResource PL.PadCard}" />
+  </Style>
+  <Style Selector="Border.card.raised"><Setter Property="BoxShadow" Value="{DynamicResource PL.Elevation2}" /></Style>
+
+  <!-- Chips -->
+  <Style Selector="Border.chip"><Setter Property="Height" Value="26" /><Setter Property="Padding" Value="10,0" /><Setter Property="CornerRadius" Value="{StaticResource PL.RadiusSm}" /><Setter Property="Background" Value="{DynamicResource PL.Surface2Brush}" /></Style>
+  <Style Selector="Border.chip.success"><Setter Property="Background" Value="{DynamicResource PL.SuccessSoftBrush}" /><Setter Property="TextElement.Foreground" Value="{DynamicResource PL.SuccessTextBrush}" /></Style>
+  <Style Selector="Border.chip.warning"><Setter Property="Background" Value="{DynamicResource PL.WarningSoftBrush}" /><Setter Property="TextElement.Foreground" Value="{DynamicResource PL.WarningTextBrush}" /></Style>
+  <Style Selector="Border.chip.error"><Setter Property="Background" Value="{DynamicResource PL.ErrorSoftBrush}" /><Setter Property="TextElement.Foreground" Value="{DynamicResource PL.ErrorTextBrush}" /></Style>
+  <Style Selector="Border.chip.info"><Setter Property="Background" Value="{DynamicResource PL.InfoSoftBrush}" /><Setter Property="TextElement.Foreground" Value="{DynamicResource PL.InfoTextBrush}" /></Style>
+
+  <!-- Navigation list (SideNav) -->
+  <Style Selector="ListBox.nav > ListBoxItem">
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="CornerRadius" Value="{StaticResource PL.RadiusMd}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="ListBox.nav > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource PL.PrimarySoftBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PL.PrimaryTextBrush}" />
+  </Style>
+  <Style Selector="ListBox.nav > ListBoxItem:disabled"><Setter Property="Opacity" Value="1" /><Setter Property="Foreground" Value="{DynamicResource PL.Text3Brush}" /></Style>
+
+  <!-- Pixel images: never smooth sprites. Set RenderOptions.SetBitmapInterpolationMode(image, BitmapInterpolationMode.None)
+       in code-behind, because it is not a styleable property in Avalonia 11. -->
+</Styles>

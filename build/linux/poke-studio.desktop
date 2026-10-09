@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Poke Studio Customizer
+Comment=Customize games you own: creatures, moves, trainers and more
+Exec=PokeStudio %F
+Icon=poke-studio
+Terminal=false
+Categories=Development;Game;
+StartupWMClass=PokeStudio

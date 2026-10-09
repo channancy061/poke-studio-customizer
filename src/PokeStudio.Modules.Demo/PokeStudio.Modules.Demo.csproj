@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Test module: reads an invented sample "game" (samples/*.demogame.json) to exercise the plugin,
+       capability, project, undo and backup pipeline before real game formats exist. Contains no game data. -->
+  <PropertyGroup>
+    <RootNamespace>PokeStudio.Modules.Demo</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PokeStudio.Core\PokeStudio.Core.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,86 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.HubView"
+             x:DataType="vm:HubViewModel">
+  <DockPanel>
+    <!-- Header -->
+    <Border DockPanel.Dock="Top" Classes="panel" BorderThickness="0,0,0,1" Height="56" Padding="20,0">
+      <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+        <Image Source="avares://PokeStudio/Assets/app-icon-256.png" Width="28" Height="28" Classes="pixel" />
+        <TextBlock Text="Poke Studio" Classes="subhead" VerticalAlignment="Center" />
+        <TextBlock Text="CUSTOMIZER" Classes="pixel" FontSize="11" Foreground="{DynamicResource PL.SecondaryTextBrush}" VerticalAlignment="Center" />
+      </StackPanel>
+    </Border>
+
+    <Grid ColumnDefinitions="380,*">
+      <!-- Actions -->
+      <Border Classes="panel" BorderThickness="0,0,1,0" Padding="28,32">
+        <DockPanel>
+          <Border DockPanel.Dock="Bottom" Classes="callout info">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <c:Icon Data="{StaticResource Icon.Shield}" Size="18" />
+              <TextBlock TextWrapping="Wrap" MaxWidth="280" Text="We work on a copy. Your original game file is never changed." />
+            </StackPanel>
+          </Border>
+          <StackPanel Spacing="14">
+            <TextBlock Text="Welcome" Classes="title" />
+            <TextBlock Classes="small muted" TextWrapping="Wrap" Text="Open a game you own, or pick up where you left off." />
+            <Button Classes="primary lg" HorizontalAlignment="Stretch" Command="{Binding OpenGameFileCommand}"
+                    ToolTip.Tip="Open a game file or folder you own (Ctrl+O)" HotKey="Ctrl+O">
+              <StackPanel Orientation="Horizontal" Spacing="10"><c:Icon Data="{StaticResource Icon.Folder}" Size="18" /><TextBlock Text="Open game files" /></StackPanel>
+            </Button>
+            <Button Classes="quiet lg" HorizontalAlignment="Stretch" Command="{Binding OpenProjectFolderCommand}" ToolTip.Tip="Open an existing project folder">
+              <StackPanel Orientation="Horizontal" Spacing="10"><c:Icon Data="{StaticResource Icon.Archive}" Size="18" /><TextBlock Text="Open project folder" /></StackPanel>
+            </Button>
+            <Button Classes="secondary lg" HorizontalAlignment="Stretch" Command="{Binding TryDemoCommand}" ToolTip.Tip="Create a project from the invented Demo Valley sample">
+              <StackPanel Orientation="Horizontal" Spacing="10"><c:Icon Data="{StaticResource Icon.Sparkle}" Size="18" /><TextBlock Text="Try the demo game" /></StackPanel>
+            </Button>
+            <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}" />
+            <Border Classes="callout warning" IsVisible="{Binding Message, Converter={x:Static ObjectConverters.IsNotNull}}">
+              <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+            </Border>
+          </StackPanel>
+        </DockPanel>
+      </Border>
+
+      <!-- Recent projects -->
+      <ScrollViewer Grid.Column="1">
+        <StackPanel Margin="36,32" Spacing="18">
+          <TextBlock Text="Recent projects" Classes="heading" IsVisible="{Binding HasRecent}" />
+          <ItemsControl ItemsSource="{Binding Recent}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:RecentProjectViewModel">
+                <Button Command="{Binding OpenCommand}" Width="280" Margin="0,0,16,16" Padding="0" HorizontalContentAlignment="Stretch"
+                        AutomationProperties.Name="{Binding Name}">
+                  <StackPanel>
+                    <Border Height="96" Background="{DynamicResource PL.Surface3Brush}" CornerRadius="8,8,0,0">
+                      <Border Classes="chip" Background="{DynamicResource PL.PlatformGbaBrush}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10">
+                        <TextBlock Text="{Binding PlatformLabel}" Classes="pixel" Foreground="White" VerticalAlignment="Center" />
+                      </Border>
+                    </Border>
+                    <StackPanel Margin="14,12" Spacing="2">
+                      <TextBlock Text="{Binding Name}" Classes="subhead" />
+                      <TextBlock Text="{Binding LastOpened}" Classes="caption muted" />
+                    </StackPanel>
+                  </StackPanel>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <StackPanel IsVisible="{Binding IsEmpty}" HorizontalAlignment="Center" Margin="0,80,0,0" Spacing="14" MaxWidth="520">
+            <Image Source="avares://PokeStudio/Assets/app-icon-256.png" Width="112" Height="112" Classes="pixel" />
+            <TextBlock Text="No projects yet — let's make your first one" Classes="title" TextAlignment="Center" TextWrapping="Wrap" />
+            <TextBlock Classes="muted" TextAlignment="Center" TextWrapping="Wrap"
+                       Text="Open a game file you own and we'll set up a project around a safe copy. Or try the demo game to look around." />
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </DockPanel>
+</UserControl>

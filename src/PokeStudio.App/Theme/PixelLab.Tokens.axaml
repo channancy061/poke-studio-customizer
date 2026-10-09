@@ -1,0 +1,94 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+  <!-- Generated from tokens.json -->
+
+  <!-- Font families: bundle the .ttf files under Assets/Fonts and keep these URIs in sync -->
+  <FontFamily x:Key="PL.FontUi">avares://PokeStudio/Assets/Fonts#Figtree</FontFamily>
+  <FontFamily x:Key="PL.FontPixel">avares://PokeStudio/Assets/Fonts#Silkscreen</FontFamily>
+  <FontFamily x:Key="PL.FontMono">avares://PokeStudio/Assets/Fonts#JetBrains Mono</FontFamily>
+
+  <!-- Type scale: size / line height / weight -->
+  <sys:Double x:Key="PL.FontSizeDisplay">40</sys:Double>
+  <sys:Double x:Key="PL.LineHeightDisplay">48</sys:Double>
+  <FontWeight x:Key="PL.FontWeightDisplay">800</FontWeight>
+  <sys:Double x:Key="PL.FontSizeTitle">24</sys:Double>
+  <sys:Double x:Key="PL.LineHeightTitle">32</sys:Double>
+  <FontWeight x:Key="PL.FontWeightTitle">800</FontWeight>
+  <sys:Double x:Key="PL.FontSizeHeading">18</sys:Double>
+  <sys:Double x:Key="PL.LineHeightHeading">26</sys:Double>
+  <FontWeight x:Key="PL.FontWeightHeading">700</FontWeight>
+  <sys:Double x:Key="PL.FontSizeSubhead">15</sys:Double>
+  <sys:Double x:Key="PL.LineHeightSubhead">22</sys:Double>
+  <FontWeight x:Key="PL.FontWeightSubhead">700</FontWeight>
+  <sys:Double x:Key="PL.FontSizeBody">14</sys:Double>
+  <sys:Double x:Key="PL.LineHeightBody">22</sys:Double>
+  <FontWeight x:Key="PL.FontWeightBody">400</FontWeight>
+  <sys:Double x:Key="PL.FontSizeSmall">13</sys:Double>
+  <sys:Double x:Key="PL.LineHeightSmall">20</sys:Double>
+  <FontWeight x:Key="PL.FontWeightSmall">400</FontWeight>
+  <sys:Double x:Key="PL.FontSizeCaption">12</sys:Double>
+  <sys:Double x:Key="PL.LineHeightCaption">16</sys:Double>
+  <FontWeight x:Key="PL.FontWeightCaption">600</FontWeight>
+  <sys:Double x:Key="PL.FontSizeOverline">11</sys:Double>
+  <sys:Double x:Key="PL.LineHeightOverline">16</sys:Double>
+  <FontWeight x:Key="PL.FontWeightOverline">800</FontWeight>
+  <sys:Double x:Key="PL.FontSizePixel">12</sys:Double>
+  <sys:Double x:Key="PL.LineHeightPixel">16</sys:Double>
+  <FontWeight x:Key="PL.FontWeightPixel">400</FontWeight>
+
+  <!-- Spacing (4 px grid) -->
+  <sys:Double x:Key="PL.Space1">4</sys:Double>
+  <Thickness x:Key="PL.Pad1">4</Thickness>
+  <sys:Double x:Key="PL.Space2">8</sys:Double>
+  <Thickness x:Key="PL.Pad2">8</Thickness>
+  <sys:Double x:Key="PL.Space3">12</sys:Double>
+  <Thickness x:Key="PL.Pad3">12</Thickness>
+  <sys:Double x:Key="PL.Space4">16</sys:Double>
+  <Thickness x:Key="PL.Pad4">16</Thickness>
+  <sys:Double x:Key="PL.Space5">20</sys:Double>
+  <Thickness x:Key="PL.Pad5">20</Thickness>
+  <sys:Double x:Key="PL.Space6">24</sys:Double>
+  <Thickness x:Key="PL.Pad6">24</Thickness>
+  <sys:Double x:Key="PL.Space8">32</sys:Double>
+  <Thickness x:Key="PL.Pad8">32</Thickness>
+  <sys:Double x:Key="PL.Space10">40</sys:Double>
+  <Thickness x:Key="PL.Pad10">40</Thickness>
+  <sys:Double x:Key="PL.Space12">48</sys:Double>
+  <Thickness x:Key="PL.Pad12">48</Thickness>
+  <sys:Double x:Key="PL.Space16">64</sys:Double>
+  <Thickness x:Key="PL.Pad16">64</Thickness>
+  <Thickness x:Key="PL.PadControl">14,0</Thickness>
+  <Thickness x:Key="PL.PadCard">20</Thickness>
+  <Thickness x:Key="PL.PadDialog">24,20</Thickness>
+
+  <!-- Corner radii -->
+  <CornerRadius x:Key="PL.RadiusXs">4</CornerRadius>
+  <CornerRadius x:Key="PL.RadiusSm">6</CornerRadius>
+  <CornerRadius x:Key="PL.RadiusMd">8</CornerRadius>
+  <CornerRadius x:Key="PL.RadiusLg">12</CornerRadius>
+  <CornerRadius x:Key="PL.RadiusXl">14</CornerRadius>
+  <CornerRadius x:Key="PL.RadiusFull">999</CornerRadius>
+
+  <!-- Controls -->
+  <sys:Double x:Key="PL.ControlHeightSm">28</sys:Double>
+  <sys:Double x:Key="PL.ControlHeight">36</sys:Double>
+  <sys:Double x:Key="PL.ControlHeightLg">44</sys:Double>
+  <Thickness x:Key="PL.BorderControl">1.5</Thickness>
+  <Thickness x:Key="PL.FocusRingThickness">3</Thickness>
+  <Thickness x:Key="PL.FocusRingMargin">-5</Thickness>
+
+  <!-- Motion -->
+  <sys:TimeSpan x:Key="PL.DurationInstant">0:0:0.080</sys:TimeSpan>
+  <sys:TimeSpan x:Key="PL.DurationFast">0:0:0.120</sys:TimeSpan>
+  <sys:TimeSpan x:Key="PL.DurationBase">0:0:0.180</sys:TimeSpan>
+  <sys:TimeSpan x:Key="PL.DurationSlow">0:0:0.280</sys:TimeSpan>
+  <x:String x:Key="PL.EasingStandard">0.2,0,0,1</x:String>
+  <x:String x:Key="PL.EasingExit">0.4,0,1,1</x:String>
+
+  <!-- Layout -->
+  <sys:Double x:Key="PL.SideNavWidth">232</sys:Double>
+  <sys:Double x:Key="PL.TopBarHeight">56</sys:Double>
+  <sys:Double x:Key="PL.StatusBarHeight">32</sys:Double>
+  <sys:Double x:Key="PL.ChangesPanelWidth">320</sys:Double>
+</ResourceDictionary>

@@ -1,0 +1,43 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.OverviewPageView"
+             x:DataType="vm:OverviewPageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="32,28" Spacing="18" MaxWidth="900" HorizontalAlignment="Left">
+      <TextBlock Text="{Binding Title}" Classes="title" />
+      <TextBlock Text="{Binding Subtitle}" Classes="muted" />
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Text="What you can edit in this game" Classes="heading" />
+          <ItemsControl ItemsSource="{Binding Features}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:FeatureRow">
+                <Grid ColumnDefinitions="180,120,*" Margin="0,6">
+                  <TextBlock Text="{Binding Name}" FontWeight="Bold" />
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                    <c:Icon Data="{StaticResource Icon.Ok}" Foreground="{DynamicResource PL.SuccessTextBrush}" IsVisible="{Binding IsOk}" />
+                    <c:Icon Data="{StaticResource Icon.Warning}" Foreground="{DynamicResource PL.WarningTextBrush}" IsVisible="{Binding IsLimited}" />
+                    <c:Icon Data="{StaticResource Icon.Lock}" Foreground="{DynamicResource PL.Text3Brush}" IsVisible="{Binding IsOff}" />
+                    <TextBlock Text="{Binding Status}" />
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" Text="{Binding Reason}" Classes="small muted" TextWrapping="Wrap" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+      <Border Classes="card">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Where things are" Classes="heading" />
+          <TextBlock Text="Project folder" Classes="caption muted" />
+          <SelectableTextBlock Text="{Binding ProjectFolder}" />
+          <TextBlock Text="Your original (never changed)" Classes="caption muted" Margin="0,6,0,0" />
+          <SelectableTextBlock Text="{Binding Original}" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -1,0 +1,13 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.PlaceholderPageView"
+             x:DataType="vm:PlaceholderPageViewModel">
+  <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" MaxWidth="460">
+    <c:Icon Data="{StaticResource Icon.Lock}" Size="40" HorizontalAlignment="Center" IsVisible="{Binding IsLocked}" Foreground="{DynamicResource PL.Text2Brush}" />
+    <c:Icon Data="{StaticResource Icon.Sparkle}" Size="40" HorizontalAlignment="Center" IsVisible="{Binding IsComing}" Foreground="{DynamicResource PL.SecondaryTextBrush}" />
+    <TextBlock Text="{Binding Title}" Classes="title" TextAlignment="Center" />
+    <TextBlock Text="{Binding Message}" Classes="muted" TextAlignment="Center" TextWrapping="Wrap" />
+  </StackPanel>
+</UserControl>

@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <!-- Working title: rename here (and in AppInfo.cs) once a trademark-safe name is chosen. -->
+    <Product>Poke Studio Customizer</Product>
+    <Company>Poke Studio Customizer contributors</Company>
+    <Copyright>MIT License</Copyright>
+    <Version>0.1.0</Version>
+    <Deterministic>true</Deterministic>
+    <!-- Symbols inside the DLLs, so published folders contain only the app. -->
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+</Project>

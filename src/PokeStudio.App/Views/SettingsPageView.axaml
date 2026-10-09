@@ -1,0 +1,57 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             x:Class="PokeStudio.App.Views.SettingsPageView"
+             x:DataType="vm:SettingsPageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="32,28" Spacing="16" MaxWidth="760" HorizontalAlignment="Left">
+      <TextBlock Text="Settings" Classes="title" />
+
+      <Border Classes="card">
+        <StackPanel Spacing="14">
+          <TextBlock Text="Appearance" Classes="heading" />
+          <StackPanel Orientation="Horizontal" Spacing="16">
+            <RadioButton GroupName="theme" Content="Light" IsChecked="{Binding IsLight}" />
+            <RadioButton GroupName="theme" Content="Dark" IsChecked="{Binding IsDark}" />
+            <RadioButton GroupName="theme" Content="Match my computer" IsChecked="{Binding IsSystem}" />
+          </StackPanel>
+          <StackPanel Spacing="6">
+            <TextBlock Text="Text size" FontWeight="Bold" />
+            <ComboBox ItemsSource="{Binding TextSizes}" SelectedIndex="{Binding TextSizeIndex}" Width="200" AutomationProperties.Name="Text size" />
+            <TextBlock Text="Scales the whole app. Works together with your system's display scaling." Classes="caption muted" />
+          </StackPanel>
+          <ToggleSwitch IsChecked="{Binding ReduceMotion}" Content="Reduce motion" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="14">
+          <TextBlock Text="Projects &amp; backups" Classes="heading" />
+          <StackPanel Spacing="6">
+            <TextBlock Text="New projects go in" FontWeight="Bold" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox Text="{Binding ProjectsFolder, Mode=OneWay}" IsReadOnly="True" AutomationProperties.Name="Projects folder" />
+              <Button Grid.Column="1" Classes="quiet" Content="Change…" Margin="8,0,0,0" Command="{Binding ChangeProjectsFolderCommand}" />
+            </Grid>
+          </StackPanel>
+          <StackPanel Spacing="6">
+            <TextBlock Text="Keep this many backups per project" FontWeight="Bold" />
+            <NumericUpDown Value="{Binding BackupKeepCount}" Minimum="1" Maximum="500" Increment="1" Width="160" HorizontalAlignment="Left" FormatString="0" AutomationProperties.Name="Backups to keep" />
+            <TextBlock Text="Older ones are removed automatically. Pinned backups are always kept." Classes="caption muted" />
+          </StackPanel>
+          <ToggleSwitch IsChecked="{Binding BackupBeforeBuild}" Content="Back up before every build" />
+          <TextBlock Text="{Binding SettingsFile}" Classes="caption muted" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Advanced" Classes="heading" />
+          <ToggleSwitch IsChecked="{Binding AdvancedMode}" Content="Advanced mode" />
+          <TextBlock TextWrapping="Wrap" Classes="small muted"
+                     Text="Shows technical details next to friendly fields: internal ids, raw values and file locations. Everything still works the same way." />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

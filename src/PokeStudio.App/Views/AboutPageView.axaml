@@ -1,0 +1,43 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             x:Class="PokeStudio.App.Views.AboutPageView"
+             x:DataType="vm:AboutPageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="32,28" Spacing="18" MaxWidth="900" HorizontalAlignment="Left">
+      <StackPanel Orientation="Horizontal" Spacing="18">
+        <Image Source="avares://PokeStudio/Assets/app-icon-256.png" Width="96" Height="96" Classes="pixel" />
+        <StackPanel VerticalAlignment="Center" Spacing="4">
+          <TextBlock Text="{Binding Name}" Classes="display" FontSize="32" />
+          <TextBlock Text="{Binding Version}" Classes="muted" />
+        </StackPanel>
+      </StackPanel>
+
+      <Border Classes="card" BorderBrush="{DynamicResource PL.InfoBrush}">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Please read: your games, your copies" Classes="heading" />
+          <TextBlock TextWrapping="Wrap" Text="You may only edit games you own. This app does not include any game files, graphics, music, text or data from any game, and it never downloads them. You bring your own copy; the app works on a duplicate and never changes your original." />
+          <TextBlock TextWrapping="Wrap" Classes="small muted" Text="This is an independent fan-made tool. It is not affiliated with, endorsed or sponsored by Nintendo, Game Freak, Creatures Inc. or The Pokémon Company. All game names and trademarks belong to their owners. Share your work as patch files, never as complete games." />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Open-source software" Classes="heading" />
+          <TextBlock Text="This app is MIT-licensed and built only from open-source components:" Classes="small muted" />
+          <ItemsControl ItemsSource="{Binding Licenses}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:LicenseRow">
+                <Grid ColumnDefinitions="260,200,*" Margin="0,4">
+                  <TextBlock Text="{Binding Name}" FontWeight="Bold" />
+                  <TextBlock Grid.Column="1" Text="{Binding License}" />
+                  <TextBlock Grid.Column="2" Text="{Binding Use}" Classes="muted" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -1,0 +1,156 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.ShellView"
+             x:DataType="vm:ShellViewModel">
+  <UserControl.KeyBindings>
+    <KeyBinding Gesture="Ctrl+Z" Command="{Binding UndoCommand}" />
+    <KeyBinding Gesture="Ctrl+Y" Command="{Binding RedoCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+Z" Command="{Binding RedoCommand}" />
+    <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}" />
+  </UserControl.KeyBindings>
+
+  <DockPanel>
+    <!-- Top bar -->
+    <Border DockPanel.Dock="Top" Classes="panel" BorderThickness="0,0,0,1" Height="{StaticResource PL.TopBarHeight}" Padding="12,0">
+      <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <Button Classes="ghost icon" Command="{Binding GoHomeCommand}" ToolTip.Tip="Back to projects" AutomationProperties.Name="Back to projects">
+            <Image Source="avares://PokeStudio/Assets/app-icon-256.png" Width="24" Height="24" Classes="pixel" />
+          </Button>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="{Binding ProjectName}" FontWeight="ExtraBold" FontSize="15" />
+            <TextBlock Text="{Binding GameTitle}" Classes="caption muted" />
+          </StackPanel>
+          <Border Classes="chip" Background="{DynamicResource PL.PlatformGbaBrush}" VerticalAlignment="Center">
+            <TextBlock Text="{Binding PlatformLabel}" Classes="pixel" Foreground="White" VerticalAlignment="Center" />
+          </Border>
+        </StackPanel>
+
+        <Button Grid.Column="1" Margin="20,0,0,0" Width="420" Classes="quiet" HorizontalContentAlignment="Left"
+                Command="{Binding NotYetCommand}" CommandParameter="Global search"
+                ToolTip.Tip="Search creatures, moves, trainers and places (Ctrl+K)" AutomationProperties.Name="Search">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <c:Icon Data="{StaticResource Icon.Search}" />
+            <TextBlock Text="Search creatures, moves, trainers…" Foreground="{DynamicResource PL.Text3Brush}" FontWeight="Normal" />
+          </StackPanel>
+        </Button>
+
+        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <Button Classes="ghost icon" Command="{Binding UndoCommand}" ToolTip.Tip="{Binding UndoTip}" AutomationProperties.Name="Undo">
+            <c:Icon Data="{StaticResource Icon.Undo}" Size="18" />
+          </Button>
+          <Button Classes="ghost icon" Command="{Binding RedoCommand}" ToolTip.Tip="{Binding RedoTip}" AutomationProperties.Name="Redo">
+            <c:Icon Data="{StaticResource Icon.Redo}" Size="18" />
+          </Button>
+          <Button Classes="quiet" Command="{Binding ToggleChangesCommand}" ToolTip.Tip="Show or hide the Changes panel">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <c:Icon Data="{StaticResource Icon.History}" />
+              <TextBlock Text="Changes" />
+              <Border Background="{DynamicResource PL.AccentBrush}" CornerRadius="4" Padding="6,0" IsVisible="{Binding IsDirty}">
+                <TextBlock Text="{Binding UnsavedCount}" Foreground="{DynamicResource PL.BgBrush}" FontSize="11" FontWeight="ExtraBold" />
+              </Border>
+            </StackPanel>
+          </Button>
+          <Button Classes="quiet" Command="{Binding SaveCommand}" ToolTip.Tip="Save (Ctrl+S)">
+            <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Save}" /><TextBlock Text="Save" /></StackPanel>
+          </Button>
+          <Button Classes="secondary" Command="{Binding NotYetCommand}" CommandParameter="Build" ToolTip.Tip="Build your game (Phase 4)">
+            <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Build}" /><TextBlock Text="Build" /></StackPanel>
+          </Button>
+          <Button Classes="primary" Command="{Binding NotYetCommand}" CommandParameter="Test my game" ToolTip.Tip="Open your game in the emulator (Phase 4)">
+            <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Play}" /><TextBlock Text="Test my game" /></StackPanel>
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Status bar -->
+    <Border DockPanel.Dock="Bottom" Classes="panel" BorderThickness="0,1,0,0" Height="{StaticResource PL.StatusBarHeight}" Padding="14,0">
+      <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <c:Icon Data="{StaticResource Icon.Save}" Size="14" Foreground="{DynamicResource PL.WarningTextBrush}" IsVisible="{Binding IsDirty}" />
+          <TextBlock Text="{Binding UnsavedText}" Classes="caption" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="20,0,0,0" VerticalAlignment="Center">
+          <c:Icon Data="{StaticResource Icon.Archive}" Size="14" Foreground="{DynamicResource PL.Text2Brush}" />
+          <TextBlock Text="{Binding BackupText}" Classes="caption muted" />
+        </StackPanel>
+        <TextBlock Grid.Column="3" Text="{Binding Toast}" Classes="caption" Foreground="{DynamicResource PL.SuccessTextBrush}" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+
+    <!-- Side navigation -->
+    <Border DockPanel.Dock="Left" Classes="panel" BorderThickness="0,0,1,0" Width="{StaticResource PL.SideNavWidth}" Padding="10,8">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding HiddenText}" IsVisible="{Binding HasHidden}" Classes="caption muted" Margin="10,8" TextWrapping="Wrap" />
+        <ListBox Classes="nav" ItemsSource="{Binding NavItems}" SelectedItem="{Binding SelectedNav}" AutomationProperties.Name="Modules">
+          <ListBox.Styles>
+            <Style Selector="ListBoxItem" x:DataType="vm:NavItemViewModel">
+              <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
+              <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleName}" />
+              <Setter Property="ToolTip.Tip" Value="{Binding Reason}" />
+            </Style>
+          </ListBox.Styles>
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:NavItemViewModel">
+              <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6">
+                <c:Icon Data="{Binding Icon}" Size="18" />
+                <StackPanel>
+                  <TextBlock Text="{Binding Label}" />
+                  <TextBlock Text="{Binding Reason}" Classes="caption" IsVisible="{Binding IsLocked}" TextWrapping="Wrap" MaxWidth="160" FontWeight="Normal" />
+                </StackPanel>
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+
+    <!-- Changes panel -->
+    <Border DockPanel.Dock="Right" Classes="panel" BorderThickness="1,0,0,0" Width="{StaticResource PL.ChangesPanelWidth}" IsVisible="{Binding IsChangesOpen}">
+      <DockPanel>
+        <Border DockPanel.Dock="Top" Height="52" Padding="16,0" BorderBrush="{DynamicResource PL.BorderBrush}" BorderThickness="0,0,0,1">
+          <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <c:Icon Data="{StaticResource Icon.History}" />
+            <TextBlock Text="Changes" Classes="subhead" />
+            <TextBlock Text="{Binding UnsavedText}" Classes="caption muted" VerticalAlignment="Center" />
+          </StackPanel>
+        </Border>
+        <Border DockPanel.Dock="Bottom" Padding="12" BorderBrush="{DynamicResource PL.BorderBrush}" BorderThickness="0,1,0,0">
+          <Button Classes="primary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding SaveCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Save}" /><TextBlock Text="Save · Ctrl S" /></StackPanel>
+          </Button>
+        </Border>
+        <Panel>
+          <TextBlock Text="No changes yet. Everything you edit shows up here, and each item can be undone on its own."
+                     IsVisible="{Binding !HasChanges}" Classes="small muted" TextWrapping="Wrap" Margin="16" />
+          <ScrollViewer>
+            <ItemsControl ItemsSource="{Binding Changes}" Margin="12">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ChangeItemViewModel">
+                  <Border Classes="well" Margin="0,0,0,6" Padding="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <StackPanel>
+                        <TextBlock Text="{Binding Description}" FontWeight="Bold" TextWrapping="Wrap" FontSize="13" />
+                        <TextBlock Text="{Binding Area}" Classes="caption muted" />
+                      </StackPanel>
+                      <Button Grid.Column="1" Classes="ghost icon sm" Command="{Binding UndoCommand}"
+                              ToolTip.Tip="Undo this change" AutomationProperties.Name="Undo this change">
+                        <c:Icon Data="{StaticResource Icon.Undo}" Size="14" />
+                      </Button>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Panel>
+      </DockPanel>
+    </Border>
+
+    <!-- Current page -->
+    <ContentControl Content="{Binding CurrentPage}" />
+  </DockPanel>
+</UserControl>

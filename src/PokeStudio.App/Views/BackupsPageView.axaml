@@ -1,0 +1,48 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.BackupsPageView"
+             x:DataType="vm:BackupsPageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="32,28" Spacing="16" MaxWidth="900" HorizontalAlignment="Left">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Backups" Classes="title" />
+          <TextBlock Text="Snapshots of your whole project. Restoring always backs up what you have now first." Classes="muted" TextWrapping="Wrap" />
+        </StackPanel>
+        <Button Grid.Column="1" Classes="primary" Command="{Binding BackupNowCommand}" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Save}" /><TextBlock Text="Back up now" /></StackPanel>
+        </Button>
+      </Grid>
+      <Border Classes="callout success" IsVisible="{Binding Message, Converter={x:Static ObjectConverters.IsNotNull}}">
+        <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+      </Border>
+      <TextBlock Text="No backups yet. Press “Back up now” to make the first one." IsVisible="{Binding IsEmpty}" Classes="muted" />
+      <ItemsControl ItemsSource="{Binding Backups}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:BackupRowViewModel">
+            <Border Classes="card" Margin="0,0,0,8" Padding="16,12">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <c:Icon Data="{StaticResource Icon.Pin}" Size="18" Foreground="{DynamicResource PL.SecondaryTextBrush}" IsVisible="{Binding Pinned}" Margin="0,0,12,0" />
+                <StackPanel Grid.Column="1" Spacing="2">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="{Binding Title}" FontWeight="Bold" />
+                    <TextBlock Text="{Binding When}" Classes="caption muted" VerticalAlignment="Center" />
+                  </StackPanel>
+                  <TextBlock Text="{Binding Details}" Classes="caption muted" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                  <Button Classes="ghost sm" Content="{Binding PinText}" Command="{Binding TogglePinCommand}" ToolTip.Tip="Pinned backups are never removed automatically" />
+                  <Button Classes="quiet sm" Command="{Binding RestoreCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Data="{StaticResource Icon.History}" Size="14" /><TextBlock Text="Restore…" /></StackPanel>
+                  </Button>
+                </StackPanel>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -1,0 +1,30 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:PokeStudio.App"
+             x:Class="PokeStudio.App.App"
+             RequestedThemeVariant="Dark"
+             Name="Poke Studio Customizer">
+  <Application.DataTemplates>
+    <local:ViewLocator />
+  </Application.DataTemplates>
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://PokeStudio/Theme/PixelLab.Colors.axaml" />
+        <ResourceInclude Source="avares://PokeStudio/Theme/PixelLab.Tokens.axaml" />
+        <ResourceInclude Source="avares://PokeStudio/Theme/Icons.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+  <Application.Styles>
+    <!-- Brand accent drives Fluent's sliders, selection, progress and focus colours. -->
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Dark" Accent="#9B8CFF" RegionColor="#13142A" ErrorText="#FF9A90" />
+        <ColorPaletteResources x:Key="Light" Accent="#5B4BD6" RegionColor="#F5F5FB" ErrorText="#A11F23" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <StyleInclude Source="avares://PokeStudio/Theme/PixelLab.Controls.axaml" />
+    <StyleInclude Source="avares://PokeStudio/Theme/AppStyles.axaml" />
+  </Application.Styles>
+</Application>

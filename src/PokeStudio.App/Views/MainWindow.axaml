@@ -1,0 +1,17 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PokeStudio.App.ViewModels"
+        x:Class="PokeStudio.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Poke Studio Customizer"
+        Icon="avares://PokeStudio/Assets/poke-studio.ico"
+        Width="1440" Height="900" MinWidth="1024" MinHeight="700"
+        WindowStartupLocation="CenterScreen">
+  <!-- Text size scales the whole UI (works with OS display scaling up to 4K). -->
+  <LayoutTransformControl>
+    <LayoutTransformControl.LayoutTransform>
+      <ScaleTransform ScaleX="{Binding TextScale}" ScaleY="{Binding TextScale}" />
+    </LayoutTransformControl.LayoutTransform>
+    <ContentControl Content="{Binding CurrentView}" />
+  </LayoutTransformControl>
+</Window>

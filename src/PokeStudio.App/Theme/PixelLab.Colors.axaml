@@ -1,0 +1,236 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+  <!-- Generated from tokens.json. Theme-aware keys resolve with {DynamicResource}. -->
+  <ResourceDictionary.ThemeDictionaries>
+    <ResourceDictionary x:Key="Dark">
+      <Color x:Key="PL.BgColor">#13142A</Color>
+      <SolidColorBrush x:Key="PL.BgBrush" Color="{StaticResource PL.BgColor}" />
+      <Color x:Key="PL.Surface1Color">#1C1E3A</Color>
+      <SolidColorBrush x:Key="PL.Surface1Brush" Color="{StaticResource PL.Surface1Color}" />
+      <Color x:Key="PL.Surface2Color">#262948</Color>
+      <SolidColorBrush x:Key="PL.Surface2Brush" Color="{StaticResource PL.Surface2Color}" />
+      <Color x:Key="PL.Surface3Color">#30345A</Color>
+      <SolidColorBrush x:Key="PL.Surface3Brush" Color="{StaticResource PL.Surface3Color}" />
+      <Color x:Key="PL.BorderColor">#34385E</Color>
+      <SolidColorBrush x:Key="PL.BorderBrush" Color="{StaticResource PL.BorderColor}" />
+      <Color x:Key="PL.BorderStrongColor">#4A4F7E</Color>
+      <SolidColorBrush x:Key="PL.BorderStrongBrush" Color="{StaticResource PL.BorderStrongColor}" />
+      <Color x:Key="PL.TextColor">#EEEDFF</Color>
+      <SolidColorBrush x:Key="PL.TextBrush" Color="{StaticResource PL.TextColor}" />
+      <Color x:Key="PL.Text2Color">#B4B6D9</Color>
+      <SolidColorBrush x:Key="PL.Text2Brush" Color="{StaticResource PL.Text2Color}" />
+      <Color x:Key="PL.Text3Color">#9496BE</Color>
+      <SolidColorBrush x:Key="PL.Text3Brush" Color="{StaticResource PL.Text3Color}" />
+      <Color x:Key="PL.PrimaryColor">#9B8CFF</Color>
+      <SolidColorBrush x:Key="PL.PrimaryBrush" Color="{StaticResource PL.PrimaryColor}" />
+      <Color x:Key="PL.PrimaryHoverColor">#B0A4FF</Color>
+      <SolidColorBrush x:Key="PL.PrimaryHoverBrush" Color="{StaticResource PL.PrimaryHoverColor}" />
+      <Color x:Key="PL.PrimaryPressedColor">#8676F2</Color>
+      <SolidColorBrush x:Key="PL.PrimaryPressedBrush" Color="{StaticResource PL.PrimaryPressedColor}" />
+      <Color x:Key="PL.PrimarySoftColor">#2E2A5C</Color>
+      <SolidColorBrush x:Key="PL.PrimarySoftBrush" Color="{StaticResource PL.PrimarySoftColor}" />
+      <Color x:Key="PL.PrimaryTextColor">#C3B9FF</Color>
+      <SolidColorBrush x:Key="PL.PrimaryTextBrush" Color="{StaticResource PL.PrimaryTextColor}" />
+      <Color x:Key="PL.OnPrimaryColor">#13142A</Color>
+      <SolidColorBrush x:Key="PL.OnPrimaryBrush" Color="{StaticResource PL.OnPrimaryColor}" />
+      <Color x:Key="PL.SecondaryColor">#3EE6B0</Color>
+      <SolidColorBrush x:Key="PL.SecondaryBrush" Color="{StaticResource PL.SecondaryColor}" />
+      <Color x:Key="PL.SecondaryTextColor">#3EE6B0</Color>
+      <SolidColorBrush x:Key="PL.SecondaryTextBrush" Color="{StaticResource PL.SecondaryTextColor}" />
+      <Color x:Key="PL.SecondarySoftColor">#123A33</Color>
+      <SolidColorBrush x:Key="PL.SecondarySoftBrush" Color="{StaticResource PL.SecondarySoftColor}" />
+      <Color x:Key="PL.OnSecondaryColor">#13142A</Color>
+      <SolidColorBrush x:Key="PL.OnSecondaryBrush" Color="{StaticResource PL.OnSecondaryColor}" />
+      <Color x:Key="PL.AccentColor">#FF7A6B</Color>
+      <SolidColorBrush x:Key="PL.AccentBrush" Color="{StaticResource PL.AccentColor}" />
+      <Color x:Key="PL.AccentTextColor">#FF9E92</Color>
+      <SolidColorBrush x:Key="PL.AccentTextBrush" Color="{StaticResource PL.AccentTextColor}" />
+      <Color x:Key="PL.AccentSoftColor">#40191C</Color>
+      <SolidColorBrush x:Key="PL.AccentSoftBrush" Color="{StaticResource PL.AccentSoftColor}" />
+      <Color x:Key="PL.SuccessColor">#4ADE9A</Color>
+      <SolidColorBrush x:Key="PL.SuccessBrush" Color="{StaticResource PL.SuccessColor}" />
+      <Color x:Key="PL.SuccessTextColor">#6CF0C2</Color>
+      <SolidColorBrush x:Key="PL.SuccessTextBrush" Color="{StaticResource PL.SuccessTextColor}" />
+      <Color x:Key="PL.SuccessSoftColor">#123A2B</Color>
+      <SolidColorBrush x:Key="PL.SuccessSoftBrush" Color="{StaticResource PL.SuccessSoftColor}" />
+      <Color x:Key="PL.WarningColor">#FFB547</Color>
+      <SolidColorBrush x:Key="PL.WarningBrush" Color="{StaticResource PL.WarningColor}" />
+      <Color x:Key="PL.WarningTextColor">#FFC46B</Color>
+      <SolidColorBrush x:Key="PL.WarningTextBrush" Color="{StaticResource PL.WarningTextColor}" />
+      <Color x:Key="PL.WarningSoftColor">#3D2E14</Color>
+      <SolidColorBrush x:Key="PL.WarningSoftBrush" Color="{StaticResource PL.WarningSoftColor}" />
+      <Color x:Key="PL.ErrorColor">#FF6B6B</Color>
+      <SolidColorBrush x:Key="PL.ErrorBrush" Color="{StaticResource PL.ErrorColor}" />
+      <Color x:Key="PL.ErrorTextColor">#FF9A90</Color>
+      <SolidColorBrush x:Key="PL.ErrorTextBrush" Color="{StaticResource PL.ErrorTextColor}" />
+      <Color x:Key="PL.ErrorSoftColor">#40191C</Color>
+      <SolidColorBrush x:Key="PL.ErrorSoftBrush" Color="{StaticResource PL.ErrorSoftColor}" />
+      <Color x:Key="PL.OnErrorColor">#13142A</Color>
+      <SolidColorBrush x:Key="PL.OnErrorBrush" Color="{StaticResource PL.OnErrorColor}" />
+      <Color x:Key="PL.InfoColor">#6AAEFF</Color>
+      <SolidColorBrush x:Key="PL.InfoBrush" Color="{StaticResource PL.InfoColor}" />
+      <Color x:Key="PL.InfoTextColor">#8EC2FF</Color>
+      <SolidColorBrush x:Key="PL.InfoTextBrush" Color="{StaticResource PL.InfoTextColor}" />
+      <Color x:Key="PL.InfoSoftColor">#172E4D</Color>
+      <SolidColorBrush x:Key="PL.InfoSoftBrush" Color="{StaticResource PL.InfoSoftColor}" />
+      <Color x:Key="PL.FocusColor">#FFD166</Color>
+      <SolidColorBrush x:Key="PL.FocusBrush" Color="{StaticResource PL.FocusColor}" />
+      <Color x:Key="PL.ScrimColor">#B8080918</Color>
+      <SolidColorBrush x:Key="PL.ScrimBrush" Color="{StaticResource PL.ScrimColor}" />
+      <Color x:Key="PL.ConsoleBgColor">#0B0C1C</Color>
+      <SolidColorBrush x:Key="PL.ConsoleBgBrush" Color="{StaticResource PL.ConsoleBgColor}" />
+      <BoxShadows x:Key="PL.Elevation1">0 1 2 0 #66000000</BoxShadows>
+      <BoxShadows x:Key="PL.Elevation2">0 6 16 0 #73000000</BoxShadows>
+      <BoxShadows x:Key="PL.Elevation3">0 18 48 0 #8C000000</BoxShadows>
+    </ResourceDictionary>
+    <ResourceDictionary x:Key="Light">
+      <Color x:Key="PL.BgColor">#F5F5FB</Color>
+      <SolidColorBrush x:Key="PL.BgBrush" Color="{StaticResource PL.BgColor}" />
+      <Color x:Key="PL.Surface1Color">#FFFFFF</Color>
+      <SolidColorBrush x:Key="PL.Surface1Brush" Color="{StaticResource PL.Surface1Color}" />
+      <Color x:Key="PL.Surface2Color">#EDEDF7</Color>
+      <SolidColorBrush x:Key="PL.Surface2Brush" Color="{StaticResource PL.Surface2Color}" />
+      <Color x:Key="PL.Surface3Color">#E2E1F3</Color>
+      <SolidColorBrush x:Key="PL.Surface3Brush" Color="{StaticResource PL.Surface3Color}" />
+      <Color x:Key="PL.BorderColor">#DADBEB</Color>
+      <SolidColorBrush x:Key="PL.BorderBrush" Color="{StaticResource PL.BorderColor}" />
+      <Color x:Key="PL.BorderStrongColor">#B9BBD6</Color>
+      <SolidColorBrush x:Key="PL.BorderStrongBrush" Color="{StaticResource PL.BorderStrongColor}" />
+      <Color x:Key="PL.TextColor">#1A1B33</Color>
+      <SolidColorBrush x:Key="PL.TextBrush" Color="{StaticResource PL.TextColor}" />
+      <Color x:Key="PL.Text2Color">#4B4E72</Color>
+      <SolidColorBrush x:Key="PL.Text2Brush" Color="{StaticResource PL.Text2Color}" />
+      <Color x:Key="PL.Text3Color">#64678C</Color>
+      <SolidColorBrush x:Key="PL.Text3Brush" Color="{StaticResource PL.Text3Color}" />
+      <Color x:Key="PL.PrimaryColor">#5B4BD6</Color>
+      <SolidColorBrush x:Key="PL.PrimaryBrush" Color="{StaticResource PL.PrimaryColor}" />
+      <Color x:Key="PL.PrimaryHoverColor">#4C3DC4</Color>
+      <SolidColorBrush x:Key="PL.PrimaryHoverBrush" Color="{StaticResource PL.PrimaryHoverColor}" />
+      <Color x:Key="PL.PrimaryPressedColor">#3F31AD</Color>
+      <SolidColorBrush x:Key="PL.PrimaryPressedBrush" Color="{StaticResource PL.PrimaryPressedColor}" />
+      <Color x:Key="PL.PrimarySoftColor">#E9E6FF</Color>
+      <SolidColorBrush x:Key="PL.PrimarySoftBrush" Color="{StaticResource PL.PrimarySoftColor}" />
+      <Color x:Key="PL.PrimaryTextColor">#4335B8</Color>
+      <SolidColorBrush x:Key="PL.PrimaryTextBrush" Color="{StaticResource PL.PrimaryTextColor}" />
+      <Color x:Key="PL.OnPrimaryColor">#FFFFFF</Color>
+      <SolidColorBrush x:Key="PL.OnPrimaryBrush" Color="{StaticResource PL.OnPrimaryColor}" />
+      <Color x:Key="PL.SecondaryColor">#0B7F62</Color>
+      <SolidColorBrush x:Key="PL.SecondaryBrush" Color="{StaticResource PL.SecondaryColor}" />
+      <Color x:Key="PL.SecondaryTextColor">#0B6B53</Color>
+      <SolidColorBrush x:Key="PL.SecondaryTextBrush" Color="{StaticResource PL.SecondaryTextColor}" />
+      <Color x:Key="PL.SecondarySoftColor">#DDF5EC</Color>
+      <SolidColorBrush x:Key="PL.SecondarySoftBrush" Color="{StaticResource PL.SecondarySoftColor}" />
+      <Color x:Key="PL.OnSecondaryColor">#FFFFFF</Color>
+      <SolidColorBrush x:Key="PL.OnSecondaryBrush" Color="{StaticResource PL.OnSecondaryColor}" />
+      <Color x:Key="PL.AccentColor">#C2412F</Color>
+      <SolidColorBrush x:Key="PL.AccentBrush" Color="{StaticResource PL.AccentColor}" />
+      <Color x:Key="PL.AccentTextColor">#A53424</Color>
+      <SolidColorBrush x:Key="PL.AccentTextBrush" Color="{StaticResource PL.AccentTextColor}" />
+      <Color x:Key="PL.AccentSoftColor">#FBE4E0</Color>
+      <SolidColorBrush x:Key="PL.AccentSoftBrush" Color="{StaticResource PL.AccentSoftColor}" />
+      <Color x:Key="PL.SuccessColor">#0B7F62</Color>
+      <SolidColorBrush x:Key="PL.SuccessBrush" Color="{StaticResource PL.SuccessColor}" />
+      <Color x:Key="PL.SuccessTextColor">#0B6B53</Color>
+      <SolidColorBrush x:Key="PL.SuccessTextBrush" Color="{StaticResource PL.SuccessTextColor}" />
+      <Color x:Key="PL.SuccessSoftColor">#DDF5EC</Color>
+      <SolidColorBrush x:Key="PL.SuccessSoftBrush" Color="{StaticResource PL.SuccessSoftColor}" />
+      <Color x:Key="PL.WarningColor">#B45309</Color>
+      <SolidColorBrush x:Key="PL.WarningBrush" Color="{StaticResource PL.WarningColor}" />
+      <Color x:Key="PL.WarningTextColor">#8A3F06</Color>
+      <SolidColorBrush x:Key="PL.WarningTextBrush" Color="{StaticResource PL.WarningTextColor}" />
+      <Color x:Key="PL.WarningSoftColor">#FDF0DC</Color>
+      <SolidColorBrush x:Key="PL.WarningSoftBrush" Color="{StaticResource PL.WarningSoftColor}" />
+      <Color x:Key="PL.ErrorColor">#C0282D</Color>
+      <SolidColorBrush x:Key="PL.ErrorBrush" Color="{StaticResource PL.ErrorColor}" />
+      <Color x:Key="PL.ErrorTextColor">#A11F23</Color>
+      <SolidColorBrush x:Key="PL.ErrorTextBrush" Color="{StaticResource PL.ErrorTextColor}" />
+      <Color x:Key="PL.ErrorSoftColor">#FBE4E2</Color>
+      <SolidColorBrush x:Key="PL.ErrorSoftBrush" Color="{StaticResource PL.ErrorSoftColor}" />
+      <Color x:Key="PL.OnErrorColor">#FFFFFF</Color>
+      <SolidColorBrush x:Key="PL.OnErrorBrush" Color="{StaticResource PL.OnErrorColor}" />
+      <Color x:Key="PL.InfoColor">#1D5FB4</Color>
+      <SolidColorBrush x:Key="PL.InfoBrush" Color="{StaticResource PL.InfoColor}" />
+      <Color x:Key="PL.InfoTextColor">#17457F</Color>
+      <SolidColorBrush x:Key="PL.InfoTextBrush" Color="{StaticResource PL.InfoTextColor}" />
+      <Color x:Key="PL.InfoSoftColor">#E1ECFA</Color>
+      <SolidColorBrush x:Key="PL.InfoSoftBrush" Color="{StaticResource PL.InfoSoftColor}" />
+      <Color x:Key="PL.FocusColor">#5B4BD6</Color>
+      <SolidColorBrush x:Key="PL.FocusBrush" Color="{StaticResource PL.FocusColor}" />
+      <Color x:Key="PL.ScrimColor">#731A1B33</Color>
+      <SolidColorBrush x:Key="PL.ScrimBrush" Color="{StaticResource PL.ScrimColor}" />
+      <Color x:Key="PL.ConsoleBgColor">#14152B</Color>
+      <SolidColorBrush x:Key="PL.ConsoleBgBrush" Color="{StaticResource PL.ConsoleBgColor}" />
+      <BoxShadows x:Key="PL.Elevation1">0 1 2 0 #141A1B33</BoxShadows>
+      <BoxShadows x:Key="PL.Elevation2">0 6 16 0 #1F1A1B33</BoxShadows>
+      <BoxShadows x:Key="PL.Elevation3">0 18 48 0 #331A1B33</BoxShadows>
+    </ResourceDictionary>
+  </ResourceDictionary.ThemeDictionaries>
+
+  <!-- Platform badges: identical in both themes -->
+  <SolidColorBrush x:Key="PL.PlatformGbaBrush" Color="#6D28D9" />
+  <SolidColorBrush x:Key="PL.PlatformGbaForegroundBrush" Color="#FFFFFF" />
+  <x:String x:Key="PL.PlatformGbaLabel">GBA</x:String>
+  <SolidColorBrush x:Key="PL.PlatformNdsBrush" Color="#0E6E8C" />
+  <SolidColorBrush x:Key="PL.PlatformNdsForegroundBrush" Color="#FFFFFF" />
+  <x:String x:Key="PL.PlatformNdsLabel">NDS</x:String>
+  <SolidColorBrush x:Key="PL.Platform3dsBrush" Color="#B42318" />
+  <SolidColorBrush x:Key="PL.Platform3dsForegroundBrush" Color="#FFFFFF" />
+  <x:String x:Key="PL.Platform3dsLabel">3DS</x:String>
+
+  <!-- Creature types: background + accessible foreground + label (never colour alone) -->
+  <SolidColorBrush x:Key="PL.TypeNormalBrush" Color="#A8A77A" />
+  <SolidColorBrush x:Key="PL.TypeNormalForegroundBrush" Color="#13142A" />
+  <x:String x:Key="PL.TypeNormalLabel">Normal</x:String>
+  <SolidColorBrush x:Key="PL.TypeFireBrush" Color="#EE8130" />
+  <SolidColorBrush x:Key="PL.TypeFireForegroundBrush" Color="#13142A" />
+  <x:String x:Key="PL.TypeFireLabel">Fire</x:String>
+  <SolidColorBrush x:Key="PL.TypeWaterBrush" Color="#6390F0" />
+  <SolidColorBrush x:Key="PL.TypeWaterForegroundBrush" Color="#13142A" />
+  <x:String x:Key="PL.TypeWaterLabel">Water</x:String>
+  <SolidColorBrush x:Key="PL.TypeElectricBrush" Color="#F7D02C" />
+  <SolidColorBrush x:Key="PL.TypeElectricForegroundBrush" Color="#13142A" />
+  <x:String x:Key="PL.TypeElectricLabel">Electric</x:String>
+  <SolidColorBrush x:Key="PL.TypeGrassBrush" Color="#7AC74C" />
+  <SolidColorBrush x:Key="PL.TypeGrassForegroundBrush" Color="#13142A" />
+  <x:String x:Key="PL.TypeGrassLabel">Grass</x:String>
+  <SolidColorBrush x:Key="PL.TypeIceBrush" Color="#96D9D6" />
+  <SolidColorBrush x:Key="PL.TypeIceForegroundBrush" Color="#13142A" />
+  <x:String x:Key="PL.TypeIceLabel">Ice</x:String>
+  <SolidColorBrush x:Key="PL.TypeFightingBrush" Color="#B0261F" />
+  <SolidColorBrush x:Key="PL.TypeFightingForegroundBrush" Color="#FFFFFF" />
+  <x:String x:Key="PL.TypeFightingLabel">Fighting</x:String>
+  <SolidColorBrush x:Key="PL.TypePoisonBrush" Color="#8E3A8C" />
+  <SolidColorBrush x:Key="PL.TypePoisonForegroundBrush" Color="#FFFFFF" />
+  <x:String x:Key="PL.TypePoisonLabel">Poison</x:String>
+  <SolidColorBrush x:Key="PL.TypeGroundBrush" Color="#E2BF65" />
+  <SolidColorBrush x:Key="PL.TypeGroundForegroundBrush" Color="#13142A" />
+  <x:String x:Key="PL.TypeGroundLabel">Ground</x:String>
+  <SolidColorBrush x:Key="PL.TypeFlyingBrush" Color="#A98FF3" />
+  <SolidColorBrush x:Key="PL.TypeFlyingForegroundBrush" Color="#13142A" />
+  <x:String x:Key="PL.TypeFlyingLabel">Flying</x:String>
+  <SolidColorBrush x:Key="PL.TypePsychicBrush" Color="#F95587" />
+  <SolidColorBrush x:Key="PL.TypePsychicForegroundBrush" Color="#13142A" />
+  <x:String x:Key="PL.TypePsychicLabel">Psychic</x:String>
+  <SolidColorBrush x:Key="PL.TypeBugBrush" Color="#A6B91A" />
+  <SolidColorBrush x:Key="PL.TypeBugForegroundBrush" Color="#13142A" />
+  <x:String x:Key="PL.TypeBugLabel">Bug</x:String>
+  <SolidColorBrush x:Key="PL.TypeRockBrush" Color="#B6A136" />
+  <SolidColorBrush x:Key="PL.TypeRockForegroundBrush" Color="#13142A" />
+  <x:String x:Key="PL.TypeRockLabel">Rock</x:String>
+  <SolidColorBrush x:Key="PL.TypeGhostBrush" Color="#6A4F8E" />
+  <SolidColorBrush x:Key="PL.TypeGhostForegroundBrush" Color="#FFFFFF" />
+  <x:String x:Key="PL.TypeGhostLabel">Ghost</x:String>
+  <SolidColorBrush x:Key="PL.TypeDragonBrush" Color="#6236E0" />
+  <SolidColorBrush x:Key="PL.TypeDragonForegroundBrush" Color="#FFFFFF" />
+  <x:String x:Key="PL.TypeDragonLabel">Dragon</x:String>
+  <SolidColorBrush x:Key="PL.TypeDarkBrush" Color="#5E4A3C" />
+  <SolidColorBrush x:Key="PL.TypeDarkForegroundBrush" Color="#FFFFFF" />
+  <x:String x:Key="PL.TypeDarkLabel">Dark</x:String>
+  <SolidColorBrush x:Key="PL.TypeSteelBrush" Color="#B7B7CE" />
+  <SolidColorBrush x:Key="PL.TypeSteelForegroundBrush" Color="#13142A" />
+  <x:String x:Key="PL.TypeSteelLabel">Steel</x:String>
+  <SolidColorBrush x:Key="PL.TypeFairyBrush" Color="#D685AD" />
+  <SolidColorBrush x:Key="PL.TypeFairyForegroundBrush" Color="#13142A" />
+  <x:String x:Key="PL.TypeFairyLabel">Fairy</x:String>
+</ResourceDictionary>
