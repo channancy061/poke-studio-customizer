@@ -32,6 +32,12 @@ xUnit (Apache-2.0), Microsoft.NET.Test.Sdk / TestPlatform / CodeCoverage (MIT),
 Avalonia.Headless(.XUnit), Avalonia.Diagnostics (MIT), Avalonia.BuildServices (MIT, build-time;
 opt out of its telemetry with `AVALONIA_TELEMETRY_OPTOUT=1`, which CI sets).
 
+## Downloaded only when the user asks (never bundled)
+pokeemerald-expansion (https://github.com/rh-hideout/pokeemerald-expansion), release expansion/1.17.1:
+downloaded straight from its official GitHub release into a folder the user picks. It contains
+assets from the original games and has no open-source licence; it is the user's responsibility to
+use it only with games they own. Nothing from it is included in this app.
+
 ## Tools the user installs separately (never bundled)
 devkitARM, make, emulators such as mGBA / melonDS / Azahar — each under its own licence.
 Inno Setup (used to build the Windows installer) and appimagetool (used to build the AppImage) are

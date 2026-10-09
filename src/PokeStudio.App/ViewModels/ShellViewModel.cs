@@ -6,7 +6,9 @@ using CommunityToolkit.Mvvm.Input;
 using PokeStudio.Core.Backups;
 using PokeStudio.Core.Changes;
 using PokeStudio.Core.Modules;
+using PokeStudio.Core.Models;
 using PokeStudio.Core.Projects;
+using PokeStudio.Core.Validation;
 
 namespace PokeStudio.App.ViewModels;
 
@@ -27,6 +29,24 @@ public sealed class NavItemViewModel(NavKey key, string label, string icon, bool
     public string? Reason { get; } = reason;
     public bool HasReason => !string.IsNullOrEmpty(Reason);
     public string AccessibleName => IsLocked ? $"{Label}, locked: {Reason}" : Label;
+}
+
+public sealed partial class IssueViewModel(ValidationIssue issue, ShellViewModel shell) : ViewModelBase
+{
+    public bool IsError => issue.Severity == IssueSeverity.Error;
+    public bool IsWarning => !IsError;
+    public string Badge => IsError ? "Must fix" : "Check this";
+    public string Text => $"{issue.Subject} {issue.Message}";
+    public string? Suggestion => issue.Suggestion;
+    public bool HasSuggestion => !string.IsNullOrEmpty(issue.Suggestion);
+    public bool HasFix => issue.Fix is not null;
+    public bool CanGo => issue.TargetKey is not null;
+
+    [RelayCommand]
+    private void Fix() => shell.ApplyFix(issue);
+
+    [RelayCommand]
+    private void Go() => shell.GoToIssue(issue);
 }
 
 public sealed partial class ChangeItemViewModel(IChange change, ShellViewModel shell) : ViewModelBase
@@ -63,13 +83,33 @@ public sealed partial class ShellViewModel : ViewModelBase
         Session = session;
         _main = main;
         BuildNav();
-        session.Undo.Changed += (_, _) => RefreshChanges();
+        OriginalStats = session.Data.Species.ToDictionary(s => s.Key, s => s.Stats, StringComparer.Ordinal);
+        session.Undo.Changed += (_, _) => { RefreshChanges(); DataChanged?.Invoke(this, EventArgs.Empty); };
         session.DataReloaded += (_, _) => { RefreshChanges(); Navigate(SelectedNav?.Key ?? NavKey.Overview); };
         RefreshChanges();
         SelectedNav = NavItems.FirstOrDefault(n => n.Key == NavKey.Species && n.IsEnabled) ?? NavItems[0];
     }
 
     public ProjectSession Session { get; }
+
+    /// <summary>Raised after any edit, undo or redo so the open page can refresh. Cleared when the page changes.</summary>
+    public event EventHandler? DataChanged;
+
+    /// <summary>The Pokémon picked on any of the Pokémon / Learnset / Evolution pages (kept when switching).</summary>
+    public string? SelectedSpeciesKey { get; set; }
+
+    /// <summary>Base stats when the project was opened, for the "before" shape on the radar chart.</summary>
+    public IReadOnlyDictionary<string, BaseStats> OriginalStats { get; }
+
+    public ObservableCollection<IssueViewModel> Issues { get; } = [];
+
+    [ObservableProperty]
+    public partial bool IsValidationOpen { get; set; }
+
+    public bool HasErrors => Issues.Any(i => i.IsError);
+    public bool CanSaveAnyway => !HasErrors;
+    public string ValidationTitle => Issues.Count == 0 ? "All clear" : $"{Issues.Count} thing{(Issues.Count == 1 ? "" : "s")} to look at before saving";
+    public string ValidationFooter => HasErrors ? "Fix the “Must fix” items first. “Check this” items won't stop you saving." : "Nothing blocks saving.";
     internal MainWindowViewModel Main => _main;
     public string ProjectName => Session.Project.Manifest.Name;
     public string GameTitle => Session.Project.Manifest.GameTitle;
@@ -149,10 +189,13 @@ public sealed partial class ShellViewModel : ViewModelBase
     public void Navigate(NavKey key)
     {
         var item = NavItems.FirstOrDefault(n => n.Key == key);
+        DataChanged = null; // the old page stops listening
         CurrentPage = key switch
         {
             NavKey.Overview => new OverviewPageViewModel(this),
-            NavKey.Species => new SpeciesPageViewModel(this),
+            NavKey.Species => new PokemonPageViewModel(this),
+            NavKey.Learnsets when item is { IsEnabled: true } => new LearnsetPageViewModel(this),
+            NavKey.Evolutions when item is { IsEnabled: true } => new EvolutionPageViewModel(this),
             NavKey.Backups => new BackupsPageViewModel(this),
             NavKey.Settings => new SettingsPageViewModel(_main),
             NavKey.About => new AboutPageViewModel(),
@@ -171,12 +214,86 @@ public sealed partial class ShellViewModel : ViewModelBase
     [RelayCommand]
     private void Redo() => Session.Undo.Redo();
 
+    /// <summary>Checks everything first; problems open the check panel instead of saving.</summary>
     [RelayCommand]
     private async Task SaveAsync()
     {
-        await Session.SaveAsync();
-        RefreshChanges();
-        Toast = "Saved.";
+        if (!RunValidation())
+        {
+            IsValidationOpen = true;
+            return;
+        }
+
+        await SaveNowAsync();
+    }
+
+    [RelayCommand]
+    private async Task SaveAnywayAsync()
+    {
+        RunValidation();
+        if (HasErrors)
+        {
+            return;
+        }
+
+        IsValidationOpen = false;
+        await SaveNowAsync();
+    }
+
+    [RelayCommand]
+    private void CloseValidation() => IsValidationOpen = false;
+
+    private async Task SaveNowAsync()
+    {
+        try
+        {
+            await Session.SaveAsync();
+            RefreshChanges();
+            Toast = "Saved.";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Core.Safety.UnsafeWriteException)
+        {
+            Toast = "Couldn't save: " + ex.Message;
+        }
+    }
+
+    /// <returns>True when there is nothing to show.</returns>
+    internal bool RunValidation()
+    {
+        Issues.Clear();
+        foreach (var issue in Session.Validate().OrderBy(i => i.Severity))
+        {
+            Issues.Add(new IssueViewModel(issue, this));
+        }
+
+        OnPropertyChanged(nameof(HasErrors));
+        OnPropertyChanged(nameof(CanSaveAnyway));
+        OnPropertyChanged(nameof(ValidationTitle));
+        OnPropertyChanged(nameof(ValidationFooter));
+        return Issues.Count == 0;
+    }
+
+    internal void ApplyFix(ValidationIssue issue)
+    {
+        if (issue.Fix is { } fix)
+        {
+            Session.Undo.Execute(fix(Session.Data));
+            RunValidation();
+        }
+    }
+
+    internal void GoToIssue(ValidationIssue issue)
+    {
+        IsValidationOpen = false;
+        var key = issue.TargetKey;
+        if (issue.Area == "Learnset")
+        {
+            key = Session.Data.Learnsets.FirstOrDefault(l => l.Key == key)?.UsedBy.FirstOrDefault() ?? key;
+        }
+
+        SelectedSpeciesKey = key;
+        var nav = issue.Area switch { "Learnset" => NavKey.Learnsets, "Evolution" => NavKey.Evolutions, _ => NavKey.Species };
+        SelectedNav = NavItems.FirstOrDefault(n => n.Key == nav && n.IsEnabled) ?? SelectedNav;
     }
 
     [RelayCommand]

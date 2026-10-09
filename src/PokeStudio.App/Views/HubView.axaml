@@ -31,6 +31,24 @@
                     ToolTip.Tip="Open a game file or folder you own (Ctrl+O)" HotKey="Ctrl+O">
               <StackPanel Orientation="Horizontal" Spacing="10"><c:Icon Data="{StaticResource Icon.Folder}" Size="18" /><TextBlock Text="Open game files" /></StackPanel>
             </Button>
+            <Button Classes="quiet lg" HorizontalAlignment="Stretch" Command="{Binding OpenDecompProjectCommand}"
+                    ToolTip.Tip="Open a pokeemerald-expansion folder to make a bigger, better game">
+              <StackPanel Orientation="Horizontal" Spacing="10"><c:Icon Data="{StaticResource Icon.Build}" Size="18" /><TextBlock Text="Open decomp project" /></StackPanel>
+            </Button>
+            <Button Classes="quiet lg" HorizontalAlignment="Stretch" Command="{Binding DownloadExpansionCommand}" IsEnabled="{Binding !IsDownloading}"
+                    ToolTip.Tip="Download pokeemerald-expansion from its official GitHub page and open it">
+              <StackPanel Orientation="Horizontal" Spacing="10"><c:Icon Data="{StaticResource Icon.Refresh}" Size="18" /><TextBlock Text="Download pokeemerald-expansion" /></StackPanel>
+            </Button>
+            <Border Classes="well" IsVisible="{Binding IsDownloading}">
+              <StackPanel Spacing="8">
+                <TextBlock Text="{Binding ExpansionRelease}" FontWeight="Bold" />
+                <ProgressBar Value="{Binding DownloadPercent}" Maximum="100" IsIndeterminate="{Binding DownloadIndeterminate}" />
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{Binding DownloadText}" Classes="caption muted" VerticalAlignment="Center" />
+                  <Button Grid.Column="1" Classes="ghost sm" Content="Cancel" Command="{Binding CancelDownloadCommand}" />
+                </Grid>
+              </StackPanel>
+            </Border>
             <Button Classes="quiet lg" HorizontalAlignment="Stretch" Command="{Binding OpenProjectFolderCommand}" ToolTip.Tip="Open an existing project folder">
               <StackPanel Orientation="Horizontal" Spacing="10"><c:Icon Data="{StaticResource Icon.Archive}" Size="18" /><TextBlock Text="Open project folder" /></StackPanel>
             </Button>

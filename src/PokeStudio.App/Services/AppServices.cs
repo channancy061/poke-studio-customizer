@@ -8,6 +8,7 @@ using PokeStudio.Core.Platform;
 using PokeStudio.Core.Projects;
 using PokeStudio.Core.Settings;
 using PokeStudio.Modules.Demo;
+using PokeStudio.Modules.Expansion;
 
 namespace PokeStudio.App.Services;
 
@@ -29,7 +30,10 @@ public static class AppServices
         services.AddSingleton(_ => new SettingsService(paths.SettingsFile));
         services.AddSingleton<SettingsStore>();
         services.AddSingleton(_ => new ModuleRegistry()
+            .Register(new ExpansionModule())
             .Register(new DemoGameModule()));
+        services.AddSingleton(_ => new HttpClient { Timeout = TimeSpan.FromMinutes(30) });
+        services.AddSingleton(sp => new ExpansionDownloader(sp.GetRequiredService<HttpClient>()));
         services.AddSingleton<ProjectService>();
         services.AddSingleton(sp => new BackupService(paths.BackupsDir, sp.GetRequiredService<TimeProvider>()));
         services.AddSingleton<ThemeService>();

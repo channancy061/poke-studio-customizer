@@ -77,9 +77,9 @@ public class ShellTests
 
         // the demo can never do 3D models, graphics, learnsets, evolutions, encounters or items: hidden and counted
         Assert.DoesNotContain(shell.NavItems, n => n.Key == NavKey.Models3d);
-        Assert.Equal(6, shell.HiddenCount);
-        Assert.Equal("6 tools hidden for this game", shell.HiddenText);
-        Assert.IsType<SpeciesPageViewModel>(shell.CurrentPage);
+        Assert.Equal(4, shell.HiddenCount);
+        Assert.Equal("4 tools hidden for this game", shell.HiddenText);
+        Assert.IsType<PokemonPageViewModel>(shell.CurrentPage);
     }
 
     [AvaloniaFact]
@@ -87,8 +87,8 @@ public class ShellTests
     {
         using var env = new TestEnvironment();
         var shell = await OpenDemoAsync(env);
-        var page = Assert.IsType<SpeciesPageViewModel>(shell.CurrentPage);
-        var speed = page.Selected!.Stats.Single(s => s.Label == "Speed");
+        var page = Assert.IsType<PokemonPageViewModel>(shell.CurrentPage);
+        var speed = Assert.IsType<PokemonEditorViewModel>(page.Editor).Stats.Single(s => s.Label == "Speed");
 
         speed.Value = 90;
 
@@ -112,11 +112,11 @@ public class ShellTests
     {
         using var env = new TestEnvironment();
         var shell = await OpenDemoAsync(env);
-        var editor = Assert.IsType<SpeciesPageViewModel>(shell.CurrentPage).Selected!;
+        var editor = Assert.IsType<PokemonEditorViewModel>(Assert.IsType<PokemonPageViewModel>(shell.CurrentPage).Editor);
 
         editor.NameDraft = "Leaflingtonia";
 
-        Assert.Equal("Leafling", editor.Name);
+        Assert.Equal("Leafling", shell.Session.Data.Species[0].Name);
         Assert.Contains("too long for this game", editor.NameError, StringComparison.Ordinal);
         Assert.Empty(shell.Changes);
     }

@@ -2,10 +2,11 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PokeStudio.Core.Settings;
+using PokeStudio.Modules.Expansion;
 
 namespace PokeStudio.App.ViewModels;
 
-public sealed partial class HubViewModel : ViewModelBase
+public sealed partial class HubViewModel : ViewModelBase, IDisposable
 {
     private readonly MainWindowViewModel _main;
 
@@ -59,6 +60,72 @@ public sealed partial class HubViewModel : ViewModelBase
             await RunAsync(() => _main.OpenProjectFolderAsync(folder));
         }
     }
+
+    [RelayCommand]
+    private async Task OpenDecompProjectAsync()
+    {
+        var folder = await _main.Dialogs.PickFolderAsync("Open your pokeemerald-expansion folder");
+        if (folder is not null)
+        {
+            await RunAsync(() => _main.CreateProjectFromGameAsync(folder));
+        }
+    }
+
+    private CancellationTokenSource? _download;
+
+    public void Dispose() => _download?.Dispose();
+
+    [ObservableProperty]
+    public partial bool IsDownloading { get; set; }
+
+    [ObservableProperty]
+    public partial string? DownloadText { get; set; }
+
+    [ObservableProperty]
+    public partial double DownloadPercent { get; set; }
+
+    [ObservableProperty]
+    public partial bool DownloadIndeterminate { get; set; }
+
+    public static string ExpansionRelease => "pokeemerald-expansion " + ExpansionDownloader.ReleaseTag.Replace("expansion/", "", StringComparison.Ordinal);
+
+    [RelayCommand]
+    private async Task DownloadExpansionAsync()
+    {
+        var parent = await _main.Dialogs.PickFolderAsync("Where should pokeemerald-expansion go?");
+        if (parent is null)
+        {
+            return;
+        }
+
+        _download = new CancellationTokenSource();
+        IsDownloading = true;
+        DownloadText = "Starting download…";
+        DownloadIndeterminate = true;
+        var progress = new Progress<DownloadProgress>(p =>
+        {
+            DownloadIndeterminate = p.Fraction is null;
+            DownloadPercent = (p.Fraction ?? 0) * 100;
+            DownloadText = $"{p.Stage} · {p.Detail}";
+        });
+        try
+        {
+            await RunAsync(() => _main.DownloadExpansionAsync(parent, progress, _download.Token));
+        }
+        catch (OperationCanceledException)
+        {
+            Message = "Download cancelled. Nothing was kept.";
+        }
+        finally
+        {
+            IsDownloading = false;
+            _download.Dispose();
+            _download = null;
+        }
+    }
+
+    [RelayCommand]
+    private void CancelDownload() => _download?.Cancel();
 
     [RelayCommand]
     private Task TryDemoAsync() => RunAsync(() => _main.CreateProjectFromGameAsync(DemoGamePath));

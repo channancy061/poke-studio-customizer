@@ -35,6 +35,7 @@
   <ItemGroup>
     <ProjectReference Include="..\PokeStudio.Core\PokeStudio.Core.csproj" />
     <ProjectReference Include="..\PokeStudio.Modules.Demo\PokeStudio.Modules.Demo.csproj" />
+    <ProjectReference Include="..\PokeStudio.Modules.Expansion\PokeStudio.Modules.Expansion.csproj" />
   </ItemGroup>
 
   <ItemGroup>

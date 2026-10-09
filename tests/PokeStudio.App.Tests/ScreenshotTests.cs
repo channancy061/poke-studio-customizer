@@ -29,7 +29,7 @@ public class ScreenshotTests
 
         Assert.Null(await env.Main.CreateProjectFromGameAsync(HubViewModel.DemoGamePath));
         var shell = Assert.IsType<ShellViewModel>(env.Main.CurrentView);
-        ((SpeciesPageViewModel)shell.CurrentPage!).Selected!.Stats[5].Value = 90;
+        ((PokemonEditorViewModel)((PokemonPageViewModel)shell.CurrentPage!).Editor!).Stats[5].Value = 90;
         Save(window, $"pokemon-{theme}");
 
         shell.Navigate(NavKey.Overview);

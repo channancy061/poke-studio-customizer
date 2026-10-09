@@ -1,0 +1,129 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:m="using:PokeStudio.Core.Models"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.LearnsetEditorView"
+             x:DataType="vm:LearnsetEditorViewModel">
+  <UserControl.Resources>
+    <DataTemplate x:Key="EntryTemplate" x:DataType="m:CatalogEntry">
+      <TextBlock Text="{Binding Name}" />
+    </DataTemplate>
+  </UserControl.Resources>
+  <StackPanel Spacing="16" MaxWidth="1100" HorizontalAlignment="Stretch">
+    <TextBlock Text="{Binding Title}" Classes="title" FontSize="28" />
+    <TextBlock Text="This Pokémon has no move lists." IsVisible="{Binding NoLearnset}" Classes="muted" />
+    <Border Classes="callout info" IsVisible="{Binding SharedNote, Converter={x:Static ObjectConverters.IsNotNull}}">
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8"><c:Icon Data="{StaticResource Icon.Info}" /><TextBlock Grid.Column="1" Text="{Binding SharedNote}" TextWrapping="Wrap" /></Grid>
+    </Border>
+
+    <StackPanel Spacing="16" IsVisible="{Binding HasLearnset}">
+      <!-- Level-up -->
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <StackPanel Spacing="2">
+            <TextBlock Text="Level-up moves" Classes="heading" />
+            <TextBlock Text="Select a row, then Alt+↑ / Alt+↓ to move it. Level 0 = learned when it evolves." Classes="caption muted" TextWrapping="Wrap" />
+          </StackPanel>
+          <Border Classes="callout warning" IsVisible="{Binding !CanEditLevelUp}"><TextBlock Text="{Binding LevelUpNote}" TextWrapping="Wrap" /></Border>
+          <Border Classes="callout warning" IsVisible="{Binding TooManyLevelOne}"><TextBlock Text="{Binding LevelOneWarning}" TextWrapping="Wrap" /></Border>
+          <ListBox ItemsSource="{Binding LevelUp}" SelectedItem="{Binding SelectedRow}" IsEnabled="{Binding CanEditLevelUp}" Background="Transparent" AutomationProperties.Name="Level-up moves">
+            <ListBox.KeyBindings>
+              <KeyBinding Gesture="Alt+Up" Command="{Binding MoveSelectedUpCommand}" />
+              <KeyBinding Gesture="Alt+Down" Command="{Binding MoveSelectedDownCommand}" />
+            </ListBox.KeyBindings>
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:LevelUpRowViewModel">
+                <Grid ColumnDefinitions="Auto,80,*,Auto" ColumnSpacing="8" MinWidth="420">
+                  <c:Icon Data="{StaticResource Icon.List}" Foreground="{DynamicResource PL.Text3Brush}" ToolTip.Tip="Use the arrows or Alt+↑/↓ to reorder" />
+                  <NumericUpDown Grid.Column="1" Value="{Binding Level}" Minimum="0" Maximum="100" Increment="1" FormatString="0" ShowButtonSpinner="False" Height="32" MinHeight="32"
+                                 AutomationProperties.Name="Level" ToolTip.Tip="0 = learned when it evolves" />
+                  <AutoCompleteBox Grid.Column="2" ItemsSource="{Binding MoveOptions}" SelectedItem="{Binding Move}" FilterMode="Contains" MinimumPrefixLength="0"
+                                   ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" AutomationProperties.Name="Move" />
+                  <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2">
+                    <Button Classes="ghost icon sm" Command="{Binding MoveUpCommand}" ToolTip.Tip="Move up" AutomationProperties.Name="Move up"><c:Icon Data="{StaticResource Icon.ChevronUp}" Size="14" /></Button>
+                    <Button Classes="ghost icon sm" Command="{Binding MoveDownCommand}" ToolTip.Tip="Move down" AutomationProperties.Name="Move down"><c:Icon Data="{StaticResource Icon.ChevronDown}" Size="14" /></Button>
+                    <Button Classes="ghost icon sm" Command="{Binding RemoveCommand}" ToolTip.Tip="Remove" AutomationProperties.Name="Remove move"><c:Icon Data="{StaticResource Icon.Close}" Size="14" /></Button>
+                  </StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding CanEditLevelUp}">
+            <Button Classes="quiet sm" Command="{Binding AddLevelUpCommand}"><StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Data="{StaticResource Icon.Sparkle}" Size="14" /><TextBlock Text="Add a move" /></StackPanel></Button>
+            <Button Classes="ghost sm" Command="{Binding SortByLevelCommand}" Content="Sort by level" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+        <!-- TMs / tutors -->
+        <Border Classes="card">
+          <StackPanel Spacing="10">
+            <TextBlock Text="TM, HM &amp; tutor moves" Classes="heading" />
+            <Border Classes="callout warning" IsVisible="{Binding !CanEditTeachable}"><TextBlock Text="{Binding TeachableNote}" TextWrapping="Wrap" /></Border>
+            <ItemsControl ItemsSource="{Binding Machines}" IsEnabled="{Binding CanEditTeachable}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:MachineRowViewModel">
+                  <CheckBox IsChecked="{Binding IsChecked}" Width="215" Margin="0,0,4,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <TextBlock Text="{Binding Label}" Classes="pixel" FontSize="11" Foreground="{DynamicResource PL.Text3Brush}" VerticalAlignment="Center" />
+                      <TextBlock Text="{Binding Name}" />
+                    </StackPanel>
+                  </CheckBox>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="Tutor and other teachable moves" FontWeight="Bold" Margin="0,6,0,0" />
+            <ItemsControl ItemsSource="{Binding Tutors}" IsEnabled="{Binding CanEditTeachable}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:MoveChipViewModel">
+                  <Border Classes="chip" Margin="0,0,6,6" Padding="10,0,4,0">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                      <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="12" />
+                      <Button Classes="ghost icon sm" Width="22" Height="22" MinHeight="22" Command="{Binding RemoveCommand}" AutomationProperties.Name="Remove"><c:Icon Data="{StaticResource Icon.Close}" Size="12" /></Button>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsEnabled="{Binding CanEditTeachable}">
+              <AutoCompleteBox ItemsSource="{Binding MoveOptions}" SelectedItem="{Binding NewTutorMove}" FilterMode="Contains" MinimumPrefixLength="1"
+                               ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" Watermark="Add a tutor move…" AutomationProperties.Name="Add a tutor move" />
+              <Button Grid.Column="1" Classes="quiet" Content="Add" Command="{Binding AddTutorMoveCommand}" />
+            </Grid>
+            <TextBlock Text="Moves every Pokémon can learn (like Hidden Power) are added automatically when the game is built." Classes="caption muted" TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+
+        <!-- Egg moves -->
+        <Border Grid.Column="1" Classes="card" VerticalAlignment="Top">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Egg moves" Classes="heading" />
+            <Border Classes="callout warning" IsVisible="{Binding !CanEditEgg}"><TextBlock Text="{Binding EggNote}" TextWrapping="Wrap" /></Border>
+            <ItemsControl ItemsSource="{Binding EggMoves}" IsEnabled="{Binding CanEditEgg}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:MoveChipViewModel">
+                  <Border Classes="chip" Margin="0,0,6,6" Padding="10,0,4,0">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                      <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="12" />
+                      <Button Classes="ghost icon sm" Width="22" Height="22" MinHeight="22" Command="{Binding RemoveCommand}" AutomationProperties.Name="Remove"><c:Icon Data="{StaticResource Icon.Close}" Size="12" /></Button>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsEnabled="{Binding CanEditEgg}">
+              <AutoCompleteBox ItemsSource="{Binding MoveOptions}" SelectedItem="{Binding NewEggMove}" FilterMode="Contains" MinimumPrefixLength="1"
+                               ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" Watermark="Add an egg move…" AutomationProperties.Name="Add an egg move" />
+              <Button Grid.Column="1" Classes="quiet" Content="Add" Command="{Binding AddEggMoveCommand}" />
+            </Grid>
+          </StackPanel>
+        </Border>
+      </Grid>
+    </StackPanel>
+  </StackPanel>
+</UserControl>

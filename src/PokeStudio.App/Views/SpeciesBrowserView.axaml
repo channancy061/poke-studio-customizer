@@ -1,0 +1,41 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.SpeciesBrowserView"
+             x:DataType="vm:SpeciesBrowserViewModel">
+  <Grid ColumnDefinitions="270,*">
+    <Border Classes="panel" BorderThickness="0,0,1,0">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Margin="14,14,14,8" Spacing="8">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding Title}" Classes="heading" />
+            <TextBlock Grid.Column="1" Text="{Binding CountText}" Classes="caption muted" VerticalAlignment="Center" />
+          </Grid>
+          <TextBox Text="{Binding Search}" Watermark="Search Pokémon" AutomationProperties.Name="Search Pokémon">
+            <TextBox.InnerLeftContent>
+              <c:Icon Data="{StaticResource Icon.Search}" Margin="10,0,0,0" Foreground="{DynamicResource PL.Text3Brush}" />
+            </TextBox.InnerLeftContent>
+          </TextBox>
+          <CheckBox IsChecked="{Binding ShowDisabled}" Content="Show Pokémon switched off in settings" FontSize="12" />
+        </StackPanel>
+        <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" Background="Transparent" AutomationProperties.Name="Pokémon list">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:SpeciesListItem">
+              <Grid ColumnDefinitions="*,Auto" Opacity="{Binding Opacity}" Margin="0,2">
+                <StackPanel>
+                  <TextBlock Text="{Binding Title}" FontWeight="Bold" />
+                  <TextBlock Text="{Binding Subtitle}" Classes="caption muted" />
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="{Binding Number}" Classes="pixel" FontSize="11" Foreground="{DynamicResource PL.Text3Brush}" VerticalAlignment="Center" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+    <ScrollViewer Grid.Column="1">
+      <ContentControl Content="{Binding Editor}" Margin="28,22" />
+    </ScrollViewer>
+  </Grid>
+</UserControl>

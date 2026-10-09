@@ -1,0 +1,75 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:m="using:PokeStudio.Core.Models"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.EvolutionEditorView"
+             x:DataType="vm:EvolutionEditorViewModel">
+  <UserControl.Resources>
+    <DataTemplate x:Key="EntryTemplate" x:DataType="m:CatalogEntry">
+      <TextBlock Text="{Binding Name}" />
+    </DataTemplate>
+  </UserControl.Resources>
+  <StackPanel Spacing="16" MaxWidth="1040" HorizontalAlignment="Stretch">
+    <TextBlock Text="{Binding Title}" Classes="title" FontSize="28" />
+    <TextBlock Text="{Binding EvolvesFrom}" Classes="muted" />
+    <Border Classes="callout warning" IsVisible="{Binding !IsEditable}">
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8"><c:Icon Data="{StaticResource Icon.Lock}" /><TextBlock Grid.Column="1" Text="{Binding LockedReason}" TextWrapping="Wrap" /></Grid>
+    </Border>
+    <TextBlock Text="This Pokémon doesn't evolve. Add an evolution to change that." IsVisible="{Binding HasNone}" Classes="muted" />
+
+    <ItemsControl ItemsSource="{Binding Rows}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:EvolutionRowViewModel">
+          <Border Classes="card" Margin="0,0,0,12" IsEnabled="{Binding IsEditable}">
+            <StackPanel Spacing="12">
+              <Border Classes="callout success">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8"><c:Icon Data="{StaticResource Icon.ArrowRight}" /><TextBlock Grid.Column="1" Text="{Binding Sentence}" TextWrapping="Wrap" FontWeight="Bold" /></Grid>
+              </Border>
+              <Grid ColumnDefinitions="*,*,*,Auto" ColumnSpacing="14">
+                <StackPanel Spacing="6">
+                  <TextBlock Text="How it evolves" FontWeight="Bold" />
+                  <ComboBox ItemsSource="{Binding MethodOptions}" SelectedItem="{Binding Method}" ItemTemplate="{StaticResource EntryTemplate}" HorizontalAlignment="Stretch" AutomationProperties.Name="Evolution method" />
+                  <TextBlock Text="{Binding MethodDescription}" Classes="caption muted" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="6">
+                  <TextBlock Text="{Binding ParameterLabel}" FontWeight="Bold" />
+                  <NumericUpDown Value="{Binding ParameterLevel}" Minimum="0" Maximum="100" Increment="1" FormatString="0" IsVisible="{Binding ParameterIsNumber}" AutomationProperties.Name="Level" />
+                  <AutoCompleteBox ItemsSource="{Binding ItemOptions}" SelectedItem="{Binding ParameterItem}" FilterMode="Contains" MinimumPrefixLength="0"
+                                   ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" IsVisible="{Binding ParameterIsItem}" AutomationProperties.Name="Item" />
+                  <TextBox Text="{Binding ParameterText}" IsVisible="{Binding ParameterIsText}" AutomationProperties.Name="Value" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="6">
+                  <TextBlock Text="Evolves into" FontWeight="Bold" />
+                  <AutoCompleteBox ItemsSource="{Binding SpeciesOptions}" SelectedItem="{Binding Target}" FilterMode="Contains" MinimumPrefixLength="0"
+                                   ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" AutomationProperties.Name="Evolves into" />
+                </StackPanel>
+                <Button Grid.Column="3" Classes="ghost icon" VerticalAlignment="Top" Command="{Binding RemoveCommand}" ToolTip.Tip="Remove this evolution" AutomationProperties.Name="Remove evolution">
+                  <c:Icon Data="{StaticResource Icon.Close}" />
+                </Button>
+              </Grid>
+              <StackPanel Spacing="6">
+                <TextBlock Text="Extra conditions (all must be true)" FontWeight="Bold" />
+                <ItemsControl ItemsSource="{Binding Conditions}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ConditionRowViewModel">
+                      <Grid ColumnDefinitions="*,*,Auto" ColumnSpacing="10" Margin="0,0,0,6">
+                        <ComboBox ItemsSource="{Binding KindOptions}" SelectedItem="{Binding Kind}" ItemTemplate="{StaticResource EntryTemplate}" HorizontalAlignment="Stretch" AutomationProperties.Name="Condition" />
+                        <TextBox Grid.Column="1" Text="{Binding Value}" Watermark="e.g. TIME_NIGHT" AutomationProperties.Name="Condition value" />
+                        <Button Grid.Column="2" Classes="ghost icon sm" Command="{Binding RemoveCommand}" AutomationProperties.Name="Remove condition"><c:Icon Data="{StaticResource Icon.Close}" Size="14" /></Button>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Button Classes="ghost sm" Command="{Binding AddConditionCommand}" Content="Add a condition" HorizontalAlignment="Left" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <Button Classes="primary" Command="{Binding AddEvolutionCommand}" IsEnabled="{Binding IsEditable}" HorizontalAlignment="Left">
+      <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Sparkle}" /><TextBlock Text="Add an evolution" /></StackPanel>
+    </Button>
+  </StackPanel>
+</UserControl>

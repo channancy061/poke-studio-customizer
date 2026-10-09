@@ -14,5 +14,6 @@
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
+    <None Include="..\Fixtures\expansion-mini\**\*" LinkBase="Fixtures\expansion-mini" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -11,6 +11,7 @@
     <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}" />
   </UserControl.KeyBindings>
 
+  <Panel>
   <DockPanel>
     <!-- Top bar -->
     <Border DockPanel.Dock="Top" Classes="panel" BorderThickness="0,0,0,1" Height="{StaticResource PL.TopBarHeight}" Padding="12,0">
@@ -153,4 +154,52 @@
     <!-- Current page -->
     <ContentControl Content="{Binding CurrentPage}" />
   </DockPanel>
+
+  <!-- Check before saving -->
+  <Border Background="{DynamicResource PL.ScrimBrush}" IsVisible="{Binding IsValidationOpen}">
+    <Border Classes="card raised" Width="760" MaxHeight="640" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="0">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Margin="24,20,24,10" Spacing="4">
+          <TextBlock Text="{Binding ValidationTitle}" Classes="title" FontSize="22" />
+          <TextBlock Text="We checked your changes. Each item says what's wrong and how to fix it." Classes="small muted" />
+        </StackPanel>
+        <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource PL.BorderBrush}" BorderThickness="0,1,0,0" Padding="24,14">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding ValidationFooter}" Classes="small muted" VerticalAlignment="Center" TextWrapping="Wrap" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+              <Button Classes="quiet" Content="Not now" Command="{Binding CloseValidationCommand}" IsCancel="True" />
+              <Button Classes="primary" Command="{Binding SaveAnywayCommand}" IsEnabled="{Binding CanSaveAnyway}">
+                <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Save}" /><TextBlock Text="Save" /></StackPanel>
+              </Button>
+            </StackPanel>
+          </Grid>
+        </Border>
+        <ScrollViewer>
+          <ItemsControl ItemsSource="{Binding Issues}" Margin="24,0,24,12">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:IssueViewModel">
+                <Border Classes="well" Margin="0,0,0,8">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <StackPanel Spacing="4">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border Classes="chip error" IsVisible="{Binding IsError}"><TextBlock Text="{Binding Badge}" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" /></Border>
+                        <Border Classes="chip warning" IsVisible="{Binding IsWarning}"><TextBlock Text="{Binding Badge}" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" /></Border>
+                        <TextBlock Text="{Binding Text}" FontWeight="Bold" TextWrapping="Wrap" MaxWidth="460" />
+                      </StackPanel>
+                      <TextBlock Text="{Binding Suggestion}" IsVisible="{Binding HasSuggestion}" Classes="small muted" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="6">
+                      <Button Classes="secondary sm" Content="Fix it for me" Command="{Binding FixCommand}" IsVisible="{Binding HasFix}" />
+                      <Button Classes="ghost sm" Content="Take me there" Command="{Binding GoCommand}" IsVisible="{Binding CanGo}" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+  </Border>
+  </Panel>
 </UserControl>

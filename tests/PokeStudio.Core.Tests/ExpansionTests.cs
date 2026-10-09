@@ -335,10 +335,9 @@ public class ExpansionTests
         ProjectService.CopyDirectory(Path.Combine(real, "include"), Path.Combine(root, "include"));
         ProjectService.CopyDirectory(Path.Combine(real, "src", "data"), Path.Combine(root, "src", "data"));
         File.WriteAllText(Path.Combine(root, "Makefile"), "");
-        var module = new ExpansionModule();
-        var files = module.ManagedFiles(root);
+        var files = new ExpansionModule().ManagedFiles(root);
         var before = files.Where(f => File.Exists(Path.Combine(root, f))).ToDictionary(f => f, f => Read(root, f));
-        var (_, data, ctx) = await LoadAsync(root);
+        var (module, data, ctx) = await LoadAsync(root);
 
         Assert.True(data.Species.Count > 1000, $"only {data.Species.Count} species read");
         Assert.All(data.Species.Where(s => s.IsEnabled), s => Assert.False(string.IsNullOrWhiteSpace(s.Name)));
@@ -349,5 +348,46 @@ public class ExpansionTests
         {
             Assert.Equal(text, Read(root, f));
         }
+
+        // A real edit changes exactly one line of the real file.
+        var i = data.Species.FindIndex(s => s.IsEnabled && s.LockedFields.Count == 0 && !s.SettingDependentFields.ContainsKey("Stats"));
+        var block = data.Species[i];
+        var file = files.First(f => Read(root, f).Contains("[" + block.Key + "]", StringComparison.Ordinal));
+        var original = Read(root, file);
+        data.Species[i] = block with { Stats = block.Stats with { Speed = block.Stats.Speed == 200 ? 201 : 200 } };
+        await module.SaveDataAsync(data, ctx);
+        Assert.Single(original.Split('\n').Zip(Read(root, file).Split('\n')), p => p.First != p.Second);
     }
+}
+
+public class ExpansionDownloaderTests
+{
+    [Fact]
+    public void Unpacking_drops_the_top_folder_and_refuses_paths_that_escape()
+    {
+        using var tmp = new TempDir();
+        var good = tmp.Combine("good.zip");
+        using (var zip = System.IO.Compression.ZipFile.Open(good, System.IO.Compression.ZipArchiveMode.Create))
+        {
+            using var w = new StreamWriter(zip.CreateEntry("pokeemerald-expansion-1.17.1/Makefile").Open());
+            w.Write("all:");
+        }
+
+        var target = tmp.Combine("out");
+        ExpansionDownloader.Extract(good, target, null, CancellationToken.None);
+        Assert.Equal("all:", File.ReadAllText(Path.Combine(target, "Makefile")));
+
+        var evil = tmp.Combine("evil.zip");
+        using (var zip = System.IO.Compression.ZipFile.Open(evil, System.IO.Compression.ZipArchiveMode.Create))
+        {
+            zip.CreateEntry("top/../../escaped.txt");
+        }
+
+        Assert.Throws<InvalidDataException>(() => ExpansionDownloader.Extract(evil, tmp.Combine("out2"), null, CancellationToken.None));
+        Assert.False(File.Exists(tmp.Combine("escaped.txt")));
+    }
+
+    [Fact]
+    public void Only_the_official_release_url_is_used() =>
+        Assert.Equal("https://codeload.github.com/rh-hideout/pokeemerald-expansion/zip/refs/tags/expansion/1.17.1", ExpansionDownloader.ZipUrl().ToString());
 }

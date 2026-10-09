@@ -1,0 +1,157 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:m="using:PokeStudio.Core.Models"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.PokemonEditorView"
+             x:DataType="vm:PokemonEditorViewModel">
+  <UserControl.Resources>
+    <DataTemplate x:Key="EntryTemplate" x:DataType="m:CatalogEntry">
+      <TextBlock Text="{Binding Name}" />
+    </DataTemplate>
+  </UserControl.Resources>
+  <StackPanel Spacing="16" MaxWidth="1040" HorizontalAlignment="Stretch">
+    <!-- Header -->
+    <StackPanel Orientation="Horizontal" Spacing="12">
+      <TextBlock Text="{Binding Title}" Classes="title" FontSize="30" />
+      <TextBlock Text="{Binding Number}" Classes="pixel" FontSize="13" Foreground="{DynamicResource PL.Text3Brush}" VerticalAlignment="Center" />
+      <TextBlock Text="{Binding TypesText}" Classes="muted" VerticalAlignment="Center" />
+    </StackPanel>
+    <TextBlock Text="{Binding TechnicalInfo}" Classes="mono" Foreground="{DynamicResource PL.WarningTextBrush}" IsVisible="{Binding AdvancedMode}" />
+
+    <Border Classes="callout warning" IsVisible="{Binding HasLockNotes}">
+      <StackPanel Spacing="4">
+        <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Lock}" /><TextBlock Text="Some parts can't be edited here" FontWeight="Bold" /></StackPanel>
+        <ItemsControl ItemsSource="{Binding LockNotes}">
+          <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" TextWrapping="Wrap" FontSize="13" /></DataTemplate></ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+    <Border Classes="callout info" IsVisible="{Binding ShowSettingNotes}">
+      <ItemsControl ItemsSource="{Binding SettingNotes}">
+        <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" TextWrapping="Wrap" FontSize="12" /></DataTemplate></ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Border>
+
+    <!-- Stats -->
+    <Grid ColumnDefinitions="*,300" ColumnSpacing="16">
+      <Border Classes="card" IsEnabled="{Binding CanEditStats}">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Base stats" Classes="heading" />
+          <ItemsControl ItemsSource="{Binding Stats}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:StatViewModel">
+                <Grid ColumnDefinitions="80,*,72" Margin="0,3">
+                  <TextBlock Text="{Binding Label}" FontWeight="Bold" VerticalAlignment="Center" />
+                  <Slider Grid.Column="1" Minimum="1" Maximum="255" Value="{Binding Value}" Margin="8,0" TickFrequency="1" IsSnapToTickEnabled="True"
+                          AutomationProperties.Name="{Binding Label}" ToolTip.Tip="Arrow keys change by 1, Page Up/Down by 10" />
+                  <NumericUpDown Grid.Column="2" Value="{Binding ValueNumber}" Minimum="1" Maximum="255" Increment="1" FormatString="0"
+                                 ShowButtonSpinner="False" Height="34" MinHeight="34" AutomationProperties.Name="{Binding Label}" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <Separator />
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <TextBlock Text="Stat total" FontWeight="Bold" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="{Binding Total}" Classes="pixel" FontSize="16" Margin="10,0" VerticalAlignment="Center" />
+            <Border Grid.Column="2" Classes="chip info"><TextBlock Text="{Binding Tier}" VerticalAlignment="Center" FontWeight="Bold" FontSize="12" /></Border>
+          </Grid>
+          <ProgressBar Value="{Binding TotalPercent}" Maximum="100" Height="10" AutomationProperties.Name="Stat total" />
+        </StackPanel>
+      </Border>
+      <Border Grid.Column="1" Classes="card">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Shape" Classes="heading" />
+          <c:RadarChart Values="{Binding RadarValues}" Original="{Binding RadarOriginal}" Height="250" AutomationProperties.Name="Stat chart" />
+          <TextBlock Text="Dashed line: stats when you opened the project." Classes="caption muted" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <!-- Details -->
+    <Border Classes="card">
+      <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="20" RowSpacing="16">
+        <StackPanel Spacing="6" IsEnabled="{Binding CanEditName}">
+          <TextBlock Text="Name" FontWeight="Bold" />
+          <TextBox Text="{Binding NameDraft}" AutomationProperties.Name="Pokémon name" />
+          <TextBlock Text="{Binding NameCounter}" Classes="caption muted" />
+          <TextBlock Text="{Binding NameError}" Classes="caption" Foreground="{DynamicResource PL.ErrorTextBrush}" TextWrapping="Wrap"
+                     IsVisible="{Binding NameError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Spacing="6" IsEnabled="{Binding CanEditTypes}">
+          <TextBlock Text="Type 1" FontWeight="Bold" />
+          <ComboBox ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding Type1}" ItemTemplate="{StaticResource EntryTemplate}" HorizontalAlignment="Stretch" AutomationProperties.Name="Type 1" />
+        </StackPanel>
+        <StackPanel Grid.Column="2" Spacing="6" IsEnabled="{Binding CanEditTypes}">
+          <TextBlock Text="Type 2" FontWeight="Bold" />
+          <ComboBox ItemsSource="{Binding Type2Options}" SelectedItem="{Binding Type2}" ItemTemplate="{StaticResource EntryTemplate}" HorizontalAlignment="Stretch" AutomationProperties.Name="Type 2" />
+          <TextBlock Text="Pick “None” for a single type." Classes="caption muted" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Spacing="6" IsEnabled="{Binding CanEditAbilities}">
+          <TextBlock Text="Ability 1" FontWeight="Bold" />
+          <AutoCompleteBox ItemsSource="{Binding AbilityOptions}" SelectedItem="{Binding Ability1}" FilterMode="Contains" ValueMemberBinding="{ReflectionBinding Name}"
+                           ItemTemplate="{StaticResource EntryTemplate}" MinimumPrefixLength="0" AutomationProperties.Name="Ability 1" />
+        </StackPanel>
+        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6" IsEnabled="{Binding CanEditAbilities}">
+          <TextBlock Text="Ability 2" FontWeight="Bold" />
+          <AutoCompleteBox ItemsSource="{Binding AbilityOptions}" SelectedItem="{Binding Ability2}" FilterMode="Contains" ValueMemberBinding="{ReflectionBinding Name}"
+                           ItemTemplate="{StaticResource EntryTemplate}" MinimumPrefixLength="0" AutomationProperties.Name="Ability 2" />
+        </StackPanel>
+        <StackPanel Grid.Row="1" Grid.Column="2" Spacing="6" IsEnabled="{Binding CanEditAbilities}">
+          <TextBlock Text="Hidden ability" FontWeight="Bold" />
+          <AutoCompleteBox ItemsSource="{Binding AbilityOptions}" SelectedItem="{Binding AbilityHidden}" FilterMode="Contains" ValueMemberBinding="{ReflectionBinding Name}"
+                           ItemTemplate="{StaticResource EntryTemplate}" MinimumPrefixLength="0" AutomationProperties.Name="Hidden ability" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Spacing="6" IsEnabled="{Binding CanEditItems}">
+          <TextBlock Text="Held item · common (50%)" FontWeight="Bold" />
+          <AutoCompleteBox ItemsSource="{Binding ItemOptions}" SelectedItem="{Binding ItemCommon}" FilterMode="Contains" ValueMemberBinding="{ReflectionBinding Name}"
+                           ItemTemplate="{StaticResource EntryTemplate}" MinimumPrefixLength="0" AutomationProperties.Name="Common held item" />
+        </StackPanel>
+        <StackPanel Grid.Row="2" Grid.Column="1" Spacing="6" IsEnabled="{Binding CanEditItems}">
+          <TextBlock Text="Held item · rare (5%)" FontWeight="Bold" />
+          <AutoCompleteBox ItemsSource="{Binding ItemOptions}" SelectedItem="{Binding ItemRare}" FilterMode="Contains" ValueMemberBinding="{ReflectionBinding Name}"
+                           ItemTemplate="{StaticResource EntryTemplate}" MinimumPrefixLength="0" AutomationProperties.Name="Rare held item" />
+        </StackPanel>
+        <StackPanel Grid.Row="2" Grid.Column="2" Spacing="6" IsEnabled="{Binding CanEditOther}">
+          <TextBlock Text="Catch rate" FontWeight="Bold" />
+          <NumericUpDown Value="{Binding CatchRate}" Minimum="0" Maximum="255" Increment="1" FormatString="0" AutomationProperties.Name="Catch rate" />
+          <TextBlock Text="{Binding CatchRateHelp}" Classes="caption muted" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="3" Spacing="6" IsEnabled="{Binding CanEditOther}">
+          <TextBlock Text="Growth speed (EXP group)" FontWeight="Bold" />
+          <ComboBox ItemsSource="{Binding GrowthOptions}" SelectedItem="{Binding Growth}" ItemTemplate="{StaticResource EntryTemplate}" HorizontalAlignment="Stretch" AutomationProperties.Name="Growth speed" />
+          <TextBlock Text="EXP given when defeated" Classes="caption muted" Margin="0,6,0,0" />
+          <NumericUpDown Value="{Binding ExpYield}" Minimum="0" Maximum="1000" Increment="1" FormatString="0" AutomationProperties.Name="EXP given when defeated" />
+        </StackPanel>
+        <StackPanel Grid.Row="3" Grid.Column="1" Spacing="6" IsEnabled="{Binding CanEditOther}">
+          <TextBlock Text="Gender" FontWeight="Bold" />
+          <ComboBox ItemsSource="{Binding GenderOptions}" SelectedItem="{Binding Gender}" HorizontalAlignment="Stretch" AutomationProperties.Name="Gender">
+            <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:GenderOption"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+          </ComboBox>
+          <TextBlock Text="Category (e.g. Seed Pokémon)" Classes="caption muted" Margin="0,6,0,0" />
+          <TextBox Text="{Binding Category}" AutomationProperties.Name="Category" />
+        </StackPanel>
+        <StackPanel Grid.Row="3" Grid.Column="2" Spacing="6" IsEnabled="{Binding CanEditOther}">
+          <TextBlock Text="Egg groups" FontWeight="Bold" />
+          <ComboBox ItemsSource="{Binding EggGroupOptions}" SelectedItem="{Binding EggGroup1}" ItemTemplate="{StaticResource EntryTemplate}" HorizontalAlignment="Stretch" AutomationProperties.Name="Egg group 1" />
+          <ComboBox ItemsSource="{Binding EggGroup2Options}" SelectedItem="{Binding EggGroup2}" ItemTemplate="{StaticResource EntryTemplate}" HorizontalAlignment="Stretch" AutomationProperties.Name="Egg group 2" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Border Classes="card" IsEnabled="{Binding CanEditDex}">
+      <StackPanel Spacing="8">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="Pokédex entry" Classes="heading" />
+          <TextBlock Grid.Column="1" Text="{Binding DexCounter}" Classes="caption muted" VerticalAlignment="Center" />
+        </Grid>
+        <TextBox Text="{Binding DexEntry}" AcceptsReturn="True" TextWrapping="NoWrap" MinHeight="96" FontFamily="{StaticResource PL.FontMono}" AutomationProperties.Name="Pokédex entry" />
+        <TextBlock Text="Press Enter to start a new line. The game shows about 4 lines." Classes="caption muted" />
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

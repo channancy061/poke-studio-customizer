@@ -1,0 +1,8 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:v="using:PokeStudio.App.Views"
+             x:Class="PokeStudio.App.Views.PokemonPageView"
+             x:DataType="vm:PokemonPageViewModel">
+  <v:SpeciesBrowserView />
+</UserControl>

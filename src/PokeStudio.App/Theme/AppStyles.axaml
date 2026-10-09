@@ -51,6 +51,11 @@
     <Setter Property="BorderThickness" Value="1" />
   </Style>
 
+  <!-- List rows use the full width so columns inside them can stretch. -->
+  <Style Selector="ListBoxItem">
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+  </Style>
+
   <Style Selector="ListBox.nav">
     <Setter Property="Background" Value="Transparent" />
   </Style>

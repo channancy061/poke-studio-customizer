@@ -192,7 +192,7 @@ public sealed class ProjectService(TimeProvider? clock = null)
         return candidate;
     }
 
-    internal static void CopyDirectory(string from, string to)
+    public static void CopyDirectory(string from, string to)
     {
         System.IO.Directory.CreateDirectory(to);
         foreach (var dir in System.IO.Directory.EnumerateDirectories(from, "*", SearchOption.AllDirectories))

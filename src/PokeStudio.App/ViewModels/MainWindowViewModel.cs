@@ -5,6 +5,7 @@ using PokeStudio.Core.Modules;
 using PokeStudio.Core.Platform;
 using PokeStudio.Core.Projects;
 using PokeStudio.Core.Settings;
+using PokeStudio.Modules.Expansion;
 
 namespace PokeStudio.App.ViewModels;
 
@@ -28,8 +29,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         ThemeService theme,
         IDialogService dialogs,
         IAppPaths paths,
-        TimeProvider clock)
+        TimeProvider clock,
+        ExpansionDownloader downloader)
     {
+        Downloader = downloader;
         _modules = modules;
         _projects = projects;
         _backups = backups;
@@ -49,6 +52,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public IDialogService Dialogs { get; }
     public HubViewModel Hub { get; }
     public ModuleRegistry Modules => _modules;
+    public ExpansionDownloader Downloader { get; }
 
     [ObservableProperty]
     public partial ViewModelBase CurrentView { get; set; }
@@ -66,14 +70,34 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         var match = _modules.Detect(source);
         if (match is null)
         {
-            return "We don't recognise this file yet. In this version you can open the Demo Valley sample; real games arrive in the next phases.";
+            return Directory.Exists(path)
+                ? "This folder isn't a pokeemerald-expansion project. Pick the folder that contains the Makefile, or download the project from the hub."
+                : "We don't recognise this file yet. Game files (ROMs) arrive in a later phase; for now open a pokeemerald-expansion project or try the demo.";
         }
 
         var (module, result) = match.Value;
-        var name = string.IsNullOrWhiteSpace(result.GameTitle) ? Path.GetFileNameWithoutExtension(path) : result.GameTitle;
+        var name = result.SourceKind == GameSourceKind.DecompProject
+            ? Path.GetFileName(Path.TrimEndingDirectorySeparator(path))
+            : string.IsNullOrWhiteSpace(result.GameTitle) ? Path.GetFileNameWithoutExtension(path) : result.GameTitle;
         var project = await _projects.CreateAsync(name, source with { Kind = result.SourceKind }, module, result, ProjectsFolder);
         await OpenProjectAsync(project);
         return null;
+    }
+
+    /// <summary>Downloads pokeemerald-expansion into <paramref name="parent"/>, then opens it as a project.</summary>
+    public async Task<string?> DownloadExpansionAsync(string parent, IProgress<DownloadProgress> progress, CancellationToken cancellationToken = default)
+    {
+        string folder;
+        try
+        {
+            folder = await Downloader.DownloadAsync(parent, progress, cancellationToken);
+        }
+        catch (HttpRequestException ex)
+        {
+            return "The download didn't work. Check your internet connection and try again. (" + ex.Message + ")";
+        }
+
+        return await CreateProjectFromGameAsync(folder);
     }
 
     public async Task<string?> OpenProjectFolderAsync(string folder)
@@ -109,5 +133,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         CurrentView = Hub;
     }
 
-    public void Dispose() => _session?.Dispose();
+    public void Dispose()
+    {
+        _session?.Dispose();
+        Hub.Dispose();
+    }
 }

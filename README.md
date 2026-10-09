@@ -7,11 +7,21 @@
 A friendly desktop editor (Windows + Linux) for customising games you legally own.
 It ships **no game files or assets**, never modifies your originals, and uses only open-source components (MIT-licensed).
 
-## Status: Phase 1
-Solution skeleton, plugin system, projects, undo/redo + change log, backups/restore, settings,
-Avalonia shell with light/dark theming, CI on Windows + Linux, Windows installer and Linux AppImage.
-Real game formats begin in Phase 2. Until then, the **Demo** module edits an invented sample
-(`samples/Demo Valley.demogame.json`) so the whole pipeline can be tried.
+## Status: Phase 2 (GBA project mode)
+- **Phase 1:** solution skeleton, plugin system, projects, undo/redo + change log, backups/restore, settings,
+  Avalonia shell with light/dark theming, CI on Windows + Linux, Windows installer and Linux AppImage.
+- **Phase 2:** edit a **pokeemerald-expansion 1.17.1** project (Emerald-based, Gen 1–9 Pokémon):
+  Pokémon editor (stats + radar chart, types, abilities, held items, catch rate, EXP, gender, growth,
+  egg groups, category, Pokédex text), learnset editor (level-up list with reordering, TM/HM/tutor
+  compatibility, egg moves), evolution builder (all methods + conditions, plain-English sentences),
+  checks before saving with one-click fixes. The app can **download pokeemerald-expansion** from its
+  official GitHub release, or open a copy you already have.
+  - Edits go straight into the project's source files, changing only the edited values (layout and
+    comments untouched). Only the data files the module declares can be written, and they're backed
+    up before the first save of each session.
+  - Values that depend on the project's settings (e.g. `P_UPDATED_STATS`) are edited in the branch
+    your settings use; parts split across settings are shown locked, with the reason.
+- The **Demo** module still edits an invented sample (`samples/Demo Valley.demogame.json`).
 
 ## Layout
 ```
@@ -24,6 +34,7 @@ src/PokeStudio.Core           platform-neutral engine (no UI / OS APIs)
   Settings/  AppSettings, SettingsService (atomic writes, damaged-file recovery)
   Platform/  AppPaths (Windows AppData / Linux XDG), PathRules (case-sensitive archive names)
   Safety/    SafeFileWriter (confined, atomic, never touches originals)
+src/PokeStudio.Modules.Expansion  pokeemerald-expansion project mode (reader/writer, downloader)
 src/PokeStudio.Modules.Demo   sample module used to exercise everything
 src/PokeStudio.App            Avalonia 11 + CommunityToolkit.Mvvm (theme from the Pixel Lab design handoff)
 tests/                        xUnit (Core) + Avalonia.Headless (UI, renders screenshots)
@@ -79,5 +90,18 @@ CI builds the AppImage on every `v*` tag (`release.yml`), so you can also downlo
 | Projects | `Documents\Poke Studio` | `~/Documents/Poke Studio` |
 
 ## Ground rules
-No ROMs, BIOS, keys or game assets are shipped, downloaded or linked. No DRM circumvention.
-Originals are never written. No GPL code. See `THIRD-PARTY-NOTICES.md`.
+No ROMs, BIOS or keys are shipped, downloaded or linked, and no game assets are bundled. No DRM
+circumvention. Game files are never written (decomp projects are edited in place, with backups).
+No GPL code. See `THIRD-PARTY-NOTICES.md`.
+
+Exception (owner's decision, 2026-10-10): at the user's request the app may download
+**pokeemerald-expansion** from its official GitHub repository. That project contains assets extracted
+from the original games and has no open-source licence; it is downloaded to the user's computer only,
+never bundled with this app.
+
+## Optional: test against a real pokeemerald-expansion
+```bash
+POKESTUDIO_EXPANSION_DIR=/path/to/pokeemerald-expansion dotnet test --filter Real_project
+```
+The folder is copied first; the test checks that saving without changes keeps every file identical
+and that one edit changes exactly one line.
