@@ -1,0 +1,667 @@
+using System.Globalization;
+using System.Text;
+using System.Text.RegularExpressions;
+using PokeStudio.Core.Models;
+using PokeStudio.Core.SourceCode;
+
+namespace PokeStudio.Modules.Expansion;
+
+/// <summary>One "<c>.field = value</c>" inside a species block.</summary>
+internal sealed record FieldOccurrence(
+    string Name,
+    int DesignatorStart,
+    int ValueStart,
+    int ValueEnd,
+    int SegmentEnd,
+    bool HasComma,
+    bool Active,
+    string? Condition,
+    bool SpansDirectives);
+
+internal sealed class SpeciesBlock
+{
+    public required string File { get; init; }
+    public required string Symbol { get; init; }
+    public required int Open { get; init; }
+    public required int Close { get; init; }
+    public required bool Active { get; init; }
+    public required string? Condition { get; init; }
+    public List<FieldOccurrence> Fields { get; } = [];
+
+    /// <summary>The occurrence the game is built with: the first active one.</summary>
+    public FieldOccurrence? Get(string name) =>
+        Fields.FirstOrDefault(f => f.Name == name && f.Active) ?? (Active ? null : Fields.FirstOrDefault(f => f.Name == name));
+
+    public bool IsSettingDependent(string name) => Fields.Count(f => f.Name == name) > 1;
+}
+
+internal sealed class SourceFile
+{
+    public required string Relative { get; init; }
+    public required string Text { get; init; }
+    public required ConditionalMap Map { get; init; }
+    public required MacroTable Macros { get; init; }
+}
+
+/// <summary>Reads species blocks from species_info files and turns edits back into minimal text changes.</summary>
+internal static partial class SpeciesInfo
+{
+    [GeneratedRegex(@"\[(SPECIES_\w+)\]\s*=\s*\{")]
+    private static partial Regex BlockStartRegex();
+
+    [GeneratedRegex(@"(?!^)([A-Z]+)")]
+    private static partial Regex SnakifyRegex();
+
+    public static SourceFile LoadFile(ExpansionLayout layout, string relative)
+    {
+        var text = File.ReadAllText(layout.Full(relative));
+        var map = new ConditionalMap(text, layout.Macros);
+        var macros = layout.Macros.Clone();
+        macros.LoadActiveDefines(text, map);
+        return new SourceFile { Relative = relative, Text = text, Map = map, Macros = macros };
+    }
+
+    public static List<SpeciesBlock> ParseBlocks(SourceFile file)
+    {
+        var text = file.Text;
+        var blocks = new List<SpeciesBlock>();
+        foreach (Match m in BlockStartRegex().Matches(text))
+        {
+            var lineStart = text.LastIndexOf('\n', Math.Max(0, m.Index - 1)) + 1;
+            var before = text.AsSpan(lineStart, m.Index - lineStart).Trim();
+            if (before.StartsWith("//", StringComparison.Ordinal) || before.Length > 0)
+            {
+                continue; // commented out, or part of a bigger expression
+            }
+
+            var open = m.Index + m.Length - 1;
+            int close;
+            try
+            {
+                close = CScanner.FindMatching(text, open);
+            }
+            catch (FormatException)
+            {
+                continue;
+            }
+
+            var block = new SpeciesBlock
+            {
+                File = file.Relative,
+                Symbol = m.Groups[1].Value,
+                Open = open,
+                Close = close,
+                Active = file.Map.IsActive(m.Index),
+                Condition = file.Map.ConditionAt(m.Index),
+            };
+            ParseFields(file, block);
+            blocks.Add(block);
+        }
+
+        return blocks;
+    }
+
+    private static void ParseFields(SourceFile file, SpeciesBlock block)
+    {
+        var text = file.Text;
+        foreach (var (s, e) in CScanner.SplitTopLevel(text, block.Open + 1, block.Close))
+        {
+            var designator = FindDesignator(text, s, e);
+            if (designator is not { } d)
+            {
+                continue;
+            }
+
+            var valueStart = d.EqualsIndex + 1;
+            while (valueStart < e && char.IsWhiteSpace(text[valueStart]))
+            {
+                valueStart++;
+            }
+
+            var valueEnd = e;
+            while (valueEnd > valueStart && char.IsWhiteSpace(text[valueEnd - 1]))
+            {
+                valueEnd--;
+            }
+
+            block.Fields.Add(new FieldOccurrence(
+                d.Name, d.Start, valueStart, valueEnd, e,
+                HasComma: e < block.Close && text[e] == ',',
+                Active: file.Map.IsActive(d.Start),
+                Condition: file.Map.ConditionAt(d.Start),
+                SpansDirectives: file.Map.HasDirectiveBetween(valueStart, valueEnd)));
+        }
+    }
+
+    /// <summary>Last top-level ".name =" in [s, e) (macro calls like SHADOW(...) may precede it).</summary>
+    private static (string Name, int Start, int EqualsIndex)? FindDesignator(string text, int s, int e)
+    {
+        (string, int, int)? found = null;
+        var depth = 0;
+        for (var i = s; i < e;)
+        {
+            var skipped = CScanner.SkipTrivia(text, i);
+            if (skipped != i)
+            {
+                i = skipped;
+                continue;
+            }
+
+            var ch = text[i];
+            if (ch is '(' or '{' or '[')
+            {
+                depth++;
+            }
+            else if (ch is ')' or '}' or ']')
+            {
+                depth--;
+            }
+            else if (ch == '#' && depth == 0)
+            {
+                var nl = text.IndexOf('\n', i);
+                i = nl < 0 || nl > e ? e : nl;
+                continue;
+            }
+            else if (ch == '.' && depth == 0 && i + 1 < e && (char.IsLetter(text[i + 1]) || text[i + 1] == '_'))
+            {
+                var j = i + 1;
+                while (j < e && (char.IsLetterOrDigit(text[j]) || text[j] == '_'))
+                {
+                    j++;
+                }
+
+                var name = text[(i + 1)..j];
+                var k = j;
+                while (k < e && char.IsWhiteSpace(text[k]))
+                {
+                    k++;
+                }
+
+                if (k < e && text[k] == '=' && (k + 1 >= e || text[k + 1] != '='))
+                {
+                    found = (name, i, k);
+                    i = k + 1;
+                    continue;
+                }
+            }
+
+            i++;
+        }
+
+        return found;
+    }
+
+    // ---------- values ----------
+
+    /// <summary>Picks the branch of a top-level "cond ? a : b" the settings select.</summary>
+    public static string Resolve(string value, MacroTable macros, out string? condition)
+    {
+        condition = null;
+        var q = TopLevelIndex(value, '?');
+        if (q < 0)
+        {
+            return value.Trim();
+        }
+
+        var c = TopLevelIndex(value, ':', q + 1);
+        if (c < 0)
+        {
+            return value.Trim();
+        }
+
+        var cond = value[..q].Trim();
+        condition = cond.Trim('(', ')', ' ');
+        var chosen = macros.IsTrue(cond) ? value[(q + 1)..c] : value[(c + 1)..];
+        return Resolve(chosen, macros, out _);
+    }
+
+    private static int TopLevelIndex(string s, char target, int from = 0)
+    {
+        var depth = 0;
+        for (var i = from; i < s.Length;)
+        {
+            var skipped = CScanner.SkipTrivia(s, i);
+            if (skipped != i)
+            {
+                i = skipped;
+                continue;
+            }
+
+            if (s[i] is '(' or '{' or '[')
+            {
+                depth++;
+            }
+            else if (s[i] is ')' or '}' or ']')
+            {
+                depth--;
+            }
+            else if (s[i] == target && depth == 0)
+            {
+                return i;
+            }
+
+            i++;
+        }
+
+        return -1;
+    }
+
+    /// <summary>Arguments of NAME(a, b, …) or the items of { a, b, … }.</summary>
+    public static List<string> Args(string expr)
+    {
+        var t = expr.Trim();
+        var open = t.IndexOfAny(['(', '{']);
+        if (open < 0)
+        {
+            return [t];
+        }
+
+        var close = CScanner.FindMatching(t, open);
+        return CScanner.SplitTopLevel(t, open + 1, close)
+            .Select(p => CScanner.StripComments(t[p.Start..p.End]))
+            .Where(a => a.Length > 0)
+            .ToList();
+    }
+
+    public static string Raw(SourceFile file, FieldOccurrence f) => file.Text[f.ValueStart..f.ValueEnd];
+
+    /// <summary>"sMukAlolaTeachableLearnset" → "MUK_ALOLA" (same rule the project's own build script uses).</summary>
+    public static string LearnablesKey(string teachableSymbol)
+    {
+        var core = teachableSymbol;
+        if (core.StartsWith('s'))
+        {
+            core = core[1..];
+        }
+
+        if (core.EndsWith("TeachableLearnset", StringComparison.Ordinal))
+        {
+            core = core[..^"TeachableLearnset".Length];
+        }
+
+        return SnakifyRegex().Replace(core, "_$1").ToUpperInvariant();
+    }
+
+    /// <summary>Builds the storage-independent Species for one block.</summary>
+    public static Species ToSpecies(SourceFile file, SpeciesBlock block, int index, out string? levelUp, out string? teachable, out string? egg, out string? teachingType)
+    {
+        var locked = new Dictionary<string, string>();
+        var dependent = new Dictionary<string, string>();
+        string? Value(string field, string modelField)
+        {
+            var f = block.Get(field);
+            if (f is null)
+            {
+                return null;
+            }
+
+            if (f.SpansDirectives)
+            {
+                locked[modelField] = "This value is split across game settings in the source file, so it can only be edited there for now.";
+                return null;
+            }
+
+            var resolved = Resolve(Raw(file, f), file.Macros, out var cond);
+            if (cond is not null || block.IsSettingDependent(field))
+            {
+                dependent[modelField] = $"Depends on a game setting ({cond ?? f.Condition ?? "#if"}). Edits apply to the value your settings use.";
+            }
+
+            return resolved;
+        }
+
+        int Int(string field, string modelField, int fallback)
+        {
+            var v = Value(field, modelField);
+            if (v is null)
+            {
+                return fallback;
+            }
+
+            var n = file.Macros.TryEvaluate(v);
+            if (n is null)
+            {
+                locked[modelField] = $"Set with “{v}”, which the app can't calculate yet.";
+                return fallback;
+            }
+
+            if (!Regex.IsMatch(v.Trim(), @"^\d+$"))
+            {
+                dependent.TryAdd(modelField, $"Calculated from “{v.Trim()}”. Editing replaces it with a plain number.");
+            }
+
+            return (int)n.Value;
+        }
+
+        var name = Value("speciesName", "Name") is { } n ? CStrings.DecodeLiterals(n) : block.Symbol;
+        var stats = new BaseStats(
+            Int("baseHP", "Stats", 1), Int("baseAttack", "Stats", 1), Int("baseDefense", "Stats", 1),
+            Int("baseSpAttack", "Stats", 1), Int("baseSpDefense", "Stats", 1), Int("baseSpeed", "Stats", 1));
+
+        var types = Value("types", "Types") is { } t ? Args(t) : [];
+        var abilities = Value("abilities", "Abilities") is { } a ? Args(a) : [];
+        while (abilities.Count is > 0 and < 3)
+        {
+            abilities.Add("ABILITY_NONE");
+        }
+
+        var description = "";
+        if (Value("description", "DexEntry") is { } d)
+        {
+            if (d.StartsWith("COMPOUND_STRING", StringComparison.Ordinal) || d.StartsWith("_(", StringComparison.Ordinal))
+            {
+                description = CStrings.DecodeLiterals(d);
+            }
+            else
+            {
+                locked["DexEntry"] = "This Pokédex entry is shared with other forms; edit it in the source file for now.";
+            }
+        }
+
+        GenderRatio? gender = Value("genderRatio", "Gender") switch
+        {
+            null => null,
+            "MON_MALE" => GenderRatio.AlwaysMale,
+            "MON_FEMALE" => GenderRatio.AlwaysFemale,
+            "MON_GENDERLESS" => GenderRatio.NoGender,
+            var g when g.StartsWith("PERCENT_FEMALE", StringComparison.Ordinal)
+                && double.TryParse(Args(g)[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var pct) => new GenderRatio(pct),
+            _ => null,
+        };
+
+        levelUp = Value("levelUpLearnset", "Learnset");
+        teachable = Value("teachableLearnset", "Learnset");
+        egg = Value("eggMoveLearnset", "Learnset");
+        teachingType = Value("teachingType", "TeachingType");
+
+        if (!block.Active)
+        {
+            locked["*"] = "This Pokémon is switched off in your game's settings (include/config/species_enabled.h), so it isn't built into the game.";
+        }
+
+        var category = Value("categoryName", "Category") is { } c ? CStrings.DecodeLiterals(c) : "";
+        return new Species
+        {
+            Id = index,
+            Key = block.Symbol,
+            Name = name,
+            FormName = FormNameFor(block.Symbol, name),
+            Stats = stats,
+            Types = types,
+            Abilities = abilities,
+            HeldItemCommon = Value("itemCommon", "HeldItemCommon"),
+            HeldItemRare = Value("itemRare", "HeldItemRare"),
+            CatchRate = Int("catchRate", "CatchRate", 45),
+            ExpYield = Int("expYield", "ExpYield", 0),
+            Growth = Value("growthRate", "Growth") ?? "",
+            Gender = gender,
+            EggGroups = Value("eggGroups", "EggGroups") is { } eg ? Args(eg) : [],
+            Category = category,
+            DexEntry = description,
+            IsEnabled = block.Active,
+            LearnsetKey = $"{levelUp}|{teachable}|{egg}",
+            LockedFields = locked,
+            SettingDependentFields = dependent,
+        };
+    }
+
+    /// <summary>"SPECIES_RATICATE_ALOLA" + "Raticate" → "Alola".</summary>
+    public static string? FormNameFor(string symbol, string name)
+    {
+        var baseKey = "SPECIES_" + Regex.Replace(name.Normalize(NormalizationForm.FormD), @"[^A-Za-z0-9]+", "_").Trim('_').ToUpperInvariant();
+        if (symbol == baseKey || !symbol.StartsWith(baseKey + "_", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return GameCatalog.Prettify(symbol[(baseKey.Length + 1)..]);
+    }
+
+    // ---------- evolutions ----------
+
+    public static EvolutionSet ToEvolutions(SourceFile file, SpeciesBlock block)
+    {
+        var f = block.Get("evolutions");
+        if (f is null)
+        {
+            return new EvolutionSet { FromSpecies = block.Symbol };
+        }
+
+        if (!block.Active)
+        {
+            return new EvolutionSet { FromSpecies = block.Symbol, LockedReason = "This Pokémon is switched off in your game's settings." };
+        }
+
+        if (f.SpansDirectives || block.IsSettingDependent("evolutions"))
+        {
+            return new EvolutionSet { FromSpecies = block.Symbol, Evolutions = TryParseEvolutions(Raw(file, f)) ?? [], LockedReason = "These evolutions change with game settings (for example cross-generation evolutions), so they can only be edited in the source file for now." };
+        }
+
+        var parsed = TryParseEvolutions(Resolve(Raw(file, f), file.Macros, out _));
+        return parsed is null
+            ? new EvolutionSet { FromSpecies = block.Symbol, LockedReason = "The app couldn't read these evolutions; edit them in the source file." }
+            : new EvolutionSet { FromSpecies = block.Symbol, Evolutions = parsed };
+    }
+
+    private static List<Evolution>? TryParseEvolutions(string value)
+    {
+        try
+        {
+            var t = value.Trim();
+            if (!t.StartsWith("EVOLUTION", StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            var list = new List<Evolution>();
+            foreach (var item in Args(t))
+            {
+                if (!item.StartsWith('{'))
+                {
+                    continue;
+                }
+
+                var parts = Args(item);
+                if (parts.Count < 3)
+                {
+                    return null;
+                }
+
+                var conditions = new List<EvolutionCondition>();
+                foreach (var extra in parts.Skip(3))
+                {
+                    if (extra.StartsWith("CONDITIONS", StringComparison.Ordinal))
+                    {
+                        foreach (var c in Args(extra))
+                        {
+                            var cp = Args(c);
+                            conditions.Add(new EvolutionCondition(cp[0], string.Join(", ", cp.Skip(1))));
+                        }
+                    }
+                }
+
+                list.Add(new Evolution(parts[0], parts[1], parts[2]) { Conditions = conditions });
+            }
+
+            return list;
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+
+    public static string FormatEvolutions(IReadOnlyList<Evolution> evolutions, string newline, int alignColumn)
+    {
+        var items = evolutions.Select(e =>
+        {
+            var sb = new StringBuilder("{").Append(e.Method).Append(", ").Append(e.Parameter).Append(", ").Append(e.TargetSpecies);
+            if (e.Conditions.Count > 0)
+            {
+                sb.Append(", CONDITIONS(").Append(string.Join(", ", e.Conditions.Select(c => $"{{{c.Kind}, {c.Value}}}"))).Append(')');
+            }
+
+            return sb.Append('}').ToString();
+        });
+        return "EVOLUTION(" + string.Join("," + newline + new string(' ', alignColumn), items) + ")";
+    }
+
+    // ---------- writing ----------
+
+    /// <summary>Text edits that turn <paramref name="before"/> into <paramref name="after"/> for one block.</summary>
+    public static List<TextEdit> EditsFor(SourceFile file, SpeciesBlock block, Species before, Species after)
+    {
+        var edits = new List<TextEdit>();
+        var nl = CScanner.LineEnding(file.Text);
+        void Set(string field, string value, params string[] anchors)
+        {
+            var f = block.Get(field);
+            if (f is not null)
+            {
+                edits.Add(new TextEdit(f.ValueStart, f.ValueEnd - f.ValueStart, value));
+                return;
+            }
+
+            var anchor = anchors.Select(block.Get).LastOrDefault(x => x is not null) ?? block.Fields.LastOrDefault(x => x.Active);
+            if (anchor is null)
+            {
+                return;
+            }
+
+            var indent = CScanner.IndentAt(file.Text, anchor.DesignatorStart);
+            edits.Add(anchor.HasComma
+                ? new TextEdit(anchor.SegmentEnd + 1, 0, $"{nl}{indent}.{field} = {value},")
+                : new TextEdit(anchor.ValueEnd, 0, $",{nl}{indent}.{field} = {value},"));
+        }
+
+        if (before.Name != after.Name)
+        {
+            Set("speciesName", $"_(\"{CStrings.Escape(after.Name)}\")");
+        }
+
+        void Stat(string field, int b, int a)
+        {
+            if (b != a)
+            {
+                Set(field, a.ToString(CultureInfo.InvariantCulture));
+            }
+        }
+
+        Stat("baseHP", before.Stats.Hp, after.Stats.Hp);
+        Stat("baseAttack", before.Stats.Attack, after.Stats.Attack);
+        Stat("baseDefense", before.Stats.Defense, after.Stats.Defense);
+        Stat("baseSpAttack", before.Stats.SpAttack, after.Stats.SpAttack);
+        Stat("baseSpDefense", before.Stats.SpDefense, after.Stats.SpDefense);
+        Stat("baseSpeed", before.Stats.Speed, after.Stats.Speed);
+
+        if (!before.Types.SequenceEqual(after.Types))
+        {
+            Set("types", $"MON_TYPES({string.Join(", ", after.Types)})");
+        }
+
+        if (!before.Abilities.SequenceEqual(after.Abilities))
+        {
+            Set("abilities", $"{{ {string.Join(", ", after.Abilities)} }}");
+        }
+
+        if (before.HeldItemCommon != after.HeldItemCommon)
+        {
+            Set("itemCommon", after.HeldItemCommon ?? "ITEM_NONE", "catchRate", "expYield", "evYield_HP", "evYield_Attack", "evYield_Defense", "evYield_Speed", "evYield_SpAttack", "evYield_SpDefense");
+        }
+
+        if (before.HeldItemRare != after.HeldItemRare)
+        {
+            Set("itemRare", after.HeldItemRare ?? "ITEM_NONE", "catchRate", "expYield", "evYield_HP", "evYield_Attack", "evYield_Defense", "evYield_Speed", "evYield_SpAttack", "evYield_SpDefense", "itemCommon");
+        }
+
+        if (before.CatchRate != after.CatchRate)
+        {
+            Set("catchRate", after.CatchRate.ToString(CultureInfo.InvariantCulture));
+        }
+
+        if (before.ExpYield != after.ExpYield)
+        {
+            Set("expYield", after.ExpYield.ToString(CultureInfo.InvariantCulture));
+        }
+
+        if (before.Growth != after.Growth)
+        {
+            Set("growthRate", after.Growth);
+        }
+
+        if (before.Gender != after.Gender && after.Gender is { } g)
+        {
+            Set("genderRatio", g.Genderless ? "MON_GENDERLESS"
+                : g.PercentFemale is 0 ? "MON_MALE"
+                : g.PercentFemale is 100 ? "MON_FEMALE"
+                : $"PERCENT_FEMALE({g.PercentFemale.GetValueOrDefault().ToString("0.###", CultureInfo.InvariantCulture)})");
+        }
+
+        if (!before.EggGroups.SequenceEqual(after.EggGroups))
+        {
+            Set("eggGroups", $"MON_EGG_GROUPS({string.Join(", ", after.EggGroups)})");
+        }
+
+        if (before.Category != after.Category)
+        {
+            Set("categoryName", $"_(\"{CStrings.Escape(after.Category)}\")");
+        }
+
+        if (before.DexEntry != after.DexEntry && block.Get("description") is { } desc)
+        {
+            var indent = CScanner.IndentAt(file.Text, desc.DesignatorStart) + "    ";
+            edits.Add(new TextEdit(desc.ValueStart, desc.ValueEnd - desc.ValueStart, "COMPOUND_STRING(" + CStrings.EncodeLines(after.DexEntry, indent, nl) + ")"));
+        }
+
+        return edits;
+    }
+
+    public static List<TextEdit> EvolutionEdits(SourceFile file, SpeciesBlock block, EvolutionSet after)
+    {
+        var nl = CScanner.LineEnding(file.Text);
+        var f = block.Get("evolutions");
+        if (f is null)
+        {
+            if (after.Evolutions.Count == 0)
+            {
+                return [];
+            }
+
+            var anchor = new[] { "levelUpLearnset", "teachableLearnset", "eggMoveLearnset" }.Select(block.Get).LastOrDefault(x => x is not null)
+                ?? block.Fields.LastOrDefault(x => x.Active);
+            if (anchor is null)
+            {
+                return [];
+            }
+
+            var indent = CScanner.IndentAt(file.Text, anchor.DesignatorStart);
+            var column = indent.Length + ".evolutions = EVOLUTION(".Length;
+            var text = FormatEvolutions(after.Evolutions, nl, column);
+            return [anchor.HasComma
+                ? new TextEdit(anchor.SegmentEnd + 1, 0, $"{nl}{indent}.evolutions = {text},")
+                : new TextEdit(anchor.ValueEnd, 0, $",{nl}{indent}.evolutions = {text},")];
+        }
+
+        if (after.Evolutions.Count == 0)
+        {
+            // remove the whole line: from line start to just past the comma and newline
+            var lineStart = file.Text.LastIndexOf('\n', Math.Max(0, f.DesignatorStart - 1)) + 1;
+            var end = f.HasComma ? f.SegmentEnd + 1 : f.ValueEnd;
+            if (end < file.Text.Length && file.Text[end] == '\r')
+            {
+                end++;
+            }
+
+            if (end < file.Text.Length && file.Text[end] == '\n')
+            {
+                end++;
+            }
+
+            return [new TextEdit(lineStart, end - lineStart, "")];
+        }
+
+        var valueLineStart = file.Text.LastIndexOf('\n', Math.Max(0, f.ValueStart - 1)) + 1;
+        var col = f.ValueStart - valueLineStart + "EVOLUTION(".Length;
+        return [new TextEdit(f.ValueStart, f.ValueEnd - f.ValueStart, FormatEvolutions(after.Evolutions, nl, col))];
+    }
+}

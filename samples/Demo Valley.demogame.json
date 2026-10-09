@@ -3,11 +3,197 @@
   "version": 1,
   "title": "Demo Valley (invented sample)",
   "species": [
-    { "id": 1, "name": "Leafling", "stats": { "hp": 50, "attack": 62, "defense": 48, "spAttack": 70, "spDefense": 55, "speed": 45 }, "type1": "grass", "type2": "fairy", "abilities": ["Overgrow"], "catchRate": 45, "growth": "mediumSlow", "dexEntry": "It naps in sunny meadows. The bud on its back swells a little more each day." },
-    { "id": 2, "name": "Bloomwick", "stats": { "hp": 65, "attack": 72, "defense": 63, "spAttack": 85, "spDefense": 75, "speed": 65 }, "type1": "grass", "type2": "fairy", "abilities": ["Overgrow"], "catchRate": 45, "growth": "mediumSlow", "dexEntry": "Its petals glow faintly at dusk." },
-    { "id": 4, "name": "Cindercub", "stats": { "hp": 44, "attack": 58, "defense": 40, "spAttack": 60, "spDefense": 50, "speed": 68 }, "type1": "fire", "abilities": ["Blaze"], "catchRate": 45, "growth": "mediumSlow", "dexEntry": "Its tail flickers brighter when it is happy." },
-    { "id": 7, "name": "Puddlefin", "stats": { "hp": 48, "attack": 50, "defense": 65, "spAttack": 55, "spDefense": 62, "speed": 50 }, "type1": "water", "abilities": ["Torrent"], "catchRate": 45, "growth": "mediumSlow", "dexEntry": "It hops between puddles after rain." },
-    { "id": 10, "name": "Zappip", "stats": { "hp": 40, "attack": 55, "defense": 35, "spAttack": 60, "spDefense": 40, "speed": 80 }, "type1": "electric", "abilities": ["Static"], "catchRate": 190, "growth": "mediumFast", "dexEntry": "A tiny spark hops along its whiskers." },
-    { "id": 12, "name": "Pebbleback", "stats": { "hp": 70, "attack": 80, "defense": 95, "spAttack": 30, "spDefense": 45, "speed": 25 }, "type1": "rock", "type2": "ground", "abilities": ["Sturdy"], "catchRate": 120, "growth": "mediumSlow", "dexEntry": "It naps so still that hikers sit on it." }
+    {
+      "id": 1,
+      "name": "Leafling",
+      "stats": {
+        "hp": 50,
+        "attack": 62,
+        "defense": 48,
+        "spAttack": 70,
+        "spDefense": 55,
+        "speed": 45
+      },
+      "abilities": [
+        "ABILITY_OVERGROW",
+        "ABILITY_NONE",
+        "ABILITY_NONE"
+      ],
+      "catchRate": 45,
+      "growth": "GROWTH_MEDIUM_SLOW",
+      "dexEntry": "It naps in sunny meadows. The bud on its back swells a little more each day.",
+      "key": "SPECIES_LEAFLING",
+      "types": [
+        "TYPE_GRASS",
+        "TYPE_FAIRY"
+      ],
+      "learnsetKey": "sLeaflingLearnset"
+    },
+    {
+      "id": 2,
+      "name": "Bloomwick",
+      "stats": {
+        "hp": 65,
+        "attack": 72,
+        "defense": 63,
+        "spAttack": 85,
+        "spDefense": 75,
+        "speed": 65
+      },
+      "abilities": [
+        "ABILITY_OVERGROW",
+        "ABILITY_NONE",
+        "ABILITY_NONE"
+      ],
+      "catchRate": 45,
+      "growth": "GROWTH_MEDIUM_SLOW",
+      "dexEntry": "Its petals glow faintly at dusk.",
+      "key": "SPECIES_BLOOMWICK",
+      "types": [
+        "TYPE_GRASS",
+        "TYPE_FAIRY"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Cindercub",
+      "stats": {
+        "hp": 44,
+        "attack": 58,
+        "defense": 40,
+        "spAttack": 60,
+        "spDefense": 50,
+        "speed": 68
+      },
+      "abilities": [
+        "ABILITY_BLAZE",
+        "ABILITY_NONE",
+        "ABILITY_NONE"
+      ],
+      "catchRate": 45,
+      "growth": "GROWTH_MEDIUM_SLOW",
+      "dexEntry": "Its tail flickers brighter when it is happy.",
+      "key": "SPECIES_CINDERCUB",
+      "types": [
+        "TYPE_FIRE"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Puddlefin",
+      "stats": {
+        "hp": 48,
+        "attack": 50,
+        "defense": 65,
+        "spAttack": 55,
+        "spDefense": 62,
+        "speed": 50
+      },
+      "abilities": [
+        "ABILITY_TORRENT",
+        "ABILITY_NONE",
+        "ABILITY_NONE"
+      ],
+      "catchRate": 45,
+      "growth": "GROWTH_MEDIUM_SLOW",
+      "dexEntry": "It hops between puddles after rain.",
+      "key": "SPECIES_PUDDLEFIN",
+      "types": [
+        "TYPE_WATER"
+      ]
+    },
+    {
+      "id": 10,
+      "name": "Zappip",
+      "stats": {
+        "hp": 40,
+        "attack": 55,
+        "defense": 35,
+        "spAttack": 60,
+        "spDefense": 40,
+        "speed": 80
+      },
+      "abilities": [
+        "ABILITY_STATIC",
+        "ABILITY_NONE",
+        "ABILITY_NONE"
+      ],
+      "catchRate": 190,
+      "growth": "GROWTH_MEDIUM_FAST",
+      "dexEntry": "A tiny spark hops along its whiskers.",
+      "key": "SPECIES_ZAPPIP",
+      "types": [
+        "TYPE_ELECTRIC"
+      ]
+    },
+    {
+      "id": 12,
+      "name": "Pebbleback",
+      "stats": {
+        "hp": 70,
+        "attack": 80,
+        "defense": 95,
+        "spAttack": 30,
+        "spDefense": 45,
+        "speed": 25
+      },
+      "abilities": [
+        "ABILITY_STURDY",
+        "ABILITY_NONE",
+        "ABILITY_NONE"
+      ],
+      "catchRate": 120,
+      "growth": "GROWTH_MEDIUM_SLOW",
+      "dexEntry": "It naps so still that hikers sit on it.",
+      "key": "SPECIES_PEBBLEBACK",
+      "types": [
+        "TYPE_ROCK",
+        "TYPE_GROUND"
+      ]
+    }
+  ],
+  "learnsets": [
+    {
+      "key": "sLeaflingLearnset",
+      "usedBy": [
+        "SPECIES_LEAFLING"
+      ],
+      "levelUp": [
+        {
+          "level": 1,
+          "move": "MOVE_TACKLE"
+        },
+        {
+          "level": 1,
+          "move": "MOVE_GROWL"
+        },
+        {
+          "level": 7,
+          "move": "MOVE_VINE_WHIP"
+        },
+        {
+          "level": 13,
+          "move": "MOVE_SLEEP_POWDER"
+        }
+      ],
+      "teachable": [
+        "MOVE_SOLAR_BEAM"
+      ],
+      "eggMoves": [
+        "MOVE_CHARM"
+      ]
+    }
+  ],
+  "evolutions": [
+    {
+      "fromSpecies": "SPECIES_LEAFLING",
+      "evolutions": [
+        {
+          "method": "EVO_LEVEL",
+          "parameter": "16",
+          "targetSpecies": "SPECIES_BLOOMWICK"
+        }
+      ]
+    }
   ]
 }

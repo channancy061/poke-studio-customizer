@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PokeStudio.App", "src\PokeS
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PokeStudio.App.Tests", "tests\PokeStudio.App.Tests\PokeStudio.App.Tests.csproj", "{D19C00F2-081F-414E-BC7B-BA5E6A391E74}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PokeStudio.Modules.Expansion", "src\PokeStudio.Modules.Expansion\PokeStudio.Modules.Expansion.csproj", "{AC83D0A4-5FDE-470B-B01B-54F91017D83A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -87,6 +89,18 @@ Global
 		{D19C00F2-081F-414E-BC7B-BA5E6A391E74}.Release|x64.Build.0 = Release|Any CPU
 		{D19C00F2-081F-414E-BC7B-BA5E6A391E74}.Release|x86.ActiveCfg = Release|Any CPU
 		{D19C00F2-081F-414E-BC7B-BA5E6A391E74}.Release|x86.Build.0 = Release|Any CPU
+		{AC83D0A4-5FDE-470B-B01B-54F91017D83A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC83D0A4-5FDE-470B-B01B-54F91017D83A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AC83D0A4-5FDE-470B-B01B-54F91017D83A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{AC83D0A4-5FDE-470B-B01B-54F91017D83A}.Debug|x64.Build.0 = Debug|Any CPU
+		{AC83D0A4-5FDE-470B-B01B-54F91017D83A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{AC83D0A4-5FDE-470B-B01B-54F91017D83A}.Debug|x86.Build.0 = Debug|Any CPU
+		{AC83D0A4-5FDE-470B-B01B-54F91017D83A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AC83D0A4-5FDE-470B-B01B-54F91017D83A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AC83D0A4-5FDE-470B-B01B-54F91017D83A}.Release|x64.ActiveCfg = Release|Any CPU
+		{AC83D0A4-5FDE-470B-B01B-54F91017D83A}.Release|x64.Build.0 = Release|Any CPU
+		{AC83D0A4-5FDE-470B-B01B-54F91017D83A}.Release|x86.ActiveCfg = Release|Any CPU
+		{AC83D0A4-5FDE-470B-B01B-54F91017D83A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -97,5 +111,6 @@ Global
 		{68865C0F-B550-4DE0-82F2-47A236C2B996} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{C60179C5-D274-439B-A837-C613E94DC84F} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{D19C00F2-081F-414E-BC7B-BA5E6A391E74} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{AC83D0A4-5FDE-470B-B01B-54F91017D83A} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

@@ -57,9 +57,26 @@ public sealed class ProjectSession : IDisposable
 
     public IReadOnlyList<ChangeLogEntry> History(int limit = 500) => _log.ReadRecent(limit);
 
+    private bool _backedUpThisSession;
+
+    /// <summary>For in-place (decomp) projects: the files the module edits, so backups include them.</summary>
+    public ExternalFiles? External => Project.Manifest.WorkInPlace
+        ? new ExternalFiles(Project.WorkingSourcePath, Module.ManagedFiles(Project.WorkingSourcePath))
+        : null;
+
+    /// <summary>Runs every check (general + module-specific) on the current data.</summary>
+    public IReadOnlyList<Validation.ValidationIssue> Validate() => Validation.GameValidator.Run(Data, Module);
+
     public async Task SaveAsync(CancellationToken cancellationToken = default)
     {
-        await Module.SaveDataAsync(Data, Project.CreateSaveContext(), cancellationToken);
+        if (Project.Manifest.WorkInPlace && !_backedUpThisSession)
+        {
+            // Never write into the user's decomp files without a copy of how they were.
+            await BackupAsync(BackupReason.Auto, "Before the first save of this session", cancellationToken: cancellationToken);
+            _backedUpThisSession = true;
+        }
+
+        await Module.SaveDataAsync(Data, Project.CreateSaveContext(Module), cancellationToken);
         await _projects.SaveManifestAsync(Project, cancellationToken);
         Undo.MarkSaved();
         _log.MarkSaved();
@@ -67,7 +84,7 @@ public sealed class ProjectSession : IDisposable
 
     public async Task<BackupManifest> BackupAsync(BackupReason reason, string? label = null, int? keep = null, CancellationToken cancellationToken = default)
     {
-        var manifest = await _backups.CreateAsync(Project, reason, label, cancellationToken);
+        var manifest = await _backups.CreateAsync(Project, reason, label, External, cancellationToken);
         LastBackupUtc = manifest.CreatedUtc;
         if (keep is int k)
         {
@@ -89,7 +106,7 @@ public sealed class ProjectSession : IDisposable
         _log.Dispose(); // the database file must be closed while the folder is swapped
         try
         {
-            await _backups.RestoreAsync(Project, backupId, cancellationToken);
+            await _backups.RestoreAsync(Project, backupId, External, cancellationToken);
         }
         finally
         {

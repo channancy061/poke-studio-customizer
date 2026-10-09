@@ -71,9 +71,25 @@ public sealed class GameData
     public List<Species> Species { get; } = [];
     public List<Move> Moves { get; } = [];
     public List<Learnset> Learnsets { get; } = [];
-    public List<EvolutionMethod> Evolutions { get; } = [];
+    public List<EvolutionSet> Evolutions { get; } = [];
     public List<Trainer> Trainers { get; } = [];
     public List<Encounter> Encounters { get; } = [];
+    public GameCatalog Catalog { get; } = new();
+
+    public Learnset? LearnsetFor(Species species) =>
+        species.LearnsetKey is { } key ? Learnsets.FirstOrDefault(l => l.Key == key) : null;
+}
+
+/// <summary>The game's limits, so editors and validation can explain them in plain words.</summary>
+public sealed record GameLimits
+{
+    public int SpeciesNameLength { get; init; } = 10;
+    public int CategoryNameLength { get; init; } = 12;
+    public int MaxLevel { get; init; } = 100;
+    public int MovesKnown { get; init; } = 4;
+    public int DexEntryMaxLines { get; init; } = 4;
+    public int DexEntryLineLength { get; init; } = 42;
+    public int MaxEvolutionsPerSpecies { get; init; } = 10;
 }
 
 /// <summary>Context handed to a module when saving: where it may write.</summary>
@@ -93,6 +109,20 @@ public interface IGameModule
     IReadOnlyList<FeatureSupport> DescribeFeatures();
 
     DetectionResult Detect(GameSource source);
+
+    GameLimits Limits => new();
+
+    /// <summary>
+    /// True when the module edits the user's folder directly (decomp projects) instead of a copy.
+    /// Such modules must list every file they may write in <see cref="ManagedFiles"/>.
+    /// </summary>
+    bool WorksInPlace => false;
+
+    /// <summary>Paths (relative to the working source) this module may write; backed up before each save.</summary>
+    IReadOnlyList<string> ManagedFiles(string workingSourcePath) => [];
+
+    /// <summary>Game-specific checks run before saving. General checks live in <see cref="Validation.GameValidator"/>.</summary>
+    IReadOnlyList<Validation.ValidationIssue> Validate(GameData data) => [];
 
     Task<GameData> LoadDataAsync(string workingSourcePath, string projectDataDir, CancellationToken cancellationToken = default);
 

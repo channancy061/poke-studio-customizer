@@ -16,11 +16,17 @@ public enum BackupReason
 
 public sealed record BackupFile(string RelativePath, long Size, string Sha256);
 
+/// <summary>Files outside the project folder to include (the decomp files an in-place module edits).</summary>
+public sealed record ExternalFiles(string Root, IReadOnlyList<string> RelativePaths);
+
 /// <summary>backup.json, stored next to the copied files so a backup is understandable without the app.</summary>
 public sealed record BackupManifest
 {
     public const string FileName = "backup.json";
     public const string FilesFolder = "files";
+
+    /// <summary>Prefix for external (decomp) files inside a backup: "@source/src/data/…".</summary>
+    public const string ExternalPrefix = "@source/";
 
     public required string Id { get; init; }
     public required string ProjectId { get; init; }
@@ -45,7 +51,7 @@ public sealed class BackupService(string backupsRoot, TimeProvider? clock = null
 
     public string ProjectBackupsDir(string projectId) => Path.Combine(backupsRoot, projectId);
 
-    public async Task<BackupManifest> CreateAsync(Project project, BackupReason reason, string? label = null, CancellationToken cancellationToken = default)
+    public async Task<BackupManifest> CreateAsync(Project project, BackupReason reason, string? label = null, ExternalFiles? external = null, CancellationToken cancellationToken = default)
     {
         var now = _clock.GetUtcNow();
         var id = now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture) + "-" + reason.ToString().ToLowerInvariant();
@@ -72,6 +78,21 @@ public sealed class BackupService(string backupsRoot, TimeProvider? clock = null
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             File.Copy(file, target);
             files.Add(new BackupFile(rel, new FileInfo(target).Length, await Hashing.Sha256FileAsync(target, cancellationToken)));
+        }
+
+        foreach (var rel in external?.RelativePaths ?? [])
+        {
+            var source = PathRules.FromPortableRelative(external!.Root, rel);
+            if (!File.Exists(source))
+            {
+                continue;
+            }
+
+            var key = BackupManifest.ExternalPrefix + rel;
+            var target = PathRules.FromPortableRelative(filesDir, key);
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(source, target);
+            files.Add(new BackupFile(key, new FileInfo(target).Length, await Hashing.Sha256FileAsync(target, cancellationToken)));
         }
 
         var manifest = new BackupManifest
@@ -177,19 +198,39 @@ public sealed class BackupService(string backupsRoot, TimeProvider? clock = null
     /// copy into a staging folder → swap. The caller must close open files (e.g. the change log) first.
     /// Returns the safety backup made of the state before restoring.
     /// </summary>
-    public async Task<BackupManifest> RestoreAsync(Project project, string backupId, CancellationToken cancellationToken = default)
+    public async Task<BackupManifest> RestoreAsync(Project project, string backupId, ExternalFiles? external = null, CancellationToken cancellationToken = default)
     {
         var projectId = project.Manifest.Id;
         await VerifyAsync(projectId, backupId, cancellationToken);
-        var safety = await CreateAsync(project, BackupReason.BeforeRestore, $"Before restoring {backupId}", cancellationToken);
+        var safety = await CreateAsync(project, BackupReason.BeforeRestore, $"Before restoring {backupId}", external, cancellationToken);
 
-        var filesDir = Path.Combine(ProjectBackupsDir(projectId), backupId, BackupManifest.FilesFolder);
+        var backupDir = Path.Combine(ProjectBackupsDir(projectId), backupId);
+        var filesDir = Path.Combine(backupDir, BackupManifest.FilesFolder);
+        var manifest = await JsonStore.ReadAsync<BackupManifest>(Path.Combine(backupDir, BackupManifest.FileName), cancellationToken);
         var parent = Path.GetDirectoryName(project.Directory)!;
         var name = Path.GetFileName(project.Directory);
         var staging = Path.Combine(parent, $".{name}.restoring-{Guid.NewGuid():N}");
         var aside = Path.Combine(parent, $".{name}.old-{Guid.NewGuid():N}");
 
         ProjectService.CopyDirectory(filesDir, staging);
+        var stagedExternal = Path.Combine(staging, BackupManifest.ExternalPrefix.TrimEnd('/'));
+        if (Directory.Exists(stagedExternal))
+        {
+            Directory.Delete(stagedExternal, recursive: true);
+        }
+
+        // Put the decomp files back first (atomic per file), only those this backup holds.
+        if (external is not null && manifest is not null)
+        {
+            var writer = new Safety.SafeFileWriter(external.Root, allowedFiles: external.RelativePaths);
+            foreach (var f in manifest.Files.Where(f => f.RelativePath.StartsWith(BackupManifest.ExternalPrefix, StringComparison.Ordinal)))
+            {
+                var rel = f.RelativePath[BackupManifest.ExternalPrefix.Length..];
+                var bytes = await File.ReadAllBytesAsync(PathRules.FromPortableRelative(filesDir, f.RelativePath), cancellationToken);
+                await writer.WriteAllBytesAsync(PathRules.FromPortableRelative(external.Root, rel), bytes, cancellationToken);
+            }
+        }
+
         Directory.Move(project.Directory, aside);
         try
         {

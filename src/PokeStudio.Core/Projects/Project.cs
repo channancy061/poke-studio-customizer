@@ -28,6 +28,12 @@ public sealed record ProjectManifest
     /// <summary>Name of the working copy inside the project's "source" folder.</summary>
     public required string WorkingSourceName { get; init; }
 
+    /// <summary>
+    /// True for decomp projects: the app edits the user's project folder directly (only files the
+    /// module declares, each backed up first) instead of a copy.
+    /// </summary>
+    public bool WorkInPlace { get; init; }
+
     public DateTimeOffset CreatedUtc { get; init; }
     public DateTimeOffset ModifiedUtc { get; init; }
 }
@@ -61,11 +67,15 @@ public sealed class Project
     public string SourceDir => Path.Combine(Directory, SourceFolderName);
     public string DataDir => Path.Combine(Directory, DataFolderName);
     public string HistoryPath => Path.Combine(Directory, HistoryFileName);
-    public string WorkingSourcePath => Path.Combine(SourceDir, Manifest.WorkingSourceName);
+    public string WorkingSourcePath => Manifest.WorkInPlace ? Manifest.OriginalSourcePath : Path.Combine(SourceDir, Manifest.WorkingSourceName);
 
     public SafeFileWriter CreateWriter() => new(Directory, [Manifest.OriginalSourcePath]);
 
-    public ModuleSaveContext CreateSaveContext() => new(CreateWriter(), DataDir, WorkingSourcePath);
+    /// <summary>Where a module may write when saving. In-place projects may only touch the module's managed files.</summary>
+    public ModuleSaveContext CreateSaveContext(IGameModule? module = null) =>
+        Manifest.WorkInPlace && module is not null
+            ? new(new SafeFileWriter(WorkingSourcePath, allowedFiles: module.ManagedFiles(WorkingSourcePath)), DataDir, WorkingSourcePath)
+            : new(CreateWriter(), DataDir, WorkingSourcePath);
 }
 
 public sealed class ProjectService(TimeProvider? clock = null)
@@ -98,14 +108,18 @@ public sealed class ProjectService(TimeProvider? clock = null)
         System.IO.Directory.CreateDirectory(Path.Combine(dir, Project.DataFolderName));
 
         var workingName = Path.GetFileName(Path.TrimEndingDirectorySeparator(sourceFull));
-        var workingPath = Path.Combine(dir, Project.SourceFolderName, workingName);
-        if (isFile)
+        var inPlace = module.WorksInPlace && !isFile;
+        if (!inPlace)
         {
-            File.Copy(sourceFull, workingPath);
-        }
-        else
-        {
-            CopyDirectory(sourceFull, workingPath);
+            var workingPath = Path.Combine(dir, Project.SourceFolderName, workingName);
+            if (isFile)
+            {
+                File.Copy(sourceFull, workingPath);
+            }
+            else
+            {
+                CopyDirectory(sourceFull, workingPath);
+            }
         }
 
         var now = _clock.GetUtcNow();
@@ -120,6 +134,7 @@ public sealed class ProjectService(TimeProvider? clock = null)
             OriginalSourcePath = sourceFull,
             OriginalSha256 = isFile ? await Hashing.Sha256FileAsync(sourceFull, cancellationToken) : null,
             WorkingSourceName = workingName,
+            WorkInPlace = inPlace,
             CreatedUtc = now,
             ModifiedUtc = now,
         };

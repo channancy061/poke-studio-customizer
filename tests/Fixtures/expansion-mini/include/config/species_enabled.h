@@ -1,0 +1,8 @@
+#define P_GEN_1_POKEMON          TRUE
+#define P_GEN_2_POKEMON          FALSE
+#define P_REGIONAL_FORMS         TRUE
+#define P_FROST_FORMS            P_REGIONAL_FORMS
+#define P_GEN_4_CROSS_EVOS       P_CROSS_GENERATION_EVOS
+#define P_FAMILY_SPROUTLE        P_GEN_1_POKEMON
+#define P_FAMILY_EMBERPUP        P_GEN_1_POKEMON
+#define P_FAMILY_GHOSTLING       P_GEN_2_POKEMON

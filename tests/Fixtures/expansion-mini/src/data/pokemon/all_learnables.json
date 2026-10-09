@@ -1,0 +1,14 @@
+{
+  "SPROUTLE": [
+    "MOVE_PROTECT",
+    "MOVE_SOLAR_RAY"
+  ],
+  "BLOOMTLE": [
+    "MOVE_PROTECT",
+    "MOVE_SOLAR_RAY"
+  ],
+  "EMBERPUP": [
+    "MOVE_PROTECT"
+  ],
+  "GHOSTLING": []
+}

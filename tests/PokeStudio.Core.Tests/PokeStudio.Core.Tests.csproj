@@ -11,9 +11,11 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\PokeStudio.Core\PokeStudio.Core.csproj" />
     <ProjectReference Include="..\..\src\PokeStudio.Modules.Demo\PokeStudio.Modules.Demo.csproj" />
+    <ProjectReference Include="..\..\src\PokeStudio.Modules.Expansion\PokeStudio.Modules.Expansion.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
     <None Include="..\..\samples\Demo Valley.demogame.json" Link="Fixtures\Demo Valley.demogame.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Fixtures\expansion-mini\**\*" LinkBase="Fixtures\expansion-mini" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

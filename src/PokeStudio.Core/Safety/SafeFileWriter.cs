@@ -13,14 +13,17 @@ public sealed class SafeFileWriter
 {
     private readonly string _root;
     private readonly HashSet<string> _protected;
+    private readonly HashSet<string>? _allowed;
 
     /// <param name="root">Folder writes must stay inside.</param>
     /// <param name="protectedPaths">Files that must never be written (e.g. the original game file).</param>
-    public SafeFileWriter(string root, IEnumerable<string>? protectedPaths = null)
+    /// <param name="allowedFiles">If given, only these files may be written (used for in-place decomp editing).</param>
+    public SafeFileWriter(string root, IEnumerable<string>? protectedPaths = null, IEnumerable<string>? allowedFiles = null)
     {
         _root = Path.GetFullPath(root);
         var comparer = PathRules.HostPaths == StringComparison.Ordinal ? StringComparer.Ordinal : StringComparer.OrdinalIgnoreCase;
         _protected = new HashSet<string>((protectedPaths ?? []).Select(Path.GetFullPath), comparer);
+        _allowed = allowedFiles is null ? null : new HashSet<string>(allowedFiles.Select(f => Path.GetFullPath(Path.Combine(_root, f))), comparer);
     }
 
     public string Root => _root;
@@ -36,6 +39,11 @@ public sealed class SafeFileWriter
         if (_protected.Contains(full))
         {
             throw new UnsafeWriteException($"Refusing to overwrite an original game file: {full}");
+        }
+
+        if (_allowed is not null && !_allowed.Contains(full))
+        {
+            throw new UnsafeWriteException($"This module isn't allowed to change {full}.");
         }
 
         return full;

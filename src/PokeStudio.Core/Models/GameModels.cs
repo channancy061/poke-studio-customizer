@@ -1,8 +1,11 @@
 namespace PokeStudio.Core.Models;
 
 // Storage-independent models. Adapters (decomp project, GBA ROM, NDS NitroFS/NARC, 3DS GARC/LayeredFS)
-// translate between these and each game's native formats. Fields grow in later phases; Phase 1
-// keeps them minimal so the plugin and editing pipeline can be exercised end to end.
+// translate between these and each game's native formats.
+//
+// References between objects use string keys (e.g. "SPECIES_BULBASAUR", "MOVE_TACKLE" in decomp
+// projects, or "1" / "33" in ROM modules) so every platform can use its natural identifiers.
+// Display names come from the GameCatalog.
 
 public enum GamePlatform
 {
@@ -29,19 +32,68 @@ public sealed record BaseStats(int Hp, int Attack, int Defense, int SpAttack, in
     public int Total => Hp + Attack + Defense + SpAttack + SpDefense + Speed;
 }
 
+/// <summary>Gender ratio as the share of females, or a fixed kind.</summary>
+public sealed record GenderRatio(double? PercentFemale, bool Genderless = false)
+{
+    public static GenderRatio AlwaysMale { get; } = new(0);
+    public static GenderRatio AlwaysFemale { get; } = new(100);
+    public static GenderRatio NoGender { get; } = new(null, Genderless: true);
+
+    public string Describe() =>
+        Genderless ? "No gender"
+        : PercentFemale is 0 ? "Always male"
+        : PercentFemale is 100 ? "Always female"
+        : $"{PercentFemale:0.#}% female";
+}
+
 public sealed record Species
 {
+    /// <summary>Position in the game's list (for display/sorting).</summary>
     public required int Id { get; init; }
+
+    /// <summary>Stable identifier inside the game, e.g. "SPECIES_RATICATE_ALOLA".</summary>
+    public string Key { get; init; } = "";
+
     public required string Name { get; init; }
+
+    /// <summary>Extra label for alternate forms, e.g. "Alolan" or "Mega".</summary>
+    public string? FormName { get; init; }
+
     public required BaseStats Stats { get; init; }
-    public ElementType Type1 { get; init; }
-    public ElementType? Type2 { get; init; }
+
+    /// <summary>Type keys, e.g. "TYPE_GRASS". One or two entries.</summary>
+    public IReadOnlyList<string> Types { get; init; } = [];
+
+    /// <summary>Ability keys by slot: [0] first, [1] second, [2] hidden. "ABILITY_NONE" for empty.</summary>
     public IReadOnlyList<string> Abilities { get; init; } = [];
+
     public string? HeldItemCommon { get; init; }
     public string? HeldItemRare { get; init; }
     public int CatchRate { get; init; } = 45;
-    public GrowthRate Growth { get; init; } = GrowthRate.MediumFast;
+    public int ExpYield { get; init; }
+
+    /// <summary>Growth-rate key, e.g. "GROWTH_MEDIUM_SLOW".</summary>
+    public string Growth { get; init; } = "";
+
+    public GenderRatio? Gender { get; init; }
+    public IReadOnlyList<string> EggGroups { get; init; } = [];
+    public string Category { get; init; } = "";
+    public int NationalDexNumber { get; init; }
     public string DexEntry { get; init; } = "";
+
+    /// <summary>False when the game's settings switch this Pokémon off (it isn't built into the game).</summary>
+    public bool IsEnabled { get; init; } = true;
+
+    /// <summary>Learnset this species uses (forms often share one).</summary>
+    public string? LearnsetKey { get; init; }
+
+    /// <summary>Fields the user can't edit here, with a plain-English reason (field name → reason).</summary>
+    public IReadOnlyDictionary<string, string> LockedFields { get; init; } = new Dictionary<string, string>();
+
+    /// <summary>Fields whose value comes from a game setting (field name → note shown in Advanced mode).</summary>
+    public IReadOnlyDictionary<string, string> SettingDependentFields { get; init; } = new Dictionary<string, string>();
+
+    public string DisplayName => FormName is null ? Name : $"{Name} ({FormName})";
 }
 
 public enum MoveCategory
@@ -52,8 +104,9 @@ public enum MoveCategory
 public sealed record Move
 {
     public required int Id { get; init; }
+    public string Key { get; init; } = "";
     public required string Name { get; init; }
-    public ElementType Type { get; init; }
+    public string Type { get; init; } = "";
     public MoveCategory Category { get; init; }
     public int Power { get; init; }
     public int Accuracy { get; init; } = 100;
@@ -62,24 +115,43 @@ public sealed record Move
     public string EffectDescription { get; init; } = "";
 }
 
-public sealed record LevelUpMove(int Level, int MoveId);
+public sealed record LevelUpMove(int Level, string Move);
 
+/// <summary>Moves a Pokémon can learn. Keyed by learnset (several forms may share one).</summary>
 public sealed record Learnset
 {
-    public required int SpeciesId { get; init; }
+    public required string Key { get; init; }
+
+    /// <summary>Species that use this learnset (for "shared with" warnings).</summary>
+    public IReadOnlyList<string> UsedBy { get; init; } = [];
+
     public IReadOnlyList<LevelUpMove> LevelUp { get; init; } = [];
-    public IReadOnlySet<int> MachineMoves { get; init; } = new HashSet<int>();
-    public IReadOnlySet<int> TutorMoves { get; init; } = new HashSet<int>();
-    public IReadOnlySet<int> EggMoves { get; init; } = new HashSet<int>();
+
+    /// <summary>TM/HM/tutor moves this Pokémon can be taught.</summary>
+    public IReadOnlyList<string> Teachable { get; init; } = [];
+
+    public IReadOnlyList<string> EggMoves { get; init; } = [];
+
+    /// <summary>Parts that can't be edited here, with a reason (e.g. "teachable" → "…").</summary>
+    public IReadOnlyDictionary<string, string> LockedParts { get; init; } = new Dictionary<string, string>();
 }
 
-public enum EvolutionKind
+public sealed record EvolutionCondition(string Kind, string Value);
+
+public sealed record Evolution(string Method, string Parameter, string TargetSpecies)
 {
-    Level, UseItem, LevelHoldingItem, Friendship, FriendshipDay, FriendshipNight,
-    Trade, TradeHoldingItem, KnowsMove, Location, Custom,
+    public IReadOnlyList<EvolutionCondition> Conditions { get; init; } = [];
 }
 
-public sealed record EvolutionMethod(int FromSpeciesId, int ToSpeciesId, EvolutionKind Kind, int Parameter = 0, string? Note = null);
+/// <summary>All evolutions starting from one species.</summary>
+public sealed record EvolutionSet
+{
+    public required string FromSpecies { get; init; }
+    public IReadOnlyList<Evolution> Evolutions { get; init; } = [];
+
+    /// <summary>Reason the evolutions can't be edited here, if any.</summary>
+    public string? LockedReason { get; init; }
+}
 
 [Flags]
 public enum AiBehavior
@@ -108,9 +180,9 @@ public enum BattleType
 
 public sealed record TrainerPokemon
 {
-    public required int SpeciesId { get; init; }
+    public required string Species { get; init; }
     public required int Level { get; init; }
-    public IReadOnlyList<int> MoveIds { get; init; } = [];
+    public IReadOnlyList<string> Moves { get; init; } = [];
     public string? HeldItem { get; init; }
     public string? Ability { get; init; }
     public string? Nature { get; init; }
@@ -134,16 +206,16 @@ public enum SpriteKind
     Front, Back, Icon, Overworld, Trainer, Npc,
 }
 
-public sealed record SpriteAsset(int OwnerId, SpriteKind Kind, int Width, int Height, string? ImportedFilePath);
+public sealed record SpriteAsset(string OwnerKey, SpriteKind Kind, int Width, int Height, string? ImportedFilePath);
 
-public sealed record ModelAsset(int OwnerId, string Name, string? ImportedFilePath);
+public sealed record ModelAsset(string OwnerKey, string Name, string? ImportedFilePath);
 
 public enum EncounterMethod
 {
     Grass, Surf, OldRod, GoodRod, SuperRod, RockSmash,
 }
 
-public sealed record EncounterSlot(int SpeciesId, int MinLevel, int MaxLevel, int RatePercent);
+public sealed record EncounterSlot(string Species, int MinLevel, int MaxLevel, int RatePercent);
 
 public sealed record Encounter
 {

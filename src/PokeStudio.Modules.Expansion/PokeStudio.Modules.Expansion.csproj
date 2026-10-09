@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- GBA project mode: edits a pokeemerald-expansion folder the user downloaded themselves.
+       Reads and writes the project's C source/JSON data files; contains none of that project's code or data. -->
+  <PropertyGroup>
+    <RootNamespace>PokeStudio.Modules.Expansion</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PokeStudio.Core\PokeStudio.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PokeStudio.Core.Tests" />
+  </ItemGroup>
+</Project>
