@@ -67,9 +67,9 @@ public class ShellTests
         using var env = new TestEnvironment();
         var shell = await OpenDemoAsync(env);
 
-        var creatures = shell.NavItems.Single(n => n.Key == NavKey.Species);
-        Assert.True(creatures.IsEnabled);
-        Assert.NotNull(creatures.Icon); // icon geometries load from Theme/Icons.axaml
+        var pokemon = shell.NavItems.Single(n => n.Key == NavKey.Species);
+        Assert.True(pokemon.IsEnabled);
+        Assert.NotNull(pokemon.Icon); // icon geometries load from Theme/Icons.axaml
 
         var moves = shell.NavItems.Single(n => n.Key == NavKey.Moves);
         Assert.True(moves.IsLocked);
@@ -95,6 +95,7 @@ public class ShellTests
         Assert.Equal(90, shell.Session.Data.Species[0].Stats.Speed);
         var change = Assert.Single(shell.Changes);
         Assert.Equal("Leafling · Speed 45 → 90", change.Description);
+        Assert.Equal("Pokémon", change.Area);
         Assert.Equal("1 unsaved change", shell.UnsavedText);
 
         shell.UndoCommand.Execute(null);

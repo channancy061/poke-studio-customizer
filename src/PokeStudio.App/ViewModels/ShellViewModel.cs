@@ -43,7 +43,7 @@ public sealed partial class ShellViewModel : ViewModelBase
 {
     private static readonly (NavKey Key, ModuleCapabilities Cap, string Label, string Icon)[] EditScreens =
     [
-        (NavKey.Species, ModuleCapabilities.Species, "Creatures", "Icon.Creature"),
+        (NavKey.Species, ModuleCapabilities.Species, "Pokémon", "Icon.Creature"),
         (NavKey.Moves, ModuleCapabilities.Moves, "Moves", "Icon.Moves"),
         (NavKey.Learnsets, ModuleCapabilities.Learnsets, "Learnsets", "Icon.List"),
         (NavKey.Evolutions, ModuleCapabilities.Evolutions, "Evolutions", "Icon.ArrowRight"),

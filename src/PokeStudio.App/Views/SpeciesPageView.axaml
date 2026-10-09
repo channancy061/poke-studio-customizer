@@ -7,8 +7,8 @@
     <!-- List -->
     <Border Classes="panel" BorderThickness="0,0,1,0">
       <DockPanel>
-        <TextBlock DockPanel.Dock="Top" Text="Creatures" Classes="heading" Margin="16,16,16,8" />
-        <ListBox ItemsSource="{Binding Species}" SelectedItem="{Binding Selected}" Background="Transparent" AutomationProperties.Name="Creatures">
+        <TextBlock DockPanel.Dock="Top" Text="Pokémon" Classes="heading" Margin="16,16,16,8" />
+        <ListBox ItemsSource="{Binding Species}" SelectedItem="{Binding Selected}" Background="Transparent" AutomationProperties.Name="Pokémon">
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:SpeciesEditorViewModel">
               <Grid ColumnDefinitions="*,Auto" Margin="0,4">
@@ -67,13 +67,13 @@
               <Border Classes="card">
                 <StackPanel Spacing="8">
                   <TextBlock Text="Name" Classes="heading" />
-                  <TextBox Text="{Binding NameDraft}" MaxWidth="360" HorizontalAlignment="Left" AutomationProperties.Name="Creature name" />
+                  <TextBox Text="{Binding NameDraft}" MaxWidth="360" HorizontalAlignment="Left" AutomationProperties.Name="Pokémon name" />
                   <TextBlock Text="{Binding NameCounter}" Classes="caption muted" />
                   <TextBlock Text="{Binding NameError}" Classes="caption" Foreground="{DynamicResource PL.ErrorTextBrush}"
                              IsVisible="{Binding NameError, Converter={x:Static ObjectConverters.IsNotNull}}" />
                   <TextBlock Text="Dex entry" Classes="heading" Margin="0,10,0,0" />
                   <TextBlock Text="{Binding DexEntry}" TextWrapping="Wrap" Classes="muted" />
-                  <TextBlock Text="Types, abilities, items and more arrive with the full Creature editor in Phase 2." Classes="caption muted" />
+                  <TextBlock Text="Types, abilities, items and more arrive with the full Pokémon editor in Phase 2." Classes="caption muted" />
                 </StackPanel>
               </Border>
             </StackPanel>

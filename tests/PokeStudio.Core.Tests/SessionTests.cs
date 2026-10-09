@@ -14,7 +14,7 @@ public class SessionTests
     {
         var current = s.Data.Species[0].Stats.Speed;
         return new ValueChange<int>(
-            "Creatures", $"Leafling · Speed {current} → {to}",
+            "Pokémon", $"Leafling · Speed {current} → {to}",
             v => s.Data.Species[0] = s.Data.Species[0] with { Stats = s.Data.Species[0].Stats with { Speed = v } },
             current, to, "species:1:speed", (a, b) => $"Leafling · Speed {a} → {b}");
     }

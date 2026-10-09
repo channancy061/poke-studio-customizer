@@ -5,7 +5,7 @@ public interface IChange
 {
     string Description { get; }
 
-    /// <summary>Which editor area the change belongs to (e.g. "Creatures"), for grouping in the Changes panel.</summary>
+    /// <summary>Which editor area the change belongs to (e.g. "Pokémon"), for grouping in the Changes panel.</summary>
     string Area { get; }
 
     void Apply();

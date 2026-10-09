@@ -30,10 +30,10 @@
 
         <Button Grid.Column="1" Margin="20,0,0,0" Width="420" Classes="quiet" HorizontalContentAlignment="Left"
                 Command="{Binding NotYetCommand}" CommandParameter="Global search"
-                ToolTip.Tip="Search creatures, moves, trainers and places (Ctrl+K)" AutomationProperties.Name="Search">
+                ToolTip.Tip="Search Pokémon, moves, trainers and places (Ctrl+K)" AutomationProperties.Name="Search">
           <StackPanel Orientation="Horizontal" Spacing="8">
             <c:Icon Data="{StaticResource Icon.Search}" />
-            <TextBlock Text="Search creatures, moves, trainers…" Foreground="{DynamicResource PL.Text3Brush}" FontWeight="Normal" />
+            <TextBlock Text="Search Pokémon, moves, trainers…" Foreground="{DynamicResource PL.Text3Brush}" FontWeight="Normal" />
           </StackPanel>
         </Button>
 

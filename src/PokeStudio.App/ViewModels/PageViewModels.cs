@@ -40,7 +40,7 @@ public sealed class OverviewPageViewModel : ViewModelBase
     public IReadOnlyList<FeatureRow> Features { get; }
 }
 
-/// <summary>Phase 1 creature editor for the demo module: proves edit → undo → save → backup end to end.</summary>
+/// <summary>Phase 1 Pokémon editor for the demo module: proves edit → undo → save → backup end to end.</summary>
 public sealed partial class SpeciesPageViewModel : ViewModelBase
 {
     private readonly ShellViewModel _shell;
@@ -119,7 +119,7 @@ public sealed partial class SpeciesEditorViewModel : ViewModelBase
             {
                 var old = Model.Name;
                 _shell.Execute(new ValueChange<string>(
-                    "Creatures", $"{old} · renamed to {trimmed}",
+                    "Pokémon", $"{old} · renamed to {trimmed}",
                     v => Model = Model with { Name = v }, old, trimmed,
                     $"species:{_index}:name", (a, b) => $"{a} · renamed to {b}"));
             }
@@ -144,7 +144,7 @@ public sealed partial class SpeciesEditorViewModel : ViewModelBase
 
         var name = Model.Name;
         _shell.Execute(new ValueChange<int>(
-            "Creatures", $"{name} · {label} {old} → {value}",
+            "Pokémon", $"{name} · {label} {old} → {value}",
             v => Model = Model with { Stats = with(Model.Stats, v) }, old, value,
             $"species:{_index}:{label}", (a, b) => $"{name} · {label} {a} → {b}"));
     }

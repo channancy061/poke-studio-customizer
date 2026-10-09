@@ -10,7 +10,7 @@ public class ChangeTests
     }
 
     private static ValueChange<int> Set(Box box, int to) =>
-        new("Creatures", $"Speed {box.Value} → {to}", v => box.Value = v, box.Value, to);
+        new("Pokémon", $"Speed {box.Value} → {to}", v => box.Value = v, box.Value, to);
 
     [Fact]
     public void Undo_and_redo_restore_values_in_order()

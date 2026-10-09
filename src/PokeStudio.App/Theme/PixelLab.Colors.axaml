@@ -178,7 +178,7 @@
   <SolidColorBrush x:Key="PL.Platform3dsForegroundBrush" Color="#FFFFFF" />
   <x:String x:Key="PL.Platform3dsLabel">3DS</x:String>
 
-  <!-- Creature types: background + accessible foreground + label (never colour alone) -->
+  <!-- Pokémon types: background + accessible foreground + label (never colour alone) -->
   <SolidColorBrush x:Key="PL.TypeNormalBrush" Color="#A8A77A" />
   <SolidColorBrush x:Key="PL.TypeNormalForegroundBrush" Color="#13142A" />
   <x:String x:Key="PL.TypeNormalLabel">Normal</x:String>

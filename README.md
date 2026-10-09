@@ -60,7 +60,7 @@ CI builds the AppImage on every `v*` tag (`release.yml`), so you can also downlo
 
 ## Manual checklist (both OSes)
 1. First launch shows the hub with the empty state.
-2. **Try the demo game** → workspace opens on Creatures; the menu shows Moves/Trainers/Enemy AI **locked with a reason** and "6 tools hidden for this game".
+2. **Try the demo game** → workspace opens on Pokémon; the menu shows Moves/Trainers/Enemy AI **locked with a reason** and "6 tools hidden for this game".
 3. Drag Leafling's **Speed** slider → one entry "Leafling · Speed 45 → …" in Changes; status bar shows "1 unsaved change".
 4. **Ctrl+Z / Ctrl+Y** undo and redo; the undo button tooltip names the change.
 5. Type a 13-letter name → plain-English "too long for this game" message, no change recorded.

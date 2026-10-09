@@ -78,7 +78,7 @@ public sealed class DemoGameModule : IGameModule
             : (await JsonStore.ReadAsync<DemoGameFile>(workingSourcePath, cancellationToken))?.Species;
 
         var data = new GameData();
-        data.Species.AddRange(species ?? throw new InvalidDataException("The demo game file has no creatures."));
+        data.Species.AddRange(species ?? throw new InvalidDataException("The demo game file has no Pokémon."));
         return data;
     }
 

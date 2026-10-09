@@ -30,7 +30,7 @@ public class ScreenshotTests
         Assert.Null(await env.Main.CreateProjectFromGameAsync(HubViewModel.DemoGamePath));
         var shell = Assert.IsType<ShellViewModel>(env.Main.CurrentView);
         ((SpeciesPageViewModel)shell.CurrentPage!).Selected!.Stats[5].Value = 90;
-        Save(window, $"creatures-{theme}");
+        Save(window, $"pokemon-{theme}");
 
         shell.Navigate(NavKey.Overview);
         Save(window, $"overview-{theme}");
