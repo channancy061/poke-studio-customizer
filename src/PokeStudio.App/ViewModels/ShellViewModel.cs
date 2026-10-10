@@ -482,7 +482,8 @@ public sealed partial class ShellViewModel : ViewModelBase
             RefreshChanges();
             Toast = "Saved.";
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Core.Safety.UnsafeWriteException)
+        // (InvalidOperationException: a module explaining why it can't write, e.g. no free flags left for the game options)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Core.Safety.UnsafeWriteException or InvalidOperationException)
         {
             Toast = "Couldn't save: " + ex.Message;
         }

@@ -261,3 +261,94 @@ public class GameOptionsTests
     public Task Real_firered_project_gets_the_options_when_available() =>
         RealProject(Environment.GetEnvironmentVariable("POKESTUDIO_FIRERED_DIR"), "data/maps/PalletTown_PlayersHouse_2F/scripts.inc");
 }
+
+public class GameOptionsCodeTests
+{
+    internal static readonly GameOptionsSettings All = new()
+    {
+        Difficulty = OptionMode.PlayerChooses,
+        LevelCap = OptionMode.NotUsed,
+        Nuzlocke = OptionMode.PlayerChooses,
+        AdaptiveSlot = OptionMode.PlayerChooses,
+        CenterHelper = new CenterHelperSettings { Enabled = true, NaturePrice = 2000 },
+    };
+
+    private static async Task RealProject(string? real, string name)
+    {
+        if (string.IsNullOrEmpty(real) || !Directory.Exists(real))
+        {
+            return;
+        }
+
+        using var tmp = new TempDir();
+        var root = tmp.Combine("game");
+        foreach (var dir in new[] { "include", "src", "data/maps", "data/text", "data/scripts", "data/layouts", "data/tilesets" })
+        {
+            ProjectService.CopyDirectory(Path.Combine([real, .. dir.Split('/')]), Path.Combine([root, .. dir.Split('/')]));
+        }
+
+        foreach (var f in new[] { "Makefile", "charmap.txt", "data/event_scripts.s" })
+        {
+            File.Copy(Path.Combine([real, .. f.Split('/')]), Path.Combine([root, .. f.Split('/')]));
+        }
+
+        var module = new ExpansionModule();
+        var data = await module.LoadDataAsync(root, tmp.Combine("data"));
+        data.GameOptions = All;
+        var ctx = new ModuleSaveContext(new SafeFileWriter(root, allowedFiles: module.ManagedFiles(root)), root, root);
+        await module.SaveDataAsync(data, ctx);
+
+        string ReadRel(string rel) => File.ReadAllText(Path.Combine([root, .. rel.Split('/')]));
+        var outDir = Path.Combine(AppContext.BaseDirectory, "generated-" + name);
+        Directory.CreateDirectory(outDir);
+        foreach (var f in new[] { GameOptionsWriter.CodeFile, GameOptionsWriter.CodeHeader, GameOptionsWriter.Script, GameOptionsWriter.Header })
+        {
+            File.Copy(Path.Combine([root, .. f.Split('/')]), Path.Combine(outDir, Path.GetFileName(f)), true);
+        }
+
+        var code = ReadRel(GameOptionsWriter.CodeFile);
+        Assert.Contains("[SPECIES_IVYSAUR] = SPECIES_BULBASAUR,", code, StringComparison.Ordinal);
+        Assert.Contains("[SPECIES_VENUSAUR] = SPECIES_BULBASAUR,", code, StringComparison.Ordinal);
+        Assert.Contains("FLAG_PS_AREA_", code, StringComparison.Ordinal);
+        foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(code, @"FLAG_PS_\w+"))
+        {
+            Assert.Contains("#define " + m.Value + " ", ReadRel(GameOptionsWriter.Header), StringComparison.Ordinal);
+        }
+
+        var setup = ReadRel(GameOptionsWriter.BattleSetup);
+        Assert.Contains("PokeStudio_BeforeWildBattle();", setup, StringComparison.Ordinal);
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Count(setup, @"PokeStudio_AfterBattle\(\);"));
+        Assert.Contains("FLAG_PS_NUZ_NICK", ReadRel(GameOptionsWriter.BattleScripts), StringComparison.Ordinal);
+        Assert.Contains("POOL_PICK_POKE_STUDIO_ADAPTIVE", ReadRel(GameOptionsWriter.PoolsHeader), StringComparison.Ordinal);
+        Assert.Contains("case POOL_PICK_POKE_STUDIO_ADAPTIVE:", ReadRel(GameOptionsWriter.PoolsSource), StringComparison.Ordinal);
+        var centers = Directory.GetDirectories(Path.Combine(root, "data", "maps")).Where(d => d.Contains("PokemonCenter_1F", StringComparison.Ordinal)).ToList();
+        var withHelper = centers.Count(d => File.ReadAllText(Path.Combine(d, "map.json")).Contains("PokeStudio_EventScript_CenterHelper", StringComparison.Ordinal));
+        await File.WriteAllTextAsync(Path.Combine(outDir, "centers.txt"), string.Join("\n", centers.Select(d =>
+        {
+            var json = File.ReadAllText(Path.Combine(d, "map.json"));
+            var at = json.IndexOf("PokeStudio_EventScript_CenterHelper", StringComparison.Ordinal);
+            return Path.GetFileName(d) + ": " + (at < 0 ? "none" : json[Math.Max(0, at - 260)..at].Replace("\n", " ", StringComparison.Ordinal));
+        })));
+        Assert.True(withHelper >= centers.Count - 2, $"{withHelper} of {centers.Count} centers got the helper");
+
+        // saving again changes nothing
+        var snapshot = module.ManagedFiles(root).Where(f => File.Exists(Path.Combine([root, .. f.Split('/')]))).ToDictionary(f => f, ReadRel);
+        var reloaded = await module.LoadDataAsync(root, tmp.Combine("data"));
+        reloaded.GameOptions = All;
+        await module.SaveDataAsync(reloaded, ctx);
+        foreach (var (f, text) in snapshot)
+        {
+            var now = ReadRel(f);
+            var diff = string.Join(" | ", text.Split('\n').Zip(now.Split('\n')).Where(z => z.First != z.Second).Take(3).Select(z => z.First.Trim() + " => " + z.Second.Trim()));
+            Assert.True(text == now, $"{f} changed on the second save: {diff}");
+        }
+    }
+
+    [Fact]
+    public Task Real_emerald_project_gets_the_game_code_when_available() =>
+        RealProject(Environment.GetEnvironmentVariable("POKESTUDIO_EXPANSION_DIR"), "emerald");
+
+    [Fact]
+    public Task Real_firered_project_gets_the_game_code_when_available() =>
+        RealProject(Environment.GetEnvironmentVariable("POKESTUDIO_FIRERED_DIR"), "firered");
+}

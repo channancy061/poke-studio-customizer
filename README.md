@@ -7,7 +7,7 @@
 A friendly desktop editor (Windows + Linux) for customising games you legally own.
 It ships **no game files or assets**, never modifies your originals, and uses only open-source components (MIT-licensed).
 
-## Status: Phase 8a (new-game options) done, not yet test-built
+## Status: Phase 8 (game options, Nuzlocke, adaptive bosses, Center helper) done, not yet test-built
 - **Phase 1:** solution skeleton, plugin system, projects, undo/redo + change log, backups/restore, settings,
   Avalonia shell with light/dark theming, CI on Windows + Linux, Windows installer and Linux AppImage.
 - **Phase 2:** edit a **pokeemerald-expansion 1.17.1** project (Emerald-based, Gen 1–9 Pokémon):
@@ -115,6 +115,20 @@ It ships **no game files or assets**, never modifies your originals, and uses on
   lines marked "Poke Studio" in the start map, configs, `caps.c`, `pokemon.c`, `party_menu.c` and the item
   lists; each is added once. Settings live in the project's `data/game-options.json`. Not compile-tested yet
   (needs WSL).
+- **Fix evolutions** (Tools): trade and day/night evolutions become level, stone (Linking Cord; Sun / Moon / Dusk
+  Stone) or level-up-holding-an-item evolutions, chosen per evolution; branches that would clash (Espeon/Umbreon,
+  Lycanroc) get a stone. Evolution lists split by `#if` settings have their entries replaced one for one.
+- **Phase 8b — game code** (all in a generated `src/poke_studio.c`, plus one marked line per hook):
+  - **Nuzlocke**, each rule its own option: first encounter per area (per-area flags; uses expansion's
+    no-catching flag), fainted Pokémon released after the battle (not when the whole team fainted), duplicates
+    clause by evolution family, **Eevee clause**, shiny clause, nicknames required, respect the level cap.
+  - **Adaptive boss slot**: gym leaders, rival and Elite Four (never the Champion) get a flexible member plus
+    candidates, written as an expansion party pool (`Party Size`, `Pool Pick Functions: Poke Studio Adaptive`,
+    `Tags: Tag7`); our pick function keeps the team in order and picks the candidate whose types best counter
+    the player's party. Candidates come from the team builder (Champion Lab "for all bosses", or the trainer editor).
+  - **Pokémon Center helper**: an NPC in every Center (behind the counter next to the nurse when there's room,
+    otherwise a free tile that blocks no path, door, sign or machine — read from the map's collision and
+    metatile behaviours) who changes natures, gives perfect IVs and sets EV spreads, each optional with a price.
 - **FireRed base:** projects made from **pokefirered-expansion** (community port, cawtds/pokefirered-expansion,
   expansion 1.15.x) open with the same editors. Differences handled: the ROM is `pokefirered.gba`, the text
   box is 26 tiles (208 px, read from `src/menu.c`), shops live in `src/data/shops.json` (stages; edited in

@@ -558,6 +558,58 @@ public sealed partial class TrainerEditorViewModel : ViewModelBase
     [RelayCommand]
     private void MakeReport() => Report = Core.ChampionLab.ReportCard.For(_shell.Session.Data, Lab, Model);
 
+    // ---- adaptive boss slot ----
+    public bool AdaptiveAllowed => IsEditable && Model.Party.Count > 0
+        && Core.ChampionLab.AdaptiveSlots.Allowed(Core.ChampionLab.Lab.GroupOf(_shell.Session.Data, Lab, Model));
+
+    public bool HasAdaptive => Model.HasAdaptiveSlot;
+    public bool NoAdaptive => !HasAdaptive;
+
+    public string AdaptiveSummary => Model.HasAdaptiveSlot
+        ? $"Flexible: {SpeciesName(Model.Party[Model.FlexIndex!.Value].Species)}. Candidates: {string.Join(", ", Model.FlexCandidates.Select(c => SpeciesName(c.Species)))}."
+            + (_shell.Session.Data.GameOptions?.AdaptiveSlot is null or Core.GameOptions.OptionMode.NotUsed ? " (Switch it on in Game options for it to work in the game.)" : "")
+        : "This boss has no adaptive slot.";
+
+    public IReadOnlyList<CatalogEntry> FlexOptions => Model.Party.Select((p, i) => new CatalogEntry(i.ToString(System.Globalization.CultureInfo.InvariantCulture), $"{i + 1}. {SpeciesName(p.Species)}")).ToList();
+
+    public CatalogEntry? FlexMember
+    {
+        get => FlexOptions.ElementAtOrDefault(Model.FlexIndex ?? Core.ChampionLab.AdaptiveSlots.DefaultFlexIndex(Model));
+        set
+        {
+            if (value is not null && Model.HasAdaptiveSlot && int.Parse(value.Key, System.Globalization.CultureInfo.InvariantCulture) is var i && i != Model.FlexIndex)
+            {
+                Edit("flex", x => x with { FlexIndex = i }, $"flexible member is now {SpeciesName(Model.Party[i].Species)}");
+            }
+        }
+    }
+
+
+    [RelayCommand]
+    private void SuggestCandidates()
+    {
+        var flex = Model.FlexIndex ?? Core.ChampionLab.AdaptiveSlots.DefaultFlexIndex(Model);
+        var candidates = Core.ChampionLab.AdaptiveSlots.SuggestCandidates(_shell.Session.Data, Lab, Model, flex);
+        if (candidates.Count == 0)
+        {
+            _shell.Toast = "No candidates fit this boss's theme and rules.";
+            return;
+        }
+
+        Edit("flex", x => x with { FlexIndex = flex, FlexCandidates = candidates }, "adaptive slot candidates suggested");
+    }
+
+    [RelayCommand]
+    private void RemoveAdaptive() => Edit("flex", x => x with { FlexIndex = null, FlexCandidates = [] }, "adaptive slot removed");
+
+    private void RefreshAdaptive()
+    {
+        foreach (var name in new[] { nameof(AdaptiveAllowed), nameof(HasAdaptive), nameof(NoAdaptive), nameof(AdaptiveSummary), nameof(FlexOptions), nameof(FlexMember) })
+        {
+            OnPropertyChanged(name);
+        }
+    }
+
     // ---- copy a team ----
     public IReadOnlyList<CatalogEntry> TrainerOptions =>
         _shell.Session.Data.Trainers.Where(t => t.Key != Model.Key && t.Party.Count > 0)
@@ -580,6 +632,7 @@ public sealed partial class TrainerEditorViewModel : ViewModelBase
 
     private void Rebuild()
     {
+        RefreshAdaptive();
         Party.Clear();
         for (var i = 0; i < Model.Party.Count; i++)
         {

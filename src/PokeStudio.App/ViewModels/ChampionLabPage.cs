@@ -140,6 +140,20 @@ public sealed partial class ChampionLabPageViewModel : ViewModelBase
         set => Update(s => s with { RivalKeepsStarter = value }, value ? "Rule on: rivals keep their starter" : "Rule off: rivals keep their starter");
     }
 
+    [RelayCommand]
+    private void SuggestAdaptiveSlots()
+    {
+        var (change, count) = AdaptiveSlots.SuggestForAll(Data, Settings);
+        if (change is null)
+        {
+            _shell.Toast = "Every gym leader, rival and Elite Four member already has an adaptive slot (or none fit).";
+            return;
+        }
+
+        _shell.Execute(change);
+        _shell.Toast = $"Adaptive slots suggested for {count} bosses. One Undo removes them all.";
+    }
+
     public bool OfficialOnly
     {
         get => Settings.OfficialOnly;

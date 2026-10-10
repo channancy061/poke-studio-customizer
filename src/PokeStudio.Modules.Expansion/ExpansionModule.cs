@@ -106,7 +106,7 @@ public sealed class ExpansionModule : IGameModule
         var layout = new ExpansionLayout(workingSourcePath);
         return [.. layout.SpeciesFiles(), layout.LevelUpFile, ExpansionLayout.EggMovesFile, ExpansionLayout.LearnablesJson, MovesInfo.File, TrainerParty.File,
             EncountersFile.File, ItemsInfo.File, CapsFiles.Source, CapsFiles.Config, BattleConfig, ShopsJson.File, ShopsJson.ShopC, DifficultyFile, AiConfig,
-            .. GameOptionsWriter.Files(layout).Where(f => !f.StartsWith("data/maps/", StringComparison.Ordinal)), .. ScriptFiles(layout.Root)];
+            .. GameOptionsWriter.Files(layout).Where(f => !f.EndsWith("/scripts.inc", StringComparison.Ordinal)), .. ScriptFiles(layout.Root)];
     }
 
     public Task<GameData> LoadDataAsync(string workingSourcePath, string projectDataDir, CancellationToken cancellationToken = default) =>
@@ -285,7 +285,7 @@ public sealed class ExpansionModule : IGameModule
         // new-game options last: they read the files as the steps above left them
         if (options is { AnyUsed: true })
         {
-            foreach (var (file, text) in GameOptionsWriter.PlanFor(state.Layout, options))
+            foreach (var (file, text) in GameOptionsWriter.PlanFor(state.Layout, options, data))
             {
                 await context.Writer.WriteAllTextAsync(state.Layout.Full(file), text, cancellationToken);
             }
@@ -670,13 +670,15 @@ public sealed class ExpansionModule : IGameModule
             state.SpeciesAliases = speciesAliases;
             foreach (var (block, parsed) in TrainerParty.Parse(state.TrainersText, TrainerParty.SpeciesConstant))
             {
+                TrainerPokemon Resolve(TrainerPokemon p) => p with
+                {
+                    Species = speciesAliases.GetValueOrDefault(p.Species, p.Species),
+                    Moves = p.Moves.Select(m => moveAliases.GetValueOrDefault(m, m)).ToList(),
+                };
                 var trainer = parsed with
                 {
-                    Party = parsed.Party.Select(p => p with
-                    {
-                        Species = speciesAliases.GetValueOrDefault(p.Species, p.Species),
-                        Moves = p.Moves.Select(m => moveAliases.GetValueOrDefault(m, m)).ToList(),
-                    }).ToList(),
+                    Party = parsed.Party.Select(Resolve).ToList(),
+                    FlexCandidates = parsed.FlexCandidates.Select(Resolve).ToList(),
                 };
                 if (state.TrainerBlocks.TryAdd(block.Key, block))
                 {

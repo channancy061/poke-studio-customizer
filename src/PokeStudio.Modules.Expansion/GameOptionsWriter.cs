@@ -24,7 +24,7 @@ internal static partial class GameOptionsWriter
     public const string Mark = "Poke Studio";
 
     public static IReadOnlyList<string> Files(ExpansionLayout layout) =>
-        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout)];
+        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. CenterPlacement.CenterMaps(layout.Root)];
 
     /// <summary>The map a new game starts on (Emerald: the truck; FireRed: the player's room).</summary>
     public static string StartMapScripts(ExpansionLayout layout) =>
@@ -54,7 +54,7 @@ internal static partial class GameOptionsWriter
     private static partial Regex Existing();
 
     /// <summary>Reuses the ids already in the generated header; picks new ones from the project's unused flags and variables.</summary>
-    public static Ids AllocateIds(Func<string, string?> read, Func<string, bool> usedElsewhere)
+    public static Ids AllocateIds(Func<string, string?> read, Func<string, bool> usedElsewhere, IEnumerable<string>? extraFlags = null)
     {
         var existing = read(Header) is { } h ? Existing().Matches(h).ToDictionary(m => m.Groups[1].Value, m => m.Groups[2].Value) : [];
         var flags = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -65,7 +65,9 @@ internal static partial class GameOptionsWriter
             .Where(m => SafeFlag(m.Groups[2].Value) && !takenValues.Contains(m.Groups[2].Value) && !usedElsewhere(m.Groups[1].Value)).Select(m => m.Groups[2].Value).ToQueue();
         var freeVars = UnusedVar().Matches(read(VarsFile) ?? "")
             .Where(m => SafeVar(m.Groups[2].Value) && !takenValues.Contains(m.Groups[2].Value) && !usedElsewhere(m.Groups[1].Value)).Select(m => m.Groups[2].Value).ToQueue();
-        foreach (var name in FlagNames)
+        // names already in the header keep their numbers even when an option is switched off for now
+        var wanted = FlagNames.Concat(extraFlags ?? []).Concat(existing.Keys.Where(k => k.StartsWith("FLAG_", StringComparison.Ordinal))).Distinct(StringComparer.Ordinal);
+        foreach (var name in wanted)
         {
             flags[name] = existing.GetValueOrDefault(name) ?? (freeFlags.Count > 0 ? freeFlags.Dequeue() : throw new InvalidOperationException("The project has no unused flags left for the new-game options."));
         }
@@ -81,11 +83,13 @@ internal static partial class GameOptionsWriter
     private static Queue<string> ToQueue(this IEnumerable<string> items) => new(items);
 
     /// <summary>Reads the project from disk and plans the changes (ids chosen from flags and variables nothing else uses).</summary>
-    public static Dictionary<string, string> PlanFor(ExpansionLayout layout, GameOptionsSettings options)
+    public static Dictionary<string, string> PlanFor(ExpansionLayout layout, GameOptionsSettings options, Core.Modules.GameData? data = null, List<string>? notes = null)
     {
         string? Read(string rel) => File.Exists(layout.Full(rel)) ? File.ReadAllText(layout.Full(rel)) : null;
-        var ids = AllocateIds(Read, UsageScanner(layout.Root));
-        return Plan(layout, options, ids, Read);
+        byte[]? ReadBytes(string rel) => File.Exists(layout.Full(rel)) ? File.ReadAllBytes(layout.Full(rel)) : null;
+        var extras = BuildExtras(layout, data);
+        var ids = AllocateIds(Read, UsageScanner(layout.Root), ExtraFlagNames(options, extras));
+        return Plan(layout, options, ids, Read, extras, ReadBytes, notes);
     }
 
     /// <summary>"Is this name used anywhere but its definition?" (scans the code, scripts and map data once, on first ask).</summary>
@@ -122,7 +126,8 @@ internal static partial class GameOptionsWriter
     }
 
     /// <summary>New contents for every file that needs to change (files already up to date are left out).</summary>
-    public static Dictionary<string, string> Plan(ExpansionLayout layout, GameOptionsSettings o, Ids ids, Func<string, string?> read)
+    public static Dictionary<string, string> Plan(ExpansionLayout layout, GameOptionsSettings o, Ids ids, Func<string, string?> read,
+        Extras? extras = null, Func<string, byte[]?>? readBytes = null, List<string>? notes = null)
     {
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         void Put(string file, string? before, string after)
@@ -161,7 +166,7 @@ internal static partial class GameOptionsWriter
         }
 
         // 3. the generated script, included by event_scripts.s
-        Put(Script, read(Script), BuildScript(o, ids));
+        Put(Script, read(Script), BuildScript(o, ids, layout.IsFireRedBase));
         if (read(EventScripts) is { } events && !events.Contains("poke_studio_options.inc", StringComparison.Ordinal))
         {
             var nl = CScanner.LineEnding(events);
@@ -192,7 +197,7 @@ internal static partial class GameOptionsWriter
             Put(BattleConfig, battle, updated);
         }
 
-        if (o.LevelCap != OptionMode.NotUsed && read(CapsConfig) is { } capsCfg)
+        if (o.LevelCapCodeUsed && read(CapsConfig) is { } capsCfg)
         {
             var updated = capsCfg;
             if (Define(updated, "B_LEVEL_CAP_TYPE") == "LEVEL_CAP_NONE")
@@ -212,7 +217,7 @@ internal static partial class GameOptionsWriter
         }
 
         // 6. small code blocks
-        if (o.LevelCap != OptionMode.NotUsed && read(CapsSource) is { } caps && !caps.Contains("FLAG_PS_LEVEL_CAP_OFF", StringComparison.Ordinal))
+        if (o.LevelCapCodeUsed && read(CapsSource) is { } caps && !caps.Contains("FLAG_PS_LEVEL_CAP_OFF", StringComparison.Ordinal))
         {
             var m = Regex.Match(caps, @"u32 GetCurrentLevelCap\(void\)\s*\{\r?\n");
             if (m.Success)
@@ -283,6 +288,11 @@ internal static partial class GameOptionsWriter
                 Put(PartyMenu, party, InfiniteCandyPatch(party));
             }
         }
+
+        // 7. Nuzlocke rules, adaptive boss slot, Pokémon Center helper
+        // (reads see the changes planned above: two steps can touch the same file, e.g. FireRed's battle.h)
+        string? Current(string file) => result.TryGetValue(file, out var planned) ? planned : read(file);
+        PlanCode(layout, o, ids, Current, readBytes ?? (_ => null), (f, _, after) => Put(f, read(f), after), extras ?? Extras.None, notes ?? []);
 
         return result;
     }
@@ -374,7 +384,7 @@ internal static partial class GameOptionsWriter
     }
 
     /// <summary>The options script: settings the creator fixed are applied silently; the rest are asked.</summary>
-    internal static string BuildScript(GameOptionsSettings o, Ids ids)
+    internal static string BuildScript(GameOptionsSettings o, Ids ids, bool fireRed = false)
     {
         var sb = new StringBuilder();
         var texts = new StringBuilder();
@@ -417,7 +427,21 @@ internal static partial class GameOptionsWriter
             L("\tgiveitem ITEM_INFINITE_CANDY");
         }
 
-        var asks = new[] { o.Difficulty, o.TrainingOff, o.LevelCap, o.NoItemsInBattle, o.InfiniteCandy }.Count(m => m == OptionMode.PlayerChooses);
+        if (o.AdaptiveSlot == OptionMode.AlwaysOn)
+        {
+            L("\tsetflag FLAG_PS_ADAPTIVE");
+        }
+
+        // the cap code exists only for the Nuzlocke rule: off unless that rule switches it on
+        if (o.LevelCap == OptionMode.NotUsed && o.LevelCapCodeUsed)
+        {
+            L("\tsetflag FLAG_PS_LEVEL_CAP_OFF");
+        }
+
+        var nuzlocke = o.Nuzlocke is OptionMode.PlayerChooses or OptionMode.AlwaysOn;
+        var nuzRules = new[] { o.NuzFirstEncounter, o.NuzFaintedGone, o.NuzDupes, o.NuzEeveeException, o.NuzShiny, o.NuzNicknames, o.NuzLevelCap };
+        var asks = new[] { o.Difficulty, o.TrainingOff, o.LevelCap, o.NoItemsInBattle, o.InfiniteCandy, o.AdaptiveSlot, o.Nuzlocke }.Count(m => m == OptionMode.PlayerChooses)
+            + (nuzlocke ? nuzRules.Count(m => m == OptionMode.PlayerChooses) : 0);
         if (asks > 0)
         {
             L("\tmsgbox PokeStudio_Text_Intro, MSGBOX_DEFAULT");
@@ -471,6 +495,52 @@ internal static partial class GameOptionsWriter
         Ask(o.NoItemsInBattle, "NoItems", o.NoItemsAlsoWild ? "No items in any battle?" : "No items in trainer battles?",
             $"\tsetvar VAR_PS_NO_BAG, {(o.NoItemsAlsoWild ? 2 : 1)}\n");
         Ask(o.InfiniteCandy, "Candy", "Take an Infinite Candy?\\nIt never runs out.", "\tgiveitem ITEM_INFINITE_CANDY\n");
+        Ask(o.AdaptiveSlot, "Adaptive", "Bosses adapt one Pokémon\\nto your team?", "\tsetflag FLAG_PS_ADAPTIVE\n");
+
+        if (nuzlocke)
+        {
+            void Rule(OptionMode mode, string name, string question, string set)
+            {
+                if (mode == OptionMode.AlwaysOn)
+                {
+                    L(set.TrimEnd('\n'));
+                }
+
+                Ask(mode, name, question, set);
+            }
+
+            if (o.Nuzlocke == OptionMode.PlayerChooses)
+            {
+                L("\tmsgbox PokeStudio_Text_AskNuzlocke, MSGBOX_YESNO");
+                L("\tgoto_if_eq VAR_RESULT, NO, PokeStudio_EventScript_NuzlockeDone");
+                Text("PokeStudio_Text_AskNuzlocke", "Play a Nuzlocke?\\nThe rules come one by one.");
+            }
+
+            Rule(o.NuzFirstEncounter, "NuzFirst", "Catch only the first\\nPokémon in each area?", "\tsetflag FLAG_PS_NUZ_FIRST\n");
+            Rule(o.NuzFaintedGone, "NuzFaint", "Fainted Pokémon are\\ngone for good?", "\tsetflag FLAG_PS_NUZ_FAINT\n");
+            if (o.NuzFirstEncounter != OptionMode.NotUsed && o.NuzFirstEncounter != OptionMode.AlwaysOff)
+            {
+                L("\tgoto_if_unset FLAG_PS_NUZ_FIRST, PokeStudio_EventScript_NuzlockeClausesDone");
+                Rule(o.NuzDupes, "NuzDupes", "Duplicates clause?\\nRepeats don't use up areas.", "\tsetflag FLAG_PS_NUZ_DUPES\n");
+                if (o.NuzDupes is OptionMode.AlwaysOn or OptionMode.PlayerChooses)
+                {
+                    L("\tgoto_if_unset FLAG_PS_NUZ_DUPES, PokeStudio_EventScript_NuzlockeEeveeDone");
+                    Rule(o.NuzEeveeException, "NuzEevee", "Eevee clause? Eevee is\\nnever a duplicate.", "\tsetflag FLAG_PS_NUZ_EEVEE\n");
+                    L("PokeStudio_EventScript_NuzlockeEeveeDone:");
+                }
+
+                Rule(o.NuzShiny, "NuzShiny", "Shiny clause? Shinies can\\nalways be caught.", "\tsetflag FLAG_PS_NUZ_SHINY\n");
+                L("PokeStudio_EventScript_NuzlockeClausesDone:");
+            }
+
+            Rule(o.NuzNicknames, "NuzNick", "Nickname every Pokémon\\nyou catch?", "\tsetflag FLAG_PS_NUZ_NICK\n");
+            if (o.LevelCapCodeUsed)
+            {
+                Rule(o.NuzLevelCap, "NuzCap", "Respect the level cap\\nduring the Nuzlocke?", "\tclearflag FLAG_PS_LEVEL_CAP_OFF\n");
+            }
+
+            L("PokeStudio_EventScript_NuzlockeDone:");
+        }
 
         if (asks > 0)
         {
@@ -481,7 +551,143 @@ internal static partial class GameOptionsWriter
         L("\treleaseall");
         L("\tend");
         L("");
+        if (o.CenterHelper.AnyService)
+        {
+            CenterHelperScript(o.CenterHelper, fireRed, L, Text);
+        }
+
         sb.Append(subs).Append(texts);
         return sb.ToString();
+    }
+
+    private static readonly (string Name, string Effect)[] Natures =
+    [
+        ("Hardy", ""), ("Lonely", "+Atk -Def"), ("Brave", "+Atk -Spe"), ("Adamant", "+Atk -SpA"), ("Naughty", "+Atk -SpD"),
+        ("Bold", "+Def -Atk"), ("Docile", ""), ("Relaxed", "+Def -Spe"), ("Impish", "+Def -SpA"), ("Lax", "+Def -SpD"),
+        ("Timid", "+Spe -Atk"), ("Hasty", "+Spe -Def"), ("Serious", ""), ("Jolly", "+Spe -SpA"), ("Naive", "+Spe -SpD"),
+        ("Modest", "+SpA -Atk"), ("Mild", "+SpA -Def"), ("Quiet", "+SpA -Spe"), ("Bashful", ""), ("Rash", "+SpA -SpD"),
+        ("Calm", "+SpD -Atk"), ("Gentle", "+SpD -Def"), ("Sassy", "+SpD -Spe"), ("Careful", "+SpD -SpA"), ("Quirky", ""),
+    ];
+
+    private static readonly string[] EvSpreads =
+        ["Reset to 0", "Attack + Speed", "Sp. Atk + Speed", "HP + Attack", "HP + Sp. Atk", "HP + Defense", "HP + Sp. Def"];
+
+    /// <summary>The Pokémon Center helper: pick a service, a party Pokémon, then the nature or spread.</summary>
+    private static void CenterHelperScript(CenterHelperSettings h, bool fireRed, Action<string> L, Action<string, string> text)
+    {
+        var services = new List<(string Name, string Label, int Price)>();
+        if (h.Nature)
+        {
+            services.Add(("Nature", "Change nature", h.NaturePrice));
+        }
+
+        if (h.PerfectIvs)
+        {
+            services.Add(("Ivs", "Perfect IVs", h.IvPrice));
+        }
+
+        if (h.EvSpreads)
+        {
+            services.Add(("Evs", "Set EVs", h.EvPrice));
+        }
+
+        L("PokeStudio_EventScript_CenterHelper::");
+        L("\tlock");
+        L("\tfaceplayer");
+        L("\tmessage PokeStudio_Text_HelperAsk");
+        L("\twaitmessage");
+        L($"\tdynmultichoice 0, 0, FALSE, 6, 0, DYN_MULTICHOICE_CB_NONE, {string.Join(", ", services.Select(s => $"PokeStudio_Text_Helper{s.Name}"))}, PokeStudio_Text_HelperBye");
+        L("\tswitch VAR_RESULT");
+        for (var i = 0; i < services.Count; i++)
+        {
+            L($"\tcase {i}, PokeStudio_EventScript_Helper{services[i].Name}");
+        }
+
+        L("\tgoto PokeStudio_EventScript_HelperEnd");
+        L("");
+        text("PokeStudio_Text_HelperAsk", "I can tune your Pokémon.\\nWhat would you like?");
+        text("PokeStudio_Text_HelperBye", "No, thanks");
+        foreach (var s in services)
+        {
+            text($"PokeStudio_Text_Helper{s.Name}", s.Price > 0 ? $"{s.Label} (¥{s.Price})" : s.Label);
+        }
+
+        foreach (var s in services)
+        {
+            L($"PokeStudio_EventScript_Helper{s.Name}:");
+            if (s.Price > 0)
+            {
+                L($"\tcheckmoney {s.Price}");
+                L("\tgoto_if_eq VAR_RESULT, FALSE, PokeStudio_EventScript_HelperNoMoney");
+            }
+
+            L("\tmsgbox PokeStudio_Text_HelperWhich, MSGBOX_DEFAULT");
+            L("\tspecial ChoosePartyMon");
+            if (fireRed)
+            {
+                L("\twaitstate"); // FireRed's ChoosePartyMon doesn't wait by itself
+            }
+
+            L("\tgoto_if_ge VAR_0x8004, PARTY_SIZE, PokeStudio_EventScript_HelperEnd");
+            L("\tspecialvar VAR_RESULT, ScriptGetPartyMonSpecies");
+            L("\tgoto_if_eq VAR_RESULT, SPECIES_EGG, PokeStudio_EventScript_HelperEgg");
+            switch (s.Name)
+            {
+                case "Nature":
+                    L("\tmessage PokeStudio_Text_HelperWhichNature");
+                    L("\twaitmessage");
+                    L($"\tdynmultichoice 0, 0, FALSE, 6, 0, DYN_MULTICHOICE_CB_NONE, {string.Join(", ", Natures.Select(n => $"PokeStudio_Text_Nature{n.Name}"))}");
+                    L("\tgoto_if_eq VAR_RESULT, MULTI_B_PRESSED, PokeStudio_EventScript_HelperEnd");
+                    L("\tspecial SetHiddenNature");
+                    break;
+                case "Ivs":
+                    L("\tcallnative PokeStudio_MaxIvs");
+                    break;
+                default:
+                    L("\tmessage PokeStudio_Text_HelperWhichEvs");
+                    L("\twaitmessage");
+                    L($"\tdynmultichoice 0, 0, FALSE, 6, 0, DYN_MULTICHOICE_CB_NONE, {string.Join(", ", EvSpreads.Select((_, i) => $"PokeStudio_Text_Evs{i}"))}");
+                    L("\tgoto_if_eq VAR_RESULT, MULTI_B_PRESSED, PokeStudio_EventScript_HelperEnd");
+                    L("\tcallnative PokeStudio_SetEvSpread");
+                    break;
+            }
+
+            if (s.Price > 0)
+            {
+                L($"\tremovemoney {s.Price}");
+            }
+
+            L("\tplayse SE_SUCCESS");
+            L("\tmsgbox PokeStudio_Text_HelperDone, MSGBOX_DEFAULT");
+            L("\tgoto PokeStudio_EventScript_HelperEnd");
+            L("");
+        }
+
+        L("PokeStudio_EventScript_HelperNoMoney:");
+        L("\tmsgbox PokeStudio_Text_HelperNoMoney, MSGBOX_DEFAULT");
+        L("\tgoto PokeStudio_EventScript_HelperEnd");
+        L("");
+        L("PokeStudio_EventScript_HelperEgg:");
+        L("\tmsgbox PokeStudio_Text_HelperEgg, MSGBOX_DEFAULT");
+        L("PokeStudio_EventScript_HelperEnd:");
+        L("\tclosemessage");
+        L("\trelease");
+        L("\tend");
+        L("");
+        text("PokeStudio_Text_HelperWhich", "Which Pokémon?");
+        text("PokeStudio_Text_HelperWhichNature", "Which nature?");
+        text("PokeStudio_Text_HelperWhichEvs", "Which EV spread?");
+        text("PokeStudio_Text_HelperDone", "All done! Take good care\\nof it.");
+        text("PokeStudio_Text_HelperNoMoney", "You don't have enough\\nmoney.");
+        text("PokeStudio_Text_HelperEgg", "I can't do that for an Egg.");
+        foreach (var n in Natures)
+        {
+            text($"PokeStudio_Text_Nature{n.Name}", n.Effect.Length == 0 ? n.Name : $"{n.Name} {n.Effect}");
+        }
+
+        for (var i = 0; i < EvSpreads.Length; i++)
+        {
+            text($"PokeStudio_Text_Evs{i}", EvSpreads[i]);
+        }
     }
 }

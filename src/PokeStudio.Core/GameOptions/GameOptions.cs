@@ -47,6 +47,59 @@ public sealed record GameOptionsSettings
     /// <summary>On = the player receives an Infinite Candy (never used up; level caps still apply).</summary>
     public OptionMode InfiniteCandy { get; init; } = OptionMode.NotUsed;
 
+    /// <summary>Nuzlocke as a whole: PlayerChooses = "Play a Nuzlocke?"; each rule below then has its own setting.</summary>
+    public OptionMode Nuzlocke { get; init; } = OptionMode.NotUsed;
+
+    /// <summary>Only the first wild Pokémon met in each area can be caught.</summary>
+    public OptionMode NuzFirstEncounter { get; init; } = OptionMode.AlwaysOn;
+
+    /// <summary>Pokémon that faint are gone (released after the battle, unless the whole team fainted).</summary>
+    public OptionMode NuzFaintedGone { get; init; } = OptionMode.AlwaysOn;
+
+    /// <summary>Duplicates clause: a Pokémon whose evolution family was already caught doesn't use up the area.</summary>
+    public OptionMode NuzDupes { get; init; } = OptionMode.PlayerChooses;
+
+    /// <summary>Eevee exception to the duplicates clause: Eevee never counts as a duplicate (one per evolution).</summary>
+    public OptionMode NuzEeveeException { get; init; } = OptionMode.PlayerChooses;
+
+    /// <summary>Shiny clause: shiny Pokémon can always be caught and don't use up the area.</summary>
+    public OptionMode NuzShiny { get; init; } = OptionMode.PlayerChooses;
+
+    /// <summary>Every caught Pokémon must be nicknamed (the naming screen opens straight away).</summary>
+    public OptionMode NuzNicknames { get; init; } = OptionMode.PlayerChooses;
+
+    /// <summary>The hard level cap is on while playing a Nuzlocke.</summary>
+    public OptionMode NuzLevelCap { get; init; } = OptionMode.PlayerChooses;
+
+    /// <summary>Adaptive boss slot: gym leaders, the rival and the Elite Four swap one Pokémon to counter the player's party.</summary>
+    public OptionMode AdaptiveSlot { get; init; } = OptionMode.NotUsed;
+
+    /// <summary>A helper in every Pokémon Center who changes natures and stats.</summary>
+    public CenterHelperSettings CenterHelper { get; init; } = new();
+
+    public bool NuzlockeUsed => Nuzlocke != OptionMode.NotUsed;
+
     public bool AnyUsed => Difficulty != OptionMode.NotUsed || TrainingOff != OptionMode.NotUsed || LevelCap != OptionMode.NotUsed
-        || NoItemsInBattle != OptionMode.NotUsed || InfiniteCandy != OptionMode.NotUsed;
+        || NoItemsInBattle != OptionMode.NotUsed || InfiniteCandy != OptionMode.NotUsed || NuzlockeUsed || AdaptiveSlot != OptionMode.NotUsed
+        || CenterHelper.Enabled;
+
+    /// <summary>The level cap code is needed (by the cap option itself or the Nuzlocke cap rule).</summary>
+    public bool LevelCapCodeUsed => LevelCap != OptionMode.NotUsed || NuzRuleUsed(NuzLevelCap);
+
+    /// <summary>A rule that only applies when the Nuzlocke is on, as the game sees it.</summary>
+    public bool NuzRuleUsed(OptionMode rule) => NuzlockeUsed && rule is OptionMode.AlwaysOn or OptionMode.PlayerChooses;
+}
+
+/// <summary>The Pokémon Center helper's services and prices (0 = free).</summary>
+public sealed record CenterHelperSettings
+{
+    public bool Enabled { get; init; }
+    public bool Nature { get; init; } = true;
+    public bool PerfectIvs { get; init; } = true;
+    public bool EvSpreads { get; init; } = true;
+    public int NaturePrice { get; init; }
+    public int IvPrice { get; init; }
+    public int EvPrice { get; init; }
+
+    public bool AnyService => Enabled && (Nature || PerfectIvs || EvSpreads);
 }

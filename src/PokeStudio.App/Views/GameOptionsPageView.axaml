@@ -31,6 +31,51 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="*,220" ColumnSpacing="16" DataContext="{Binding Nuzlocke}" x:DataType="vm:GameOptionRowViewModel">
+            <StackPanel Spacing="4">
+              <TextBlock Text="{Binding Title}" Classes="heading" />
+              <TextBlock Text="{Binding Explanation}" Classes="small muted" TextWrapping="Wrap" />
+            </StackPanel>
+            <ComboBox Grid.Column="1" ItemsSource="{Binding Modes}" SelectedItem="{Binding Mode}" HorizontalAlignment="Stretch" VerticalAlignment="Center" AutomationProperties.Name="Nuzlocke">
+              <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ModeOption"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox>
+          </Grid>
+          <ItemsControl ItemsSource="{Binding NuzlockeRules}" IsVisible="{Binding NuzlockeShown}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:GameOptionRowViewModel">
+                <Grid ColumnDefinitions="*,220" ColumnSpacing="16" Margin="16,6,0,6">
+                  <StackPanel Spacing="2">
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Explanation}" Classes="small muted" TextWrapping="Wrap" />
+                  </StackPanel>
+                  <ComboBox Grid.Column="1" ItemsSource="{Binding Modes}" SelectedItem="{Binding Mode}" HorizontalAlignment="Stretch" VerticalAlignment="Center" AutomationProperties.Name="{Binding Title}">
+                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ModeOption"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="8">
+          <CheckBox IsChecked="{Binding HelperEnabled}" FontWeight="Bold" Content="Pokémon Center helper" />
+          <TextBlock Text="Someone in every Pokémon Center who tunes the player's Pokémon. Placed behind the counter next to the nurse when there's room, otherwise on a free tile that blocks nothing. Prices are in Pokémon dollars (0 = free)."
+                     Classes="small muted" TextWrapping="Wrap" />
+          <Grid ColumnDefinitions="Auto,140" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6" IsVisible="{Binding HelperEnabled}">
+            <CheckBox IsChecked="{Binding HelperNature}" Content="Change nature (any of the 25)" />
+            <NumericUpDown Grid.Column="1" Value="{Binding NaturePrice}" Minimum="0" Maximum="999999" Increment="100" FormatString="0" AutomationProperties.Name="Nature change price" />
+            <CheckBox Grid.Row="1" IsChecked="{Binding HelperIvs}" Content="Perfect IVs" />
+            <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding IvPrice}" Minimum="0" Maximum="999999" Increment="100" FormatString="0" AutomationProperties.Name="Perfect IVs price" />
+            <CheckBox Grid.Row="2" IsChecked="{Binding HelperEvs}" Content="EV spreads (Attack + Speed, HP + Defense…, or reset)" />
+            <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding EvPrice}" Minimum="0" Maximum="999999" Increment="100" FormatString="0" AutomationProperties.Name="EV spread price" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
       <Border Classes="card" IsVisible="{Binding AsksDifficulty}">
         <StackPanel Spacing="8">
           <TextBlock Text="Difficulty menu" Classes="heading" />

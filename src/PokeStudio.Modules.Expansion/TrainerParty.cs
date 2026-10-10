@@ -38,6 +38,23 @@ internal static partial class TrainerParty
 {
     public const string File = "src/data/trainers.party";
 
+    /// <summary>The pool pick function Poke Studio adds for the adaptive boss slot (POOL_PICK_POKE_STUDIO_ADAPTIVE).</summary>
+    public const string AdaptivePick = "Poke Studio Adaptive";
+
+    /// <summary>Tag marking the flexible member and its candidates.</summary>
+    public const string FlexTag = "Tag7"; // becomes MON_POOL_TAG_TAG7 ("Tag 7" would not)
+
+    private static bool IsFlex(TrainerPokemon p) => p.Extra.Any(kv => kv.Key == "Tags" && kv.Value == FlexTag);
+
+    private static TrainerPokemon WithoutFlexTag(TrainerPokemon p) => p with { Extra = p.Extra.Where(kv => !(kv.Key == "Tags" && kv.Value == FlexTag)).ToList() };
+
+    private static TrainerPokemon WithFlexTag(TrainerPokemon p) => IsFlex(p) ? p : p with { Extra = [.. p.Extra, new("Tags", FlexTag)] };
+
+    /// <summary>Every Pokémon as written in the file: the party (flexible member tagged), then the candidates (tagged).</summary>
+    internal static List<TrainerPokemon> FileOrder(Trainer t) => t.HasAdaptiveSlot
+        ? [.. t.Party.Select((p, i) => i == t.FlexIndex ? WithFlexTag(p) : p), .. t.FlexCandidates.Select(WithFlexTag)]
+        : [.. t.Party];
+
     [GeneratedRegex(@"^===\s*(\S+)\s*===\s*$")]
     private static partial Regex HeaderLine();
 
@@ -164,6 +181,21 @@ internal static partial class TrainerParty
         var battle = b.Get("Battle Type") is { } bt
             ? (bt.Value.StartsWith("Double", StringComparison.OrdinalIgnoreCase) ? BattleType.Double : BattleType.Single)
             : V("Double Battle").Equals("Yes", StringComparison.OrdinalIgnoreCase) ? BattleType.Double : BattleType.Single;
+        var mons = b.Chunks.Where(c => c.Pokemon is not null).Select(c => c.Pokemon!).ToList();
+        var pick = V("Pool Pick Functions");
+        var ours = pick == AdaptivePick && int.TryParse(V("Party Size"), CultureInfo.InvariantCulture, out var size) && size > 0 && size <= mons.Count
+            && !b.Fields.Any(f => f.Key is "Pool Rules" or "Pool Prune" or "Copy Pool");
+        int? flexIndex = null;
+        var candidates = new List<TrainerPokemon>();
+        if (ours)
+        {
+            var partySize = int.Parse(V("Party Size"), CultureInfo.InvariantCulture);
+            var first = mons.FindIndex(IsFlex);
+            flexIndex = first >= 0 && first < partySize ? first : null;
+            candidates = mons.Skip(partySize).Select(WithoutFlexTag).ToList();
+            mons = mons.Take(partySize).Select(WithoutFlexTag).ToList();
+        }
+
         return new Trainer
         {
             Id = id,
@@ -176,8 +208,10 @@ internal static partial class TrainerParty
             Items = SplitList(V("Items")).Select(x => ToConstant("ITEM", x)).ToList(),
             Battle = battle,
             AiFlags = SplitList(V("AI")).Select(x => ToConstant("AI_FLAG", x)).ToList(),
-            Party = b.Chunks.Where(c => c.Pokemon is not null).Select(c => c.Pokemon!).ToList(),
-            LockedReason = b.Fields.Any(f => f.Key.StartsWith("Pool", StringComparison.Ordinal) || f.Key == "Party Size")
+            Party = mons,
+            FlexIndex = flexIndex,
+            FlexCandidates = candidates,
+            LockedReason = !ours && b.Fields.Any(f => f.Key.StartsWith("Pool", StringComparison.Ordinal) || f.Key == "Party Size")
                 ? "This trainer picks its team from a pool at random, which the app can't edit yet. Edit it in trainers.party."
                 : null,
         };
@@ -547,14 +581,23 @@ internal static partial class TrainerParty
             Set("AI", string.Join(" / ", after.AiFlags.Select(f => Token("AI_FLAG", f, c))));
         }
 
+        // adaptive slot: a pool with our pick function (party size = the team; candidates after it)
+        if (before.HasAdaptiveSlot != after.HasAdaptiveSlot || (after.HasAdaptiveSlot && before.Party.Count != after.Party.Count))
+        {
+            Set("Party Size", after.HasAdaptiveSlot ? after.Party.Count.ToString(CultureInfo.InvariantCulture) : "");
+            Set("Pool Pick Functions", after.HasAdaptiveSlot ? AdaptivePick : "");
+        }
+
         if (inserts.Length > 0)
         {
             edits.Add(new TextEdit(block.HeaderEnd, 0, inserts.ToString()));
         }
 
-        if (!SameParty(before.Party, after.Party))
+        var beforeMons = FileOrder(before);
+        var afterMons = FileOrder(after);
+        if (!SameParty(beforeMons, afterMons))
         {
-            edits.Add(PartyEdit(text, block, before, after, c, speciesNames, nl));
+            edits.Add(PartyEdit(text, block, before with { Party = beforeMons }, after with { Party = afterMons }, c, speciesNames, nl));
         }
 
         return edits;
@@ -596,7 +639,13 @@ internal static partial class TrainerParty
             Line("Difficulty", difficulty);
         }
 
-        foreach (var p in t.Party)
+        if (t.HasAdaptiveSlot)
+        {
+            Line("Party Size", t.Party.Count.ToString(CultureInfo.InvariantCulture));
+            Line("Pool Pick Functions", AdaptivePick);
+        }
+
+        foreach (var p in FileOrder(t))
         {
             sb.Append(nl).Append(FormatPokemon(p, c, speciesNames, nl)).Append(nl);
         }

@@ -184,6 +184,28 @@
       </Border>
     </Grid>
 
+    <!-- Adaptive boss slot -->
+    <Border Classes="card" IsVisible="{Binding AdaptiveAllowed}">
+      <StackPanel Spacing="8">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Text="Adaptive slot" Classes="heading" />
+            <TextBlock Text="One team member is swapped at the start of the battle for whichever candidate best counters the player's team (Game options turns it on)."
+                       Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Top">
+            <Button Classes="secondary sm" Content="Suggest candidates" Command="{Binding SuggestCandidatesCommand}" />
+            <Button Classes="quiet sm" Content="Remove" Command="{Binding RemoveAdaptiveCommand}" IsVisible="{Binding HasAdaptive}" />
+          </StackPanel>
+        </Grid>
+        <TextBlock Text="{Binding AdaptiveSummary}" Classes="small" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasAdaptive}">
+          <TextBlock Text="Flexible member" VerticalAlignment="Center" Classes="small" />
+          <ComboBox ItemsSource="{Binding FlexOptions}" SelectedItem="{Binding FlexMember}" ItemTemplate="{StaticResource EntryTemplate}" MinWidth="200" AutomationProperties.Name="Flexible member" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
     <!-- Team -->
     <TextBlock Text="{Binding PartyHeader}" Classes="heading" />
     <Grid ColumnDefinitions="*" >

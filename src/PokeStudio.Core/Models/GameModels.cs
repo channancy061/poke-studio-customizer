@@ -265,6 +265,15 @@ public sealed record Trainer
     public IReadOnlyList<string> AiFlags { get; init; } = [];
 
     public IReadOnlyList<TrainerPokemon> Party { get; init; } = [];
+
+    /// <summary>
+    /// Adaptive boss slot: which party member is the flexible one (null = none). With the new-game option on, the game swaps
+    /// it at battle start for whichever of it and <see cref="FlexCandidates"/> best counters the player's party.
+    /// </summary>
+    public int? FlexIndex { get; init; }
+
+    public IReadOnlyList<TrainerPokemon> FlexCandidates { get; init; } = [];
+    public bool HasAdaptiveSlot => FlexIndex is { } i && i < Party.Count && FlexCandidates.Count > 0;
     public int PrizeMoney { get; init; }
 
     /// <summary>Why this trainer can't be edited here, or null.</summary>

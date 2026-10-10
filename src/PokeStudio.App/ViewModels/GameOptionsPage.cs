@@ -72,6 +72,21 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
                 [NotUsed, Asked, new("Always on", OptionMode.AlwaysOn)], s => s.NoItemsInBattle, (s, m) => s with { NoItemsInBattle = m }),
             new(this, "Infinite Candy", "A Rare Candy that is never used up, so nobody has to grind. It still stops at the level cap.",
                 [NotUsed, Asked, new("Always given", OptionMode.AlwaysOn)], s => s.InfiniteCandy, (s, m) => s with { InfiniteCandy = m }),
+            new(this, "Adaptive boss slot", "Gym leaders, the rival and the Elite Four (never the Champion) swap one Pokémon at the start of the battle for the candidate that best counters the player's team. Give bosses their candidates in Champion Lab or the trainer editor.",
+                [NotUsed, Asked, new("Always on", OptionMode.AlwaysOn)], s => s.AdaptiveSlot, (s, m) => s with { AdaptiveSlot = m }),
+        ];
+        Nuzlocke = new GameOptionRowViewModel(this, "Nuzlocke", "A challenge run with the rules below. \"Player chooses\" asks \"Play a Nuzlocke?\" first; each rule then has its own setting.",
+            [NotUsed, Asked, new("Always on", OptionMode.AlwaysOn)], s => s.Nuzlocke, (s, m) => s with { Nuzlocke = m });
+        IReadOnlyList<ModeOption> rule = [new("Off", OptionMode.AlwaysOff), Asked, new("Always on", OptionMode.AlwaysOn)];
+        NuzlockeRules =
+        [
+            new(this, "First encounter only", "Only the first wild Pokémon met in each area can be caught.", rule, s => s.NuzFirstEncounter, (s, m) => s with { NuzFirstEncounter = m }),
+            new(this, "Fainted Pokémon are gone", "Pokémon that faint are released after the battle (unless the whole team fainted - then the run is over and the player decides).", rule, s => s.NuzFaintedGone, (s, m) => s with { NuzFaintedGone = m }),
+            new(this, "Duplicates clause", "A Pokémon whose evolution family was already caught doesn't use up the area, so the player gets another try.", rule, s => s.NuzDupes, (s, m) => s with { NuzDupes = m }),
+            new(this, "Eevee clause", "With the duplicates clause: Eevee never counts as a duplicate, so the player can catch one for each evolution.", rule, s => s.NuzEeveeException, (s, m) => s with { NuzEeveeException = m }),
+            new(this, "Shiny clause", "Shiny Pokémon can always be caught and don't use up the area.", rule, s => s.NuzShiny, (s, m) => s with { NuzShiny = m }),
+            new(this, "Nicknames required", "The naming screen opens straight away for every Pokémon caught.", rule, s => s.NuzNicknames, (s, m) => s with { NuzNicknames = m }),
+            new(this, "Respect the level cap", "The hard level cap is on during the Nuzlocke (set the caps on Levels & caps).", rule, s => s.NuzLevelCap, (s, m) => s with { NuzLevelCap = m }),
         ];
         shell.DataChanged += (_, _) => Refresh();
     }
@@ -80,7 +95,62 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
     internal GameOptionsSettings Settings => Data.GameOptions!;
     public GameOptionRowViewModel Difficulty { get; }
     public IReadOnlyList<GameOptionRowViewModel> Rows { get; }
+    public GameOptionRowViewModel Nuzlocke { get; }
+    public IReadOnlyList<GameOptionRowViewModel> NuzlockeRules { get; }
+    public bool NuzlockeShown => Settings.NuzlockeUsed;
+
+    // ---- Pokémon Center helper ----
+    private CenterHelperSettings Helper => Settings.CenterHelper;
+
+    private void UpdateHelper(Func<CenterHelperSettings, CenterHelperSettings> change, string description) =>
+        Update(s => s with { CenterHelper = change(s.CenterHelper) }, description);
+
+    public bool HelperEnabled
+    {
+        get => Helper.Enabled;
+        set => UpdateHelper(h => h with { Enabled = value }, value ? "Pokémon Center helper added" : "Pokémon Center helper removed");
+    }
+
+    public bool HelperNature
+    {
+        get => Helper.Nature;
+        set => UpdateHelper(h => h with { Nature = value }, value ? "Helper changes natures" : "Helper doesn't change natures");
+    }
+
+    public bool HelperIvs
+    {
+        get => Helper.PerfectIvs;
+        set => UpdateHelper(h => h with { PerfectIvs = value }, value ? "Helper gives perfect IVs" : "Helper doesn't give perfect IVs");
+    }
+
+    public bool HelperEvs
+    {
+        get => Helper.EvSpreads;
+        set => UpdateHelper(h => h with { EvSpreads = value }, value ? "Helper sets EVs" : "Helper doesn't set EVs");
+    }
+
+    public decimal? NaturePrice
+    {
+        get => Helper.NaturePrice;
+        set => UpdateHelper(h => h with { NaturePrice = Price(value) }, $"Nature change costs {Price(value)}");
+    }
+
+    public decimal? IvPrice
+    {
+        get => Helper.IvPrice;
+        set => UpdateHelper(h => h with { IvPrice = Price(value) }, $"Perfect IVs cost {Price(value)}");
+    }
+
+    public decimal? EvPrice
+    {
+        get => Helper.EvPrice;
+        set => UpdateHelper(h => h with { EvPrice = Price(value) }, $"EV spread costs {Price(value)}");
+    }
+
+    private static int Price(decimal? value) => (int)Math.Clamp(value ?? 0, 0, 999999);
     public IReadOnlyList<DifficultyChoiceOption> DifficultyChoices { get; }
+
+    private static string Cost(int price) => price > 0 ? $" (¥{price})" : " (free)";
 
     public static string Label(DifficultyChoice d) => d == DifficultyChoice.ExtraHard ? "Extra Hard" : d.ToString();
 
@@ -119,7 +189,7 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         {
             var s = Settings;
             var lines = new List<string>();
-            var asked = new[] { s.Difficulty, s.TrainingOff, s.LevelCap, s.NoItemsInBattle, s.InfiniteCandy }.Count(m => m == OptionMode.PlayerChooses);
+            var asked = new[] { s.Difficulty, s.TrainingOff, s.LevelCap, s.NoItemsInBattle, s.InfiniteCandy, s.AdaptiveSlot, s.Nuzlocke }.Count(m => m == OptionMode.PlayerChooses);
             if (!s.AnyUsed)
             {
                 return ["Nothing is added: the game starts as usual."];
@@ -140,6 +210,15 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
             if (s.LevelCap == OptionMode.PlayerChooses) { lines.Add("Use a hard level cap? Yes / No"); }
             if (s.NoItemsInBattle == OptionMode.PlayerChooses) { lines.Add((s.NoItemsAlsoWild ? "No items in any battle?" : "No items in trainer battles?") + " Yes / No"); }
             if (s.InfiniteCandy == OptionMode.PlayerChooses) { lines.Add("Take an Infinite Candy? Yes / No"); }
+            if (s.AdaptiveSlot == OptionMode.PlayerChooses) { lines.Add("Bosses adapt one Pokémon to your team? Yes / No"); }
+            if (s.Nuzlocke is OptionMode.PlayerChooses or OptionMode.AlwaysOn)
+            {
+                var asks = NuzlockeRules.Where(r => r.Mode?.Mode == OptionMode.PlayerChooses).Select(r => r.Title).ToList();
+                var always = NuzlockeRules.Where(r => r.Mode?.Mode == OptionMode.AlwaysOn).Select(r => r.Title.ToLowerInvariant()).ToList();
+                lines.Add((s.Nuzlocke == OptionMode.PlayerChooses ? "Play a Nuzlocke? Yes / No. If yes: " : "Nuzlocke: ")
+                    + (always.Count > 0 ? "always " + string.Join(", ", always) + ". " : "")
+                    + (asks.Count > 0 ? "Asked: " + string.Join(", ", asks) + "." : ""));
+            }
 
             var fixedOnes = new List<string>();
             if (s.Difficulty == OptionMode.AlwaysOn) { fixedOnes.Add($"difficulty {Label(s.FixedDifficulty)}"); }
@@ -148,6 +227,7 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
             if (s.LevelCap == OptionMode.AlwaysOff) { fixedOnes.Add("no level cap"); }
             if (s.NoItemsInBattle == OptionMode.AlwaysOn) { fixedOnes.Add(s.NoItemsAlsoWild ? "no items in any battle" : "no items in trainer battles"); }
             if (s.InfiniteCandy == OptionMode.AlwaysOn) { fixedOnes.Add("an Infinite Candy in the bag"); }
+            if (s.AdaptiveSlot == OptionMode.AlwaysOn) { fixedOnes.Add("bosses adapt one Pokémon"); }
             if (fixedOnes.Count > 0)
             {
                 lines.Add("Set without asking: " + string.Join(", ", fixedOnes) + ".");
@@ -158,12 +238,22 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
                 lines.Add("“All set. Have fun!”");
             }
 
+            if (s.CenterHelper.AnyService)
+            {
+                lines.Add("In every Pokémon Center, a helper offers: " + string.Join(", ", new[]
+                {
+                    s.CenterHelper.Nature ? $"change nature{Cost(s.CenterHelper.NaturePrice)}" : null,
+                    s.CenterHelper.PerfectIvs ? $"perfect IVs{Cost(s.CenterHelper.IvPrice)}" : null,
+                    s.CenterHelper.EvSpreads ? $"EV spreads{Cost(s.CenterHelper.EvPrice)}" : null,
+                }.Where(x => x is not null)) + ".");
+            }
+
             return lines;
         }
     }
 
     public string WhereText => "The menu appears once, the first moment the player can move in a new game. Old saves aren't asked. "
-        + "Saving writes a small script and a few marked lines of code into the project; test it with Build & test.";
+        + "Saving writes a small script, src/poke_studio.c and a few marked lines of code into the project; test it with Build & test.";
 
     internal void Update(Func<GameOptionsSettings, GameOptionsSettings> change, string description)
     {
@@ -181,9 +271,14 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
     private void Refresh()
     {
         Data.GameOptions ??= new GameOptionsSettings();
-        foreach (var row in Rows)
+        foreach (var row in Rows.Concat(NuzlockeRules).Append(Nuzlocke))
         {
             row.Refresh();
+        }
+
+        foreach (var name in new[] { nameof(NuzlockeShown), nameof(HelperEnabled), nameof(HelperNature), nameof(HelperIvs), nameof(HelperEvs), nameof(NaturePrice), nameof(IvPrice), nameof(EvPrice) })
+        {
+            OnPropertyChanged(name);
         }
 
         OnPropertyChanged(nameof(AsksDifficulty));
