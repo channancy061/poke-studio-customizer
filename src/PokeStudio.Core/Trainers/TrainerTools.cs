@@ -24,6 +24,10 @@ public static class AiPresets
                 ["AI_FLAG_SMART_TRAINER"]),
             new("expert", "Expert", "Everything Smart does, plus predicts your switches and moves and plays around your HP. Very hard.",
                 ["AI_FLAG_SMART_TRAINER", "AI_FLAG_PREDICTION", "AI_FLAG_HP_AWARE"]),
+            new("champion", "Champion", "Expert, and saves its strongest Pokémon for last like a real champion.",
+                ["AI_FLAG_SMART_TRAINER", "AI_FLAG_PREDICTION", "AI_FLAG_HP_AWARE", "AI_FLAG_ACE_POKEMON"]),
+            new("double-ace", "Double Ace", "Expert, and keeps its two strongest Pokémon for the end — made for double battles.",
+                ["AI_FLAG_SMART_TRAINER", "AI_FLAG_PREDICTION", "AI_FLAG_HP_AWARE", "AI_FLAG_DOUBLE_ACE_POKEMON"]),
         ];
         return all.Where(p => p.Flags.All(known.Contains)).ToList();
     }

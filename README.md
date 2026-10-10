@@ -7,7 +7,7 @@
 A friendly desktop editor (Windows + Linux) for customising games you legally own.
 It ships **no game files or assets**, never modifies your originals, and uses only open-source components (MIT-licensed).
 
-## Status: Phase 7 in progress (Champion Lab, first half done)
+## Status: Phase 7 (Champion Lab) done
 - **Phase 1:** solution skeleton, plugin system, projects, undo/redo + change log, backups/restore, settings,
   Avalonia shell with light/dark theming, CI on Windows + Linux, Windows installer and Linux AppImage.
 - **Phase 2:** edit a **pokeemerald-expansion 1.17.1** project (Emerald-based, Gen 1–9 Pokémon):
@@ -94,6 +94,19 @@ It ships **no game files or assets**, never modifies your originals, and uses on
     evolutions by then).
   - Rule breaks are "Check this" warnings with "Take me there"; settings live in the Poke Studio project
     (`data/champion-lab.json`), never in the game files, and every change is undoable.
+- **Phase 7 (second half):**
+  - **Suggest a team** (trainer editor; rule-based, no AI model): fits the theme, legendary rules, story locks,
+    Species/Item Clause and level; picks Pokémon that patch the team's weaknesses against what the player can
+    have; moves (STAB, coverage, a matching setup or utility move), nature, ability, item and EVs by role and
+    difficulty; the strongest last as the ace; the rival's starter stays. Every pick is explained; "Try another".
+    **Official Pokémon only** (National Dex 1–1025 from the project's `natDexNum`, no novelty/battle-only
+    forms) is on by default.
+  - **Report card:** speed and two-hit-KO tables against the player's possible Pokémon at the level cap
+    (main-series damage formula), shared weaknesses, a 1–10 score and suggested fixes.
+  - **Difficulty versions:** Easy / Hard / Extra Hard blocks generated for every important trainer from its
+    Normal team (never smaller than the original); `DIFFICULTY_EXTRA_HARD` is added to
+    `include/constants/difficulty.h` when needed. The in-game menu to pick it comes in Phase 8.
+  - **Enemy AI:** Champion and Double Ace presets; AI tuning sliders for `include/config/ai.h` (game-wide).
 - **FireRed base:** projects made from **pokefirered-expansion** (community port, cawtds/pokefirered-expansion,
   expansion 1.15.x) open with the same editors. Differences handled: the ROM is `pokefirered.gba`, the text
   box is 26 tiles (208 px, read from `src/menu.c`), shops live in `src/data/shops.json` (stages; edited in

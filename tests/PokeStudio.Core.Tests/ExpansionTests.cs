@@ -380,6 +380,43 @@ public class ExpansionTests
         Assert.Equal(9, scout.Count);
         Assert.True(scout[0].Species.Count > 5 && scout[^1].Species.Count > scout[0].Species.Count);
 
+        // team builder, report card and difficulty versions on real data (written to a file for review)
+        var juan = data.Trainers.Single(t => t.Key == "TRAINER_JUAN_1");
+        var waterLab = lab with { Themes = new Dictionary<string, ChampionLab.TypeTheme> { ["TRAINER_JUAN_1"] = new("TYPE_WATER") } };
+        var juanHard = ChampionLab.TeamBuilder.Suggest(data, waterLab, juan, new ChampionLab.TeamBuilder.Options(ChampionLab.Difficulty.Hard, 6));
+        Assert.Equal(6, juanHard.Members.Count);
+        Assert.All(juanHard.Members, m => Assert.Contains("TYPE_WATER", data.Species.Single(s => s.Key == m.Pokemon.Species).Types));
+        Assert.Equal(6, juanHard.Members.Select(m => string.Join("/", data.Species.Single(s => s.Key == m.Pokemon.Species).Types.Order())).Distinct().Count());
+        Assert.All(juanHard.Members, m => Assert.InRange(m.Pokemon.Moves.Count, 2, 4));
+        var wallace = data.Trainers.Single(t => t.Key == "TRAINER_WALLACE");
+        var wallaceExtra = ChampionLab.TeamBuilder.Suggest(data, lab, wallace, new ChampionLab.TeamBuilder.Options(ChampionLab.Difficulty.ExtraHard, 6));
+        Assert.True(wallaceExtra.Members.Count(m => data.Species.Single(s => s.Key == m.Pokemon.Species).Tags.HasFlag(SpeciesTags.RestrictedLegendary)) <= 2);
+        Assert.Equal(1, data.Species.Single(s => s.Key == "SPECIES_BULBASAUR").NationalDex);
+        Assert.Equal(1025, data.Species.Single(s => s.Key == "SPECIES_PECHARUNT").NationalDex);
+        Assert.All(juanHard.Members.Concat(wallaceExtra.Members), m => Assert.InRange(data.Species.Single(s => s.Key == m.Pokemon.Species).NationalDex ?? 0, 1, 1025));
+        var roxanneScore = ChampionLab.ReportCard.For(data, lab, data.Trainers.Single(t => t.Key == "TRAINER_ROXANNE_1"));
+        var wallaceScore = ChampionLab.ReportCard.For(data, lab, wallace);
+        var review = new System.Text.StringBuilder();
+        void Dump(string title, ChampionLab.TeamSuggestion s)
+        {
+            review.AppendLine("== " + title);
+            foreach (var m in s.Members)
+            {
+                review.AppendLine($"- {m.Role}: {string.Join(" ", m.Reasons)} [Lv {m.Pokemon.Level}, {m.Pokemon.Nature}, {m.Pokemon.Ability}, {m.Pokemon.HeldItem}]");
+            }
+
+            review.AppendLine("  notes: " + string.Join(" | ", s.Notes));
+        }
+
+        Dump("Juan, Hard, Water theme", juanHard);
+        Dump("Wallace, Extra Hard", wallaceExtra);
+        review.AppendLine($"== Report: Roxanne {roxanneScore.Score}/10 ({roxanneScore.Verdict}) fixes: {string.Join(" | ", roxanneScore.Fixes)}");
+        review.AppendLine($"== Report: Wallace {wallaceScore.Score}/10 ({wallaceScore.Verdict}) fixes: {string.Join(" | ", wallaceScore.Fixes)}");
+        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "champion-lab-review.txt"), review.ToString());
+        Assert.True(wallaceScore.Score > roxanneScore.Score, $"Wallace {wallaceScore.Score} vs Roxanne {roxanneScore.Score}");
+
+
+
         await module.SaveDataAsync(data, ctx);
         foreach (var (f, text) in before)
         {
@@ -429,6 +466,16 @@ public class ExpansionTests
         await module.SaveDataAsync(data, ctx);
         var partyChanged = partyText.Split('\n').Zip(Read(root, "src/data/trainers.party").Split('\n')).Where(p => p.First != p.Second).ToList();
         Assert.Equal("Level: 25", Assert.Single(partyChanged).Second.Trim());
+
+        // difficulty versions: generated, saved as extra blocks, read back; Extra Hard is added to the game
+        var versions = ChampionLab.DifficultyVersions.Generate(data, lab, ["TRAINER_SIDNEY"], [ChampionLab.Difficulty.Easy, ChampionLab.Difficulty.Hard, ChampionLab.Difficulty.ExtraHard]);
+        Assert.NotNull(versions);
+        versions.Apply();
+        await module.SaveDataAsync(data, ctx);
+
+        var withVersions = await new ExpansionModule().LoadDataAsync(root, tmp.Combine("data-versions"));
+        Assert.Contains(withVersions.Trainers, t => t.Key == "TRAINER_SIDNEY@Extra Hard");
+        Assert.Contains("DIFFICULTY_EXTRA_HARD", Read(root, "include/constants/difficulty.h"), StringComparison.Ordinal);
 
         // Phase 6 edits: each changes only its own lines.
         static List<(string First, string Second)> Diff(string a, string b) =>

@@ -58,6 +58,9 @@ public sealed record LabSettings
     public IReadOnlyDictionary<string, int> StoryLocks { get; init; } = new Dictionary<string, int>();
 
     public bool RivalKeepsStarter { get; init; } = true;
+
+    /// <summary>The team builder only uses official Pokémon from the main series (National Dex 1–1025, normal forms).</summary>
+    public bool OfficialOnly { get; init; } = true;
     public bool FairPlay { get; init; } = true;
     public bool UniqueTypeCombos { get; init; } = true;
 

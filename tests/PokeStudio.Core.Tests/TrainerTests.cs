@@ -213,7 +213,7 @@ public class TrainerToolsTests
         var (_, data, _) = await ExpansionMovesTests.LoadAsync(ExpansionMovesTests.CopyFixture(tmp));
 
         var presets = AiPresets.For(data.Catalog);
-        Assert.Equal(["none", "beginner", "basic", "smart", "expert"], presets.Select(p => p.Id));
+        Assert.Equal(["none", "beginner", "basic", "smart", "expert", "champion", "double-ace"], presets.Select(p => p.Id));
         Assert.Equal("basic", AiPresets.Match(data.Trainers.Single(t => t.Key == "TRAINER_MIA").AiFlags, presets)!.Id);
         Assert.Null(AiPresets.Match(data.Trainers.Single(t => t.Key == "TRAINER_LEADER_FERN").AiFlags, presets)); // custom
 

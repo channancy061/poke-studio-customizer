@@ -468,6 +468,96 @@ public sealed partial class TrainerEditorViewModel : ViewModelBase
     internal GameCatalog CatalogForRows => Catalog;
     internal GameLimits LimitsForRows => Limits;
 
+    // ---- suggest a team (Champion Lab, rule-based) ----
+    public IReadOnlyList<DifficultyOption> SuggestDifficulties { get; } =
+        Enum.GetValues<Core.ChampionLab.Difficulty>().Select(d => new DifficultyOption(Core.ChampionLab.Lab.Label(d), d)).ToList();
+
+    [ObservableProperty]
+    public partial DifficultyOption? SuggestDifficulty { get; set; }
+
+    [ObservableProperty]
+    public partial decimal SuggestSize { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsSuggestOpen { get; set; }
+
+    private int _variant;
+    private Core.ChampionLab.TeamSuggestion? _suggestion;
+
+    public ObservableCollection<SuggestionRowViewModel> Suggestions { get; } = [];
+    public ObservableCollection<string> SuggestionNotes { get; } = [];
+    public bool HasSuggestion => Suggestions.Count > 0;
+
+    private Core.ChampionLab.LabSettings Lab => _shell.Session.Data.Lab ??= new Core.ChampionLab.LabSettings();
+
+    [RelayCommand]
+    private void ToggleSuggest()
+    {
+        IsSuggestOpen = !IsSuggestOpen;
+        SuggestDifficulty ??= SuggestDifficulties[(int)Core.ChampionLab.Lab.DifficultyOf(Model)];
+        if (SuggestSize == 0)
+        {
+            SuggestSize = Math.Max(1, Model.Party.Count);
+        }
+    }
+
+    [RelayCommand]
+    private void Suggest() => RunSuggest(0);
+
+    [RelayCommand]
+    private void TryAnother() => RunSuggest(++_variant);
+
+    private void RunSuggest(int variant)
+    {
+        var d = SuggestDifficulty?.Difficulty ?? Core.ChampionLab.Difficulty.Normal;
+        _suggestion = Core.ChampionLab.TeamBuilder.Suggest(_shell.Session.Data, Lab, Model,
+            new Core.ChampionLab.TeamBuilder.Options(d, (int)Math.Clamp(SuggestSize, 1, Limits.MaxPartySize), Variant: variant));
+        Suggestions.Clear();
+        foreach (var m in _suggestion.Members)
+        {
+            Suggestions.Add(new SuggestionRowViewModel(SpeciesName(m.Pokemon.Species), m.Pokemon.Level, m.Role, string.Join(" ", m.Reasons)));
+        }
+
+        SuggestionNotes.Clear();
+        foreach (var n in _suggestion.Notes)
+        {
+            SuggestionNotes.Add(n);
+        }
+
+        OnPropertyChanged(nameof(HasSuggestion));
+    }
+
+    [RelayCommand]
+    private void UseSuggestion()
+    {
+        if (_suggestion is not { Members.Count: > 0 } s)
+        {
+            return;
+        }
+
+        _shell.Execute(Core.ChampionLab.TeamBuilder.Apply(_shell.Session.Data, Model, s, $"suggested {SuggestDifficulty?.Label ?? "Normal"} team"));
+        IsSuggestOpen = false;
+        _shell.Toast = "Suggested team applied. One Undo puts the old team back.";
+    }
+
+    // ---- report card ----
+    [ObservableProperty]
+    public partial Core.ChampionLab.BossReport? Report { get; set; }
+
+    public bool HasReport => Report is not null;
+    public string ReportTitle => Report is { } r ? $"{r.Score}/10 — {r.Verdict}" : "";
+    public string ReportContext => Report is { } r ? $"Against the {r.ThreatCount} Pokémon the player can have by now, at level {r.Cap}." : "";
+
+    partial void OnReportChanged(Core.ChampionLab.BossReport? value)
+    {
+        OnPropertyChanged(nameof(HasReport));
+        OnPropertyChanged(nameof(ReportTitle));
+        OnPropertyChanged(nameof(ReportContext));
+    }
+
+    [RelayCommand]
+    private void MakeReport() => Report = Core.ChampionLab.ReportCard.For(_shell.Session.Data, Lab, Model);
+
     // ---- copy a team ----
     public IReadOnlyList<CatalogEntry> TrainerOptions =>
         _shell.Session.Data.Trainers.Where(t => t.Key != Model.Key && t.Party.Count > 0)
@@ -524,9 +614,42 @@ public sealed partial class TrainerEditorViewModel : ViewModelBase
         }
 
         Rebuild();
+        Report = null; // the team changed; make a fresh report when asked
         OnPropertyChanged(string.Empty);
     }
 }
+
+public sealed partial class AiSettingRowViewModel(EnemyAiPageViewModel page, AiSetting setting) : ViewModelBase
+{
+    private AiSetting setting = setting;
+
+    public string Key => setting.Key;
+
+    /// <summary>Shows the current value after an edit, undo or redo (without rebuilding the row mid-drag).</summary>
+    internal void Sync(AiSetting current)
+    {
+        if (current != setting)
+        {
+            setting = current;
+            OnPropertyChanged(nameof(Value));
+            OnPropertyChanged(nameof(ValueText));
+        }
+    }
+
+    public string Label => char.ToUpperInvariant(setting.Label[0]) + setting.Label[1..];
+    public string? Comment => setting.Comment;
+    public bool IsPercentage => setting.IsPercentage;
+    public double Maximum => setting.IsPercentage ? 100 : 10;
+    public string ValueText => setting.IsPercentage ? $"{setting.Value}%" : setting.Value.ToString(CultureInfo.InvariantCulture);
+
+    public double Value
+    {
+        get => setting.Value;
+        set => page.SetTuning(setting.Key, (int)Math.Round(value));
+    }
+}
+
+public sealed record SuggestionRowViewModel(string Name, int Level, string Role, string Reasons);
 
 public sealed partial class AiFlagRowViewModel(CatalogEntry flag, bool on, Action<string, bool> toggle) : ViewModelBase
 {
@@ -726,11 +849,23 @@ public sealed partial class EnemyAiPageViewModel : ViewModelBase
         _preset = Presets.FirstOrDefault(p => p.Id == "smart") ?? Presets.LastOrDefault();
         Flags = shell.Session.Data.Catalog.AiFlags;
         Refresh();
+        shell.DataChanged += (_, _) =>
+        {
+            foreach (var row in Tuning)
+            {
+                if (shell.Session.Data.AiSettings.FirstOrDefault(s => s.Key == row.Key) is { } current)
+                {
+                    row.Sync(current);
+                }
+            }
+        };
     }
 
     public IReadOnlyList<AiPreset> Presets { get; }
     public IReadOnlyList<CatalogEntry> Flags { get; }
     public ObservableCollection<string> Usage { get; } = [];
+    public ObservableCollection<AiSettingRowViewModel> Tuning { get; } = [];
+    public bool HasTuning => Tuning.Count > 0;
 
     public IReadOnlyList<ScopeOption> Scopes { get; } =
     [
@@ -764,8 +899,28 @@ public sealed partial class EnemyAiPageViewModel : ViewModelBase
         return new[] { "Leader", "Elite", "Champion", "Boss", "Admin", "Rival" }.Any(w => cls.Contains(w, StringComparison.OrdinalIgnoreCase));
     }
 
+    internal void SetTuning(string key, int value)
+    {
+        var data = _shell.Session.Data;
+        var i = data.AiSettings.FindIndex(s => s.Key == key);
+        if (i < 0 || data.AiSettings[i].Value == value)
+        {
+            return;
+        }
+
+        var before = data.AiSettings[i];
+        _shell.Execute(new ValueChange<AiSetting>("Enemy AI", $"AI setting · {before.Label}: {before.Value} → {value}", v => data.AiSettings[i] = v, before, before with { Value = value },
+            $"ai:{key}", (a, b) => $"AI setting · {before.Label}: {a.Value} → {b.Value}"));
+    }
+
     private void Refresh()
     {
+        Tuning.Clear();
+        foreach (var s in _shell.Session.Data.AiSettings)
+        {
+            Tuning.Add(new AiSettingRowViewModel(this, s));
+        }
+
         Usage.Clear();
         var data = _shell.Session.Data;
         var groups = data.Trainers.Where(t => t.Key != "TRAINER_NONE")

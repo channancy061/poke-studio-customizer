@@ -3,6 +3,7 @@
              xmlns:vm="using:PokeStudio.App.ViewModels"
              xmlns:m="using:PokeStudio.Core.Models"
              xmlns:t="using:PokeStudio.Core.Trainers"
+             xmlns:cl="using:PokeStudio.Core.ChampionLab"
              xmlns:c="using:PokeStudio.App.Controls"
              x:Class="PokeStudio.App.Views.TrainerEditorView"
              x:DataType="vm:TrainerEditorViewModel">
@@ -100,6 +101,85 @@
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <!-- Champion Lab: suggest a team + report card -->
+    <Grid ColumnDefinitions="*,*" ColumnSpacing="16" IsEnabled="{Binding IsEditable}">
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel>
+              <TextBlock Text="Suggest a team" Classes="heading" />
+              <TextBlock Text="Rule-based: follows the theme, legendary rules and level, and patches weaknesses." Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+            </StackPanel>
+            <Button Grid.Column="1" Classes="secondary sm" Content="Open" Command="{Binding ToggleSuggestCommand}" VerticalAlignment="Top" />
+          </Grid>
+          <StackPanel Spacing="10" IsVisible="{Binding IsSuggestOpen}">
+            <Grid ColumnDefinitions="*,110,Auto" ColumnSpacing="8">
+              <ComboBox ItemsSource="{Binding SuggestDifficulties}" SelectedItem="{Binding SuggestDifficulty}" HorizontalAlignment="Stretch" AutomationProperties.Name="Difficulty">
+                <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:DifficultyOption"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+              </ComboBox>
+              <NumericUpDown Grid.Column="1" Value="{Binding SuggestSize}" Minimum="1" Maximum="6" FormatString="0" AutomationProperties.Name="Team size" ToolTip.Tip="How many Pokémon" />
+              <Button Grid.Column="2" Classes="primary" Content="Suggest" Command="{Binding SuggestCommand}" />
+            </Grid>
+            <ItemsControl ItemsSource="{Binding Suggestions}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:SuggestionRowViewModel">
+                  <Border Classes="well" Margin="0,0,0,6" Padding="10,8">
+                    <StackPanel Spacing="2">
+                      <TextBlock Classes="small"><Run Text="{Binding Name}" FontWeight="Bold" /><Run Text=" · Lv " /><Run Text="{Binding Level}" /><Run Text=" · " /><Run Text="{Binding Role}" /></TextBlock>
+                      <TextBlock Text="{Binding Reasons}" Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <ItemsControl ItemsSource="{Binding SuggestionNotes}">
+              <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" Classes="caption" Foreground="{DynamicResource PL.InfoTextBrush}" TextWrapping="Wrap" /></DataTemplate></ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasSuggestion}">
+              <Button Classes="primary" Content="Use this team" Command="{Binding UseSuggestionCommand}" />
+              <Button Classes="quiet" Content="Try another" Command="{Binding TryAnotherCommand}" />
+            </StackPanel>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+      <Border Grid.Column="1" Classes="card">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel>
+              <TextBlock Text="Report card" Classes="heading" />
+              <TextBlock Text="How tough this team is against what the player can have by now." Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+            </StackPanel>
+            <Button Grid.Column="1" Classes="secondary sm" Content="Check" Command="{Binding MakeReportCommand}" VerticalAlignment="Top" />
+          </Grid>
+          <StackPanel Spacing="8" IsVisible="{Binding HasReport}">
+            <TextBlock Text="{Binding ReportTitle}" Classes="subhead" />
+            <TextBlock Text="{Binding ReportContext}" Classes="caption muted" TextWrapping="Wrap" />
+            <Grid ColumnDefinitions="*,60,70,70" ColumnSpacing="8">
+              <TextBlock Text="Pokémon" Classes="caption" />
+              <TextBlock Grid.Column="1" Text="Speed" Classes="caption" />
+              <TextBlock Grid.Column="2" Text="2HKOs" Classes="caption" ToolTip.Tip="How many of the player's possible Pokémon it knocks out in two hits" />
+              <TextBlock Grid.Column="3" Text="2HKO'd by" Classes="caption" ToolTip.Tip="How many of them can knock it out in two hits" />
+            </Grid>
+            <ItemsControl ItemsSource="{Binding Report.Members}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="cl:MemberReport">
+                  <Grid ColumnDefinitions="*,60,70,70" ColumnSpacing="8" Margin="0,1">
+                    <TextBlock Text="{Binding Name}" Classes="small" FontWeight="Bold" />
+                    <TextBlock Grid.Column="1" Text="{Binding Speed}" Classes="small" />
+                    <TextBlock Grid.Column="2" Text="{Binding ThreatsTwoHitKo}" Classes="small" />
+                    <TextBlock Grid.Column="3" Text="{Binding ThreatsThatTwoHitKoIt}" Classes="small" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <ItemsControl ItemsSource="{Binding Report.Fixes}">
+              <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Text="{Binding StringFormat='• {0}'}" Classes="caption" Foreground="{DynamicResource PL.WarningTextBrush}" TextWrapping="Wrap" /></DataTemplate></ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
         </StackPanel>
       </Border>
     </Grid>

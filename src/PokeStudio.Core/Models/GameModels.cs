@@ -93,6 +93,9 @@ public sealed record Species
     /// <summary>Legendary, mythical, Ultra Beast, Paradox, Mega… (from the game's species data).</summary>
     public SpeciesTags Tags { get; init; }
 
+    /// <summary>National Pokédex number (official Pokémon are 1–1025), or null when the game doesn't say.</summary>
+    public int? NationalDex { get; init; }
+
     /// <summary>Fields whose value comes from a game setting (field name → note shown in Advanced mode).</summary>
     public IReadOnlyDictionary<string, string> SettingDependentFields { get; init; } = new Dictionary<string, string>();
 
@@ -363,6 +366,9 @@ public enum ExpCapKind
     /// <summary>Reduced experience at or above the cap.</summary>
     Soft,
 }
+
+/// <summary>A number in the game's AI settings, e.g. how often it switches out when it would lose the 1-on-1 (0–100%).</summary>
+public sealed record AiSetting(string Key, string Label, int Value, string? Comment, bool IsPercentage);
 
 public sealed record GameRules
 {

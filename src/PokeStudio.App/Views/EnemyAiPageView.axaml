@@ -47,6 +47,27 @@
         </StackPanel>
       </Border>
 
+      <Border Classes="card" IsVisible="{Binding HasTuning}">
+        <StackPanel Spacing="10">
+          <TextBlock Text="AI tuning" Classes="heading" />
+          <TextBlock Text="Fine-tune how often the AI switches out or stays in. These settings apply to every trainer in the game (from your project's include/config/ai.h)." Classes="small muted" TextWrapping="Wrap" />
+          <ItemsControl ItemsSource="{Binding Tuning}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:AiSettingRowViewModel">
+                <Grid ColumnDefinitions="*,220,60" ColumnSpacing="12" Margin="0,3">
+                  <StackPanel>
+                    <TextBlock Text="{Binding Label}" FontSize="13" FontWeight="Bold" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Comment}" Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" IsVisible="{Binding Comment, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                  </StackPanel>
+                  <Slider Grid.Column="1" Minimum="0" Maximum="{Binding Maximum}" Value="{Binding Value}" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center" AutomationProperties.Name="{Binding Label}" />
+                  <TextBlock Grid.Column="2" Text="{Binding ValueText}" VerticalAlignment="Center" Classes="pixel" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
       <Border Classes="card">
         <StackPanel Spacing="8">
           <TextBlock Text="What each behaviour does" Classes="heading" />

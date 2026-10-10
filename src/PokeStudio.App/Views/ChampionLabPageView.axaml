@@ -20,6 +20,7 @@
         <RadioButton GroupName="lab-tab" Content="Groups &amp; themes" IsChecked="{Binding IsGroupsTab}" />
         <RadioButton GroupName="lab-tab" Content="Rules" IsChecked="{Binding IsRulesTab}" />
         <RadioButton GroupName="lab-tab" Content="Scouting" IsChecked="{Binding IsScoutingTab}" />
+        <RadioButton GroupName="lab-tab" Content="Difficulty versions" IsChecked="{Binding IsVersionsTab}" />
       </StackPanel>
 
       <!-- Groups & themes -->
@@ -64,6 +65,7 @@
             <TextBlock Text="Always" Classes="heading" />
             <ToggleSwitch IsChecked="{Binding RivalKeepsStarter}" Content="Rivals keep their starter in every fight, evolved at the right level" />
             <TextBlock Text="{Binding StartersText}" Classes="caption muted" Margin="0,-4,0,0" />
+            <ToggleSwitch IsChecked="{Binding OfficialOnly}" Content="Official Pokémon only: suggested teams use main-series Pokémon (National Dex 1–1025, no novelty forms)" />
             <ToggleSwitch IsChecked="{Binding FairPlay}" Content="Fair play: bosses only use as many legendaries as the player could own by then" />
             <ToggleSwitch IsChecked="{Binding UniqueTypeCombos}" Content="Themed teams use varied second types (no two Water/Ground Pokémon)" />
           </StackPanel>
@@ -131,6 +133,25 @@
               <ComboBox Grid.Column="1" ItemsSource="{Binding MilestoneOptions}" SelectedIndex="{Binding LockMilestone}" HorizontalAlignment="Stretch" AutomationProperties.Name="Not before" />
               <Button Grid.Column="2" Classes="quiet" Content="Add" Command="{Binding AddStoryLockCommand}" />
             </Grid>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <!-- Difficulty versions -->
+      <StackPanel Spacing="12" IsVisible="{Binding IsVersionsTab}">
+        <Border Classes="card">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Make difficulty versions" Classes="heading" />
+            <TextBlock TextWrapping="Wrap" Classes="small muted"
+                       Text="Every important trainer gets extra versions built from its Normal team. Easy: lower levels, no training or items. Hard: a stronger team from the team builder with the Smart AI. Extra Hard: a full competitive team with the Champion AI. The game picks the version from the player's difficulty setting (the new-game menu arrives in Phase 8)." />
+            <TextBlock Text="{Binding VersionsSummary}" FontWeight="Bold" />
+            <StackPanel Orientation="Horizontal" Spacing="16">
+              <CheckBox IsChecked="{Binding MakeEasy}" Content="Easy" />
+              <CheckBox IsChecked="{Binding MakeHard}" Content="Hard" />
+              <CheckBox IsChecked="{Binding MakeExtraHard}" Content="Extra Hard" />
+            </StackPanel>
+            <Button Classes="primary" HorizontalAlignment="Left" Content="Make versions for every important trainer" Command="{Binding GenerateVersionsCommand}" />
+            <TextBlock Text="Existing versions are replaced. Edit any version afterwards on the Trainers page (they show as “@Hard” etc.)." Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
           </StackPanel>
         </Border>
       </StackPanel>

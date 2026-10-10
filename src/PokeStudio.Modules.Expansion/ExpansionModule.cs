@@ -104,7 +104,7 @@ public sealed class ExpansionModule : IGameModule
     {
         var layout = new ExpansionLayout(workingSourcePath);
         return [.. layout.SpeciesFiles(), layout.LevelUpFile, ExpansionLayout.EggMovesFile, ExpansionLayout.LearnablesJson, MovesInfo.File, TrainerParty.File,
-            EncountersFile.File, ItemsInfo.File, CapsFiles.Source, CapsFiles.Config, BattleConfig, ShopsJson.File, ShopsJson.ShopC, .. ScriptFiles(layout.Root)];
+            EncountersFile.File, ItemsInfo.File, CapsFiles.Source, CapsFiles.Config, BattleConfig, ShopsJson.File, ShopsJson.ShopC, DifficultyFile, AiConfig, .. ScriptFiles(layout.Root)];
     }
 
     public Task<GameData> LoadDataAsync(string workingSourcePath, string projectDataDir, CancellationToken cancellationToken = default) =>
@@ -178,9 +178,42 @@ public sealed class ExpansionModule : IGameModule
                 }
             }
 
+            // difficulty versions added in the app: a new block after the trainer's last existing version
+            var nl = CScanner.LineEnding(state.TrainersText);
+            foreach (var group in data.Trainers.Where(t => !state.TrainerBlocks.ContainsKey(t.Key) && t.LockedReason is null).GroupBy(t => t.Key.Split('@')[0]))
+            {
+                var anchor = state.TrainerBlocks.Values.Where(b => b.Symbol == group.Key).OrderBy(b => b.End).LastOrDefault();
+                var at = anchor?.End ?? state.TrainersText.Length;
+                var text = string.Concat(group.Select(t => TrainerParty.FormatTrainer(t, data.Catalog, speciesNames, nl)));
+                if (at == state.TrainersText.Length && !state.TrainersText.EndsWith(nl + nl, StringComparison.Ordinal))
+                {
+                    text = (state.TrainersText.EndsWith(nl, StringComparison.Ordinal) ? nl : nl + nl) + text.TrimEnd() + nl;
+                }
+
+                trainerEdits.Add(new TextEdit(at, 0, text));
+            }
+
+            // versions removed in the app
+            var keep = data.Trainers.Select(t => t.Key).ToHashSet(StringComparer.Ordinal);
+            foreach (var removed in state.TrainerBlocks.Values.Where(b => !keep.Contains(b.Key) && b.Key.Contains('@', StringComparison.Ordinal)))
+            {
+                trainerEdits.Add(new TextEdit(removed.Start, removed.End - removed.Start, ""));
+            }
+
             if (trainerEdits.Count > 0)
             {
                 await context.Writer.WriteAllTextAsync(state.Layout.Full(TrainerParty.File), TextEdits.Apply(state.TrainersText, trainerEdits), cancellationToken);
+            }
+
+            if (data.Trainers.Any(t => t.Key.EndsWith("@Extra Hard", StringComparison.Ordinal)) && File.Exists(state.Layout.Full(DifficultyFile)))
+            {
+                var diff = await File.ReadAllTextAsync(state.Layout.Full(DifficultyFile), cancellationToken);
+                if (!diff.Contains("DIFFICULTY_EXTRA_HARD", StringComparison.Ordinal)
+                    && Regex.Match(diff, @"^([ \t]*)DIFFICULTY_HARD,[^\n]*\n", RegexOptions.Multiline) is { Success: true } m)
+                {
+                    var added = $"{m.Groups[1].Value}DIFFICULTY_EXTRA_HARD, // added by Poke Studio{CScanner.LineEnding(diff)}";
+                    await context.Writer.WriteAllTextAsync(state.Layout.Full(DifficultyFile), TextEdits.Apply(diff, [new TextEdit(m.Index + m.Length, 0, added)]), cancellationToken);
+                }
             }
         }
 
@@ -354,6 +387,8 @@ public sealed class ExpansionModule : IGameModule
     }
 
     private const string BattleConfig = "include/config/battle.h";
+    private const string DifficultyFile = "include/constants/difficulty.h";
+    private const string AiConfig = "include/config/ai.h";
 
     /// <summary>Grass, fire, water starter (Emerald: src/starter_choose.c; FireRed: src/field_specials.c).</summary>
     private static List<string> ReadStarters(ExpansionLayout layout)
@@ -452,6 +487,10 @@ public sealed class ExpansionModule : IGameModule
         };
 
         var state = new LoadedState { Layout = layout };
+        SpeciesInfo.NationalDexNumbers = File.Exists(layout.Full("include/constants/pokedex.h"))
+            ? Catalogs.EnumMembers(File.ReadAllText(layout.Full("include/constants/pokedex.h")), "NATIONAL_DEX_")
+                .Select((k, i) => (k, i)).ToDictionary(x => x.k, x => x.i, StringComparer.Ordinal)
+            : new Dictionary<string, int>();
         var data = new GameData();
         SourceFile Load(string rel)
         {
@@ -629,6 +668,19 @@ public sealed class ExpansionModule : IGameModule
 
         ParseWorld(layout, state, data);
         data.Starters.AddRange(ReadStarters(layout));
+        if (File.Exists(layout.Full(AiConfig)))
+        {
+            var ai = File.ReadAllText(layout.Full(AiConfig));
+            foreach (var d in Catalogs.DefineMembers(ai, ""))
+            {
+                if (int.TryParse(d.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) && (d.Key.Contains("PERCENTAGE", StringComparison.Ordinal) || d.Key.StartsWith("STAY_IN", StringComparison.Ordinal)))
+                {
+                    var setting = new AiSetting(d.Key, AiLabel(d.Key), v, d.Comment, d.Key.Contains("PERCENTAGE", StringComparison.Ordinal));
+                    state.AiSettings[d.Key] = setting;
+                    data.AiSettings.Add(setting);
+                }
+            }
+        }
         FillCatalog(layout, data.Catalog);
         return (data, state);
     }
@@ -751,6 +803,26 @@ public sealed class ExpansionModule : IGameModule
         }
     }
 
+    /// <summary>"SHOULD_SWITCH_LOSES_1V1_PERCENTAGE" → "Switch out when: loses 1v1".</summary>
+    private static string AiLabel(string key)
+    {
+        var words = key.Replace("_PERCENTAGE", "", StringComparison.Ordinal);
+        var prefix = "";
+        if (words.StartsWith("SHOULD_SWITCH_", StringComparison.Ordinal))
+        {
+            prefix = "Switch out when: ";
+            words = words["SHOULD_SWITCH_".Length..];
+        }
+        else if (words.StartsWith("STAY_IN_", StringComparison.Ordinal))
+        {
+            prefix = "Stay in when: ";
+            words = words["STAY_IN_".Length..];
+        }
+
+        var text = words.Replace('_', ' ').ToLowerInvariant();
+        return prefix + text;
+    }
+
     /// <summary>B_PHYSICAL_SPECIAL_SPLIT ≥ GEN_4 means each move's category counts.</summary>
     private static bool? SplitSetting(ExpansionLayout layout) =>
         layout.Macros.IsDefined("B_PHYSICAL_SPECIAL_SPLIT") && layout.Macros.TryEvaluate("B_PHYSICAL_SPECIAL_SPLIT >= GEN_4") is { } v ? v != 0 : null;
@@ -835,6 +907,16 @@ public sealed class ExpansionModule : IGameModule
         foreach (var (rel, list) in scriptEdits.Where(e => e.Value.Count > 0))
         {
             await context.Writer.WriteAllTextAsync(state.Layout.Full(rel), TextEdits.Apply(state.TextSources[rel], list), cancellationToken);
+        }
+
+        // AI tuning (include/config/ai.h)
+        var changedAi = data.AiSettings.Where(s => state.AiSettings.TryGetValue(s.Key, out var b) && b.Value != s.Value).ToList();
+        if (changedAi.Count > 0 && File.Exists(state.Layout.Full(AiConfig)))
+        {
+            var ai = await File.ReadAllTextAsync(state.Layout.Full(AiConfig), cancellationToken);
+            var aiEdits = changedAi.Select(s => CapsFiles.Define(ai, s.Key) is { } d ? new TextEdit(d.Start, d.End - d.Start, s.Value.ToString(CultureInfo.InvariantCulture)) : null)
+                .Where(e => e is not null).Select(e => e!).ToList();
+            await context.Writer.WriteAllTextAsync(state.Layout.Full(AiConfig), TextEdits.Apply(ai, aiEdits), cancellationToken);
         }
 
         // physical/special split (include/config/battle.h)
@@ -991,6 +1073,7 @@ public sealed class ExpansionModule : IGameModule
         public string? CapsConfig { get; set; }
         public List<CapsFiles.CapEntry> CapEntries { get; set; } = [];
         public ShopsJson.Parsed? ShopsJson { get; set; }
+        public Dictionary<string, AiSetting> AiSettings { get; } = new(StringComparer.Ordinal);
         public GameRules? Rules { get; set; }
         public Dictionary<string, TrainerBlock> TrainerBlocks { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, Trainer> Trainers { get; } = new(StringComparer.Ordinal);

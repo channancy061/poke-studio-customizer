@@ -14,6 +14,11 @@ internal sealed record PartyChunk(int Start, int End, TrainerPokemon? Pokemon);
 
 internal sealed class TrainerBlock
 {
+    /// <summary>Start of the "=== … ===" line and the start of the next trainer (or the end of the file).</summary>
+    public int Start { get; set; }
+
+    public int End { get; set; }
+
     public required string Key { get; init; }
     public required string Symbol { get; init; }
     public List<HeaderField> Fields { get; } = [];
@@ -105,6 +110,7 @@ internal static partial class TrainerParty
             }
 
             var symbol = header.Groups[1].Value;
+            var blockStart = lines[i].Start;
             i++;
             var fields = new List<HeaderField>();
             var headerEnd = lines[i - 1].Next;
@@ -121,7 +127,7 @@ internal static partial class TrainerParty
             }
 
             var difficulty = fields.LastOrDefault(f => f.Key == "Difficulty")?.Value;
-            var block = new TrainerBlock { Symbol = symbol, Key = difficulty is { Length: > 0 } ? $"{symbol}@{difficulty}" : symbol, HeaderEnd = headerEnd };
+            var block = new TrainerBlock { Symbol = symbol, Key = difficulty is { Length: > 0 } && difficulty != "Normal" ? $"{symbol}@{difficulty}" : symbol, HeaderEnd = headerEnd, Start = blockStart };
             block.Fields.AddRange(fields);
 
             // party chunks until the next header
@@ -145,6 +151,7 @@ internal static partial class TrainerParty
                 block.Chunks.Add(new PartyChunk(lines[first].Start, lines[i - 1].End, allComment ? null : ParsePokemon(chunkText, speciesFromName)));
             }
 
+            block.End = i < lines.Count ? lines[i].Start : text.Length;
             result.Add((block, ToTrainer(block, id++)));
         }
 
@@ -551,6 +558,50 @@ internal static partial class TrainerParty
         }
 
         return edits;
+    }
+
+    /// <summary>A whole new trainer block (used for difficulty versions), ending with a blank line.</summary>
+    public static string FormatTrainer(Trainer t, GameCatalog c, IReadOnlyDictionary<string, string> speciesNames, string nl)
+    {
+        var symbol = t.Key.Split('@')[0];
+        var difficulty = t.Key.Contains('@', StringComparison.Ordinal) ? t.Key.Split('@')[1] : null;
+        var sb = new StringBuilder($"=== {symbol} ==={nl}");
+        void Line(string key, string value) => sb.Append(key).Append(": ").Append(value).Append(nl);
+        Line("Name", t.Name);
+        Line("Class", Token("TRAINER_CLASS", t.TrainerClass, c));
+        Line("Pic", Token("TRAINER_PIC", t.Pic, c));
+        if (t.Gender.Length > 0)
+        {
+            Line("Gender", t.Gender);
+        }
+
+        if (t.Music.Length > 0)
+        {
+            Line("Music", Token("TRAINER_ENCOUNTER_MUSIC", t.Music, c));
+        }
+
+        if (t.Items.Count > 0)
+        {
+            Line("Items", string.Join(" / ", t.Items.Select(i => Token("ITEM", i, c))));
+        }
+
+        Line("Double Battle", t.Battle == BattleType.Double ? "Yes" : "No");
+        if (t.AiFlags.Count > 0)
+        {
+            Line("AI", string.Join(" / ", t.AiFlags.Select(f => Token("AI_FLAG", f, c))));
+        }
+
+        if (difficulty is not null)
+        {
+            Line("Difficulty", difficulty);
+        }
+
+        foreach (var p in t.Party)
+        {
+            sb.Append(nl).Append(FormatPokemon(p, c, speciesNames, nl)).Append(nl);
+        }
+
+        return sb.Append(nl).ToString();
     }
 
     private static int LineContentEnd(string text, HeaderField f)

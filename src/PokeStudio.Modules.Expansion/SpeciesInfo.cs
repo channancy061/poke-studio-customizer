@@ -323,6 +323,9 @@ internal static partial class SpeciesInfo
     }
 
     /// <summary>Builds the storage-independent Species for one block.</summary>
+    /// <summary>NATIONAL_DEX_* → number, from include/constants/pokedex.h (set by the module before parsing).</summary>
+    internal static IReadOnlyDictionary<string, int> NationalDexNumbers { get; set; } = new Dictionary<string, int>();
+
     public static Species ToSpecies(SourceFile file, SpeciesBlock block, int index, out string? levelUp, out string? teachable, out string? egg, out string? teachingType)
     {
         var locked = new Dictionary<string, string>();
@@ -448,6 +451,7 @@ internal static partial class SpeciesInfo
             DexEntry = description,
             IsEnabled = block.Active,
             Tags = tags,
+            NationalDex = Value("natDexNum", "NationalDex") is { } dex && NationalDexNumbers.TryGetValue(dex.Trim(), out var dexNumber) && dexNumber > 0 ? dexNumber : null,
             LearnsetKey = $"{levelUp}|{teachable}|{egg}",
             LockedFields = locked,
             SettingDependentFields = dependent,

@@ -15,3 +15,4 @@
 #define AI_FLAG_PREDICTION            (AI_FLAG_PREDICT_SWITCH | AI_FLAG_PREDICT_MOVE)
 
 #define AI_FLAG_COUNT                       64
+#define AI_FLAG_DOUBLE_ACE_POKEMON          AI_FLAG(20) // The last two Pokemon are saved until the end.

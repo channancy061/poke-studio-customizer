@@ -82,6 +82,9 @@ public sealed class GameData
     /// <summary>Level caps and related settings, or null when the game has none.</summary>
     public GameRules? Rules { get; set; }
 
+    /// <summary>Game-wide AI settings (switch chances…) that can be tuned.</summary>
+    public List<AiSetting> AiSettings { get; } = [];
+
     /// <summary>The three starters the player chooses from, in the game's order (empty if unknown).</summary>
     public List<string> Starters { get; } = [];
 

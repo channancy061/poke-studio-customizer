@@ -44,12 +44,56 @@ public sealed partial class ChampionLabPageViewModel : ViewModelBase
     public string StartersText => HasStarters ? "Starters: " + string.Join(", ", Data.Starters.Select(Name)) : "This project's starters couldn't be found, so the rival rule is skipped.";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsGroupsTab), nameof(IsRulesTab), nameof(IsScoutingTab))]
+    [NotifyPropertyChangedFor(nameof(IsGroupsTab), nameof(IsRulesTab), nameof(IsScoutingTab), nameof(IsVersionsTab))]
     public partial int Tab { get; set; }
 
     public bool IsGroupsTab { get => Tab == 0; set { if (value) { Tab = 0; } } }
     public bool IsRulesTab { get => Tab == 1; set { if (value) { Tab = 1; } } }
     public bool IsScoutingTab { get => Tab == 2; set { if (value) { Tab = 2; } } }
+    public bool IsVersionsTab { get => Tab == 3; set { if (value) { Tab = 3; } } }
+
+    // ---- difficulty versions ----
+    [ObservableProperty]
+    public partial bool MakeEasy { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool MakeHard { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool MakeExtraHard { get; set; } = true;
+
+    public string VersionsSummary
+    {
+        get
+        {
+            var bosses = Data.Trainers.Where(t => Lab.DifficultyOf(t) == Core.ChampionLab.Difficulty.Normal && Lab.GroupOf(Data, Settings, t) != TrainerGroup.Regular).ToList();
+            var withVersions = bosses.Count(b => Data.Trainers.Any(t => Lab.BaseKey(t) == b.Key && t.Key != b.Key));
+            return $"{bosses.Count} important trainers; {withVersions} already have other difficulty versions.";
+        }
+    }
+
+    [RelayCommand]
+    private void GenerateVersions()
+    {
+        var versions = new List<Core.ChampionLab.Difficulty>();
+        if (MakeEasy) { versions.Add(Core.ChampionLab.Difficulty.Easy); }
+        if (MakeHard) { versions.Add(Core.ChampionLab.Difficulty.Hard); }
+        if (MakeExtraHard) { versions.Add(Core.ChampionLab.Difficulty.ExtraHard); }
+        var keys = Data.Trainers.Where(t => Lab.DifficultyOf(t) == Core.ChampionLab.Difficulty.Normal && t.LockedReason is null && Lab.GroupOf(Data, Settings, t) != TrainerGroup.Regular)
+            .Select(t => t.Key).ToList();
+        if (versions.Count == 0 || keys.Count == 0)
+        {
+            _shell.Toast = versions.Count == 0 ? "Tick at least one difficulty." : "No important trainers to make versions for. Set groups first.";
+            return;
+        }
+
+        if (DifficultyVersions.Generate(Data, Settings, keys, versions) is { } change)
+        {
+            _shell.Execute(change);
+            _shell.Toast = $"Made {versions.Count} version(s) for {keys.Count} trainers. One Undo removes them all.";
+            OnPropertyChanged(nameof(VersionsSummary));
+        }
+    }
 
     [ObservableProperty]
     public partial bool ShowAllTrainers { get; set; }
@@ -94,6 +138,12 @@ public sealed partial class ChampionLabPageViewModel : ViewModelBase
     {
         get => Settings.RivalKeepsStarter;
         set => Update(s => s with { RivalKeepsStarter = value }, value ? "Rule on: rivals keep their starter" : "Rule off: rivals keep their starter");
+    }
+
+    public bool OfficialOnly
+    {
+        get => Settings.OfficialOnly;
+        set => Update(s => s with { OfficialOnly = value }, value ? "Rule on: official Pokémon only" : "Rule off: official Pokémon only");
     }
 
     public bool FairPlay
@@ -188,6 +238,7 @@ public sealed partial class ChampionLabPageViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(RivalKeepsStarter));
         OnPropertyChanged(nameof(FairPlay));
+        OnPropertyChanged(nameof(OfficialOnly));
         OnPropertyChanged(nameof(UniqueTypeCombos));
     }
 
