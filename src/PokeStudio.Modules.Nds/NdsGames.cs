@@ -102,6 +102,52 @@ internal static class Arm9
         return DecompressBlz(arm9, (int)(compressedEnd - ram));
     }
 
+    private static int OverlayTable(NdsRom rom) => (int)BinaryPrimitives.ReadUInt32LittleEndian(rom.Bytes.AsSpan(0x50));
+
+    public static int OverlayCount(NdsRom rom) => (int)BinaryPrimitives.ReadUInt32LittleEndian(rom.Bytes.AsSpan(0x54)) / 32;
+
+    /// <summary>One overlay, decompressed, or null when it can't be read.</summary>
+    public static byte[]? Overlay(NdsRom rom, int index)
+    {
+        var at = OverlayTable(rom) + (32 * index);
+        var fileId = (int)BinaryPrimitives.ReadUInt32LittleEndian(rom.Bytes.AsSpan(at + 0x18));
+        var flags = BinaryPrimitives.ReadUInt32LittleEndian(rom.Bytes.AsSpan(at + 0x1C));
+        byte[] data;
+        try
+        {
+            data = rom.Read(fileId);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return null;
+        }
+
+        if ((flags & 0x01000000) == 0 || data.Length <= 8)
+        {
+            return data;
+        }
+
+        var compressed = (int)(flags & 0xFFFFFF);
+        try
+        {
+            return DecompressBlz(data, Math.Min(compressed == 0 ? data.Length : compressed, data.Length));
+        }
+        catch (IndexOutOfRangeException)
+        {
+            return data;
+        }
+    }
+
+    /// <summary>Stores an overlay uncompressed (the game loads either kind) and marks it so in the overlay table.</summary>
+    public static void WriteOverlay(NdsRom rom, int index, byte[] data)
+    {
+        var at = OverlayTable(rom) + (32 * index);
+        var fileId = (int)BinaryPrimitives.ReadUInt32LittleEndian(rom.Bytes.AsSpan(at + 0x18));
+        rom.Write(fileId, data);
+        at = OverlayTable(rom) + (32 * index); // the table doesn't move, but read it again in case the header changed
+        BinaryPrimitives.WriteUInt32LittleEndian(rom.Bytes.AsSpan(at + 0x1C), 0);
+    }
+
     /// <summary>The program's overlays (arm9 overlay table at header 0x50), decompressed where they're stored compressed.</summary>
     public static IEnumerable<byte[]> Overlays(NdsRom rom)
     {

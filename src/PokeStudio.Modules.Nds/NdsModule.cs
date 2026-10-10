@@ -41,7 +41,7 @@ public sealed class NdsModule : IGameModule
     [
         new(ModuleCapabilities.Species, SupportLevel.Supported),
         new(ModuleCapabilities.Moves, SupportLevel.Limited, "Descriptions can't change yet."),
-        new(ModuleCapabilities.Learnsets, SupportLevel.Limited, "Level-up moves and TM/HM lists; egg moves and tutors not yet."),
+        new(ModuleCapabilities.Learnsets, SupportLevel.Limited, "Level-up moves, TM/HM lists and egg moves (Diamond/Pearl/Platinum: within the game's current room); tutors not yet."),
         new(ModuleCapabilities.Evolutions, SupportLevel.Limited, "Up to 7 per Pokémon, using the methods these games know."),
         new(ModuleCapabilities.Trainers, SupportLevel.Supported),
         new(ModuleCapabilities.TrainerAi, SupportLevel.Supported),
@@ -100,6 +100,7 @@ public sealed class NdsModule : IGameModule
             var game = NdsGame.For(rom.GameCode) ?? throw new InvalidDataException("This DS game isn't supported.");
             var tables = LoadTables(rom, game, projectDataDir);
             var (data, state) = NdsReader.Read(rom, game, tables);
+            NdsEggMoves.Read(state, data);
             NdsDialogue.Load(state, data);
             _states.AddOrUpdate(data, state);
             return data;
@@ -119,15 +120,17 @@ public sealed class NdsModule : IGameModule
         }
 
         NdsWriter.Write(state, data);
+        NdsEggMoves.Write(state, data);
         NdsDialogue.Save(state, data);
         await context.Writer.WriteAllBytesAsync(context.WorkingSourceDir, state.Rom.Bytes, cancellationToken);
-        var (_, fresh) = NdsReader.Read(state.Rom, state.Game, state.Tables);
+        var (freshData, fresh) = NdsReader.Read(state.Rom, state.Game, state.Tables);
+        NdsEggMoves.Read(fresh, freshData);
         NdsDialogue.Load(fresh, new GameData()); // the edited text stays in data
         _states.AddOrUpdate(data, fresh);
     }
 
     public IReadOnlyList<ValidationIssue> Validate(GameData data) =>
-        _states.TryGetValue(data, out var state) ? [.. NdsWriter.Check(state, data, Limits), .. NdsDialogue.Check(state, data)] : [];
+        _states.TryGetValue(data, out var state) ? [.. NdsWriter.Check(state, data, Limits), .. NdsEggMoves.Check(state, data), .. NdsDialogue.Check(state, data)] : [];
 
     /// <summary>Which text files hold which names (found by content once, then remembered: renames would hide them).</summary>
     private static NdsTables LoadTables(NdsRom rom, NdsGame game, string projectDataDir)
@@ -139,6 +142,13 @@ public sealed class NdsModule : IGameModule
             {
                 if (JsonSerializer.Deserialize<NdsTables>(File.ReadAllText(file), JsonStore.Options) is { } saved && saved.GameCode == rom.GameCode)
                 {
+                    if (!saved.EggMovesLocated)
+                    {
+                        // a project from before egg move support
+                        saved = saved.WithEggMoves(rom, game);
+                        File.WriteAllText(file, JsonSerializer.Serialize(saved, JsonStore.Options));
+                    }
+
                     return saved;
                 }
             }
@@ -169,6 +179,13 @@ internal sealed record NdsTables
     public int TrainerNames { get; init; } = -1;
     public int ClassNames { get; init; } = -1;
     public IReadOnlyList<int> TmMoves { get; init; } = [];
+
+    /// <summary>Diamond/Pearl/Platinum: the overlay and offset of the egg move table (-1 = elsewhere or not found).</summary>
+    public int EggMoveOverlay { get; init; } = -1;
+
+    public int EggMoveOffset { get; init; } = -1;
+
+    public bool EggMovesLocated { get; init; }
 
     public static NdsTables Locate(NdsRom rom, NdsGame game)
     {
@@ -237,7 +254,20 @@ internal sealed record NdsTables
             TrainerNames = trainerNames,
             ClassNames = classNames,
             TmMoves = tmMoves,
-        };
+        }.WithEggMoves(rom, game);
+    }
+
+    /// <summary>Finds the egg move table when it lives in an overlay (Diamond/Pearl/Platinum).</summary>
+    public NdsTables WithEggMoves(NdsRom rom, NdsGame game)
+    {
+        if (game.Generation != 4 || rom.Exists("a/2/2/9"))
+        {
+            return this with { EggMovesLocated = true };
+        }
+
+        var moves = new Narc(rom.Read(game.Moves)).Members.Count;
+        var (overlay, offset) = NdsEggMoves.LocateOverlayTable(rom, moves);
+        return this with { EggMoveOverlay = overlay, EggMoveOffset = offset, EggMovesLocated = true };
     }
 }
 
@@ -260,4 +290,5 @@ internal sealed class NdsState
     public Dictionary<string, Item> Items { get; } = new(StringComparer.Ordinal);
     public List<string> TmMoves { get; } = [];
     public Dictionary<string, TextEntry> Texts { get; } = new(StringComparer.Ordinal);
+    public bool EggMovesFound { get; set; }
 }
