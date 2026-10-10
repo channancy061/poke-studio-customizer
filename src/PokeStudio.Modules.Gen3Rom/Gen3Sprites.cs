@@ -14,6 +14,7 @@ internal static class Gen3Sprites
             SpriteKind.Front when t.AnimFrontPics >= 0 => new SpriteRules(64, 128, 2, 16, true, "Two frames stacked: the second is the animation frame."),
             SpriteKind.Front when t.FrontPics >= 0 => new SpriteRules(64, 64, 1, 16, true),
             SpriteKind.Back when t.BackPics >= 0 => new SpriteRules(64, 64, 1, 16, true),
+            SpriteKind.Icon when t.IconTable >= 0 => new SpriteRules(32, 64, 2, 16, false, "Icons share one of six palettes; your colours are matched to it."),
             _ => null,
         };
     }
@@ -25,8 +26,30 @@ internal static class Gen3Sprites
         _ => -1,
     };
 
+    private static IReadOnlyList<Rgb>? IconPalette(Gen3RomModule.State s, int i)
+    {
+        var t = s.Tables;
+        if (t.IconTable < 0 || i >= t.IconCount)
+        {
+            return null;
+        }
+
+        var p = s.Rom.Offset(t.IconPalettes + (8 * s.Rom.U8(t.IconPaletteIndices + i)));
+        return p < 0 ? null : Bgr555.Read(s.Rom.Bytes.AsSpan(p, 32).ToArray());
+    }
+
     public static IndexedImage? Load(Gen3RomModule.State s, string species, SpriteKind kind)
     {
+        if (kind == SpriteKind.Icon)
+        {
+            if (s.Tables.IconTable < 0 || !s.SpeciesIndex.TryGetValue(species, out var n) || n >= s.Tables.IconCount || s.Rom.Offset(s.Tables.IconTable + (4 * n)) is not (var at and >= 0))
+            {
+                return null;
+            }
+
+            return Tiles4bpp.ToImage(s.Rom.Bytes.AsSpan(at, 0x400).ToArray(), 32, IconPalette(s, n)!);
+        }
+
         var table = Table(s, kind);
         if (table < 0 || !s.SpeciesIndex.TryGetValue(species, out var i))
         {
@@ -88,6 +111,25 @@ internal static class Gen3Sprites
             else if (kind == SpriteKind.Back)
             {
                 Put(s.Tables.BackPics, i, tiles);
+            }
+            else if (kind == SpriteKind.Icon && s.Tables.IconTable >= 0 && i < s.Tables.IconCount)
+            {
+                // icons aren't compressed: overwrite in place, unless other species share this picture
+                var entry = s.Tables.IconTable + (4 * i);
+                var at = rom.Offset(entry);
+                var shared = Enumerable.Range(0, s.Tables.IconCount).Count(k => rom.U32(s.Tables.IconTable + (4 * k)) == rom.U32(entry)) > 1;
+                if (shared)
+                {
+                    at = rom.FindFree(0x400);
+                    if (at < 0)
+                    {
+                        throw new InvalidOperationException("The ROM has no free space left for the new icon.");
+                    }
+
+                    rom.WritePointer(entry, at);
+                }
+
+                tiles.AsSpan(0, Math.Min(tiles.Length, 0x400)).CopyTo(rom.Bytes.AsSpan(at));
             }
         }
 

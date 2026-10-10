@@ -55,7 +55,7 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
         new(ModuleCapabilities.Encounters, SupportLevel.Limited, "Pokémon and levels can change; the number of slots is fixed."),
         new(ModuleCapabilities.ItemsAndMarts, SupportLevel.Limited, "Item names, prices and what each shop sells. Stock that grows with badges needs a project (decomp)."),
         new(ModuleCapabilities.Text, SupportLevel.Limited, "What people, signs and trainers say on the maps. Menus and battle messages aren't included; use a project (decomp) for those."),
-        new(ModuleCapabilities.Graphics, SupportLevel.Limited, "Pokémon front and back sprites and their palettes; icons not yet."),
+        new(ModuleCapabilities.Graphics, SupportLevel.Supported),
         new(ModuleCapabilities.Models3d, SupportLevel.Never, "GBA games have no 3D models."),
     ];
 
@@ -189,7 +189,7 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
                 var saved = System.Text.Json.JsonSerializer.Deserialize<TablesFile>(File.ReadAllText(file), PokeStudio.Core.Storage.JsonStore.Options);
                 if (saved is not null && saved.GameCode == rom.GameCode && saved.Length == rom.Length)
                 {
-                    if (saved.Tables.SpritesLocated && saved.Tables.EggMovesLocated)
+                    if (saved.Tables.SpritesLocated && saved.Tables.EggMovesLocated && saved.Tables.IconsLocated)
                     {
                         return saved.Tables;
                     }
@@ -199,6 +199,11 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
                     if (!upgraded.SpritesLocated)
                     {
                         upgraded = upgraded.WithSprites(rom);
+                    }
+
+                    if (!upgraded.IconsLocated)
+                    {
+                        upgraded = upgraded.WithIcons(rom);
                     }
 
                     if (!upgraded.EggMovesLocated)
@@ -217,7 +222,7 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
         }
 
         var tables = (Gen3Tables.Locate(rom, out var problem) ?? throw new InvalidDataException(problem)).WithSprites(rom);
-        tables = tables with { EggMovePointers = Gen3EggMoves.Locate(rom, tables.MoveCount), EggMovesLocated = true };
+        tables = tables.WithIcons(rom) with { EggMovePointers = Gen3EggMoves.Locate(rom, tables.MoveCount), EggMovesLocated = true };
         Directory.CreateDirectory(projectDataDir);
         File.WriteAllText(file, System.Text.Json.JsonSerializer.Serialize(new TablesFile(rom.GameCode, rom.Length, tables), PokeStudio.Core.Storage.JsonStore.Options));
         return tables;

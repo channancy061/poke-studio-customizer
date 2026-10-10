@@ -143,6 +143,49 @@ internal sealed record Gen3Tables
 
     public bool EggMovesLocated { get; init; }
 
+    // party icons: a pointer per species to 32×64 uncompressed tiles, then a palette number per species, then the six
+    // shared palettes ({pointer, tag 56000 + n})
+    public int IconTable { get; init; } = -1;
+    public int IconPaletteIndices { get; init; } = -1;
+    public int IconPalettes { get; init; } = -1;
+    public int IconCount { get; init; }
+    public bool IconsLocated { get; init; }
+
+    public Gen3Tables WithIcons(RomImage rom)
+    {
+        for (var p = 0; p + 48 < rom.Length; p += 4)
+        {
+            var ok = true;
+            for (var i = 0; i < 6 && ok; i++)
+            {
+                ok = rom.Offset(p + (8 * i)) >= 0 && rom.U16(p + (8 * i) + 4) == 56000 + i;
+            }
+
+            if (!ok)
+            {
+                continue;
+            }
+
+            // the palette numbers end where the palette table starts; the icon pointers end where they start
+            var start = p;
+            while (start > 0 && rom.U8(start - 1) <= 5 && p - start < 1000)
+            {
+                start--;
+            }
+
+            var count = p - start;
+            var table = start - (4 * count);
+            if (count < 400 || table < 0 || Enumerable.Range(0, count).Any(i => rom.Offset(table + (4 * i)) is var o && (o < 0 || o + 0x400 > rom.Length)))
+            {
+                continue;
+            }
+
+            return this with { IconTable = table, IconPaletteIndices = start, IconPalettes = p, IconCount = count, IconsLocated = true };
+        }
+
+        return this with { IconsLocated = true };
+    }
+
     /// <summary>
     /// Pokémon picture tables have an entry per species whose tag is the species number (pictures: tag at +6; palettes:
     /// tag at +4, shiny ones + 500). The first two picture tables are the front and back sprites; Emerald adds an

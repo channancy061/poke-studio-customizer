@@ -94,6 +94,12 @@ public class GraphicsTests
             }
         }
 
+        var icon = module.Load(data, species, SpriteKind.Icon)!;
+        Assert.Equal((32, 64), (icon.Width, icon.Height));
+        Assert.False(module.Rules(data, species, SpriteKind.Icon)!.OwnPalette);
+        var flipped = icon with { Pixels = [.. icon.Pixels.Reverse()] };
+        SpriteEditing.Replace(data, species, SpriteKind.Icon, flipped).Apply();
+
         var newColors = Colors.Select(c => c.ToGba()).ToList();
         SpriteEditing.Replace(data, species, SpriteKind.Front, new IndexedImage(front.Width, front.Height, mirrored, newColors)).Apply();
         SpriteEditing.SetPalette(data, species, true, [.. newColors.AsEnumerable().Reverse()]).Apply();
@@ -106,6 +112,7 @@ public class GraphicsTests
         Assert.Equal(newColors, module.LoadPalette(reloaded, key, false));
         Assert.Equal(newColors.AsEnumerable().Reverse(), module.LoadPalette(reloaded, key, true));
         Assert.Equal(back.Pixels, module.Load(reloaded, key, SpriteKind.Back)!.Pixels); // untouched
+        Assert.Equal(flipped.Pixels, module.Load(reloaded, key, SpriteKind.Icon)!.Pixels);
     }
 
     [Fact]
