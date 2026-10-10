@@ -153,6 +153,9 @@ public interface IGameModule
     /// <summary>Generations whose movesets this game can switch to (empty = Modernize isn't available).</summary>
     IReadOnlyList<Modernize.GenerationChoice> ModernizeGenerations(GameData data) => [];
 
+    /// <summary>Where each trainer is fought (trainer key → friendly place name), for the Player's Guide; empty if unknown.</summary>
+    IReadOnlyDictionary<string, string> TrainerPlaces(GameData data) => new Dictionary<string, string>();
+
     /// <summary>Whether this game can get the new-game options menu (written on save from <see cref="GameData.GameOptions"/>).</summary>
     bool SupportsGameOptions(GameData data) => false;
 

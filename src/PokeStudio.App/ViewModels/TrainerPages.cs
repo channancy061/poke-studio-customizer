@@ -559,7 +559,7 @@ public sealed partial class TrainerEditorViewModel : ViewModelBase
     private void MakeReport() => Report = Core.ChampionLab.ReportCard.For(_shell.Session.Data, Lab, Model);
 
     // ---- adaptive boss slot ----
-    public bool AdaptiveAllowed => IsEditable && Model.Party.Count > 0
+    public bool AdaptiveAllowed => IsEditable && Model.Party.Count >= Core.ChampionLab.AdaptiveSlots.MinTeam
         && Core.ChampionLab.AdaptiveSlots.Allowed(Core.ChampionLab.Lab.GroupOf(_shell.Session.Data, Lab, Model));
 
     public bool HasAdaptive => Model.HasAdaptiveSlot;
@@ -588,7 +588,13 @@ public sealed partial class TrainerEditorViewModel : ViewModelBase
     [RelayCommand]
     private void SuggestCandidates()
     {
-        var flex = Model.FlexIndex ?? Core.ChampionLab.AdaptiveSlots.DefaultFlexIndex(Model);
+        var flex = Model.FlexIndex ?? Core.ChampionLab.AdaptiveSlots.FlexIndexFor(_shell.Session.Data, Lab, Model);
+        if (flex < 0)
+        {
+            _shell.Toast = "Every member of this team has to stay (a rival's starter always stays).";
+            return;
+        }
+
         var candidates = Core.ChampionLab.AdaptiveSlots.SuggestCandidates(_shell.Session.Data, Lab, Model, flex);
         if (candidates.Count == 0)
         {

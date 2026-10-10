@@ -64,13 +64,15 @@ public class GameCodeUiTests
         var (shell, root) = await OpenFixtureAsync(env);
         shell.GoToTrainer("TRAINER_LEADER_FERN");
         var editor = Assert.IsType<TrainersPageViewModel>(shell.CurrentPage).Editor!;
+        Assert.False(editor.AdaptiveAllowed); // two Pokemon: too small a team to swap one
+        editor.AddPokemonCommand.Execute(null);
         Assert.True(editor.AdaptiveAllowed);
         Assert.True(editor.NoAdaptive);
         editor.SuggestCandidatesCommand.Execute(null);
         // the test project is tiny: everything else evolves into Fern's own Pokemon by her level, so nothing fits
         Assert.Equal("No candidates fit this boss's theme and rules.", shell.Toast);
         var fern = shell.Session.Data.Trainers.Single(t => t.Key == "TRAINER_LEADER_FERN");
-        shell.Execute(Core.ChampionLab.AdaptiveSlots.Set(shell.Session.Data, fern, 0, [new Core.Models.TrainerPokemon { Species = "SPECIES_GHOSTLING", Level = 22 }], "test")!);
+        shell.Execute(Core.ChampionLab.AdaptiveSlots.Set(shell.Session.Data, fern, 1, [new Core.Models.TrainerPokemon { Species = "SPECIES_GHOSTLING", Level = 22 }], "test")!);
         Assert.True(editor.HasAdaptive);
         Assert.StartsWith("Flexible: ", editor.AdaptiveSummary, StringComparison.Ordinal);
         Assert.EndsWith("(Switch it on in Game options for it to work in the game.)", editor.AdaptiveSummary, StringComparison.Ordinal);
@@ -115,7 +117,7 @@ public class GameCodeUiTests
 
         shell.GoToTrainer("TRAINER_LEADER_FERN");
         var fern = shell.Session.Data.Trainers.Single(t => t.Key == "TRAINER_LEADER_FERN");
-        shell.Execute(Core.ChampionLab.AdaptiveSlots.Set(shell.Session.Data, fern, 0, [new Core.Models.TrainerPokemon { Species = "SPECIES_GHOSTLING", Level = 22 }], "test")!);
+        shell.Execute(Core.ChampionLab.AdaptiveSlots.Set(shell.Session.Data, fern, 1, [new Core.Models.TrainerPokemon { Species = "SPECIES_GHOSTLING", Level = 22 }], "test")!);
         Save("adaptive-slot");
         window.Close();
     }

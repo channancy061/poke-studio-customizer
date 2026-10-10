@@ -136,6 +136,10 @@ public class AdaptiveSlotTests
         Assert.True(count >= 8, $"only {count} bosses got a slot");
         change!.Apply();
         Assert.DoesNotContain(data.Trainers, t => t.HasAdaptiveSlot && Lab.GroupOf(data, lab, t) == TrainerGroup.Champion);
+        Assert.All(data.Trainers.Where(t => t.HasAdaptiveSlot), t => Assert.True(t.Party.Count >= AdaptiveSlots.MinTeam));
+        var starterFamilies = data.Starters.SelectMany(s => Starters.Family(data, s)).ToHashSet(StringComparer.Ordinal);
+        Assert.All(data.Trainers.Where(t => t.HasAdaptiveSlot && Lab.GroupOf(data, lab, t) == TrainerGroup.Rival),
+            t => Assert.DoesNotContain(t.Party[t.FlexIndex!.Value].Species, starterFamilies));
         var slots = data.Trainers.Where(t => t.HasAdaptiveSlot).ToDictionary(t => t.Key, t => t.FlexCandidates.Select(c => c.Species).ToList());
         Assert.All(data.Trainers.Where(t => t.HasAdaptiveSlot), t =>
             Assert.DoesNotContain(t.FlexCandidates, c => t.Party.Any(p => p.Species == c.Species)));

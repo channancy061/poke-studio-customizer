@@ -67,7 +67,7 @@
             <TextBlock Text="{Binding StartersText}" Classes="caption muted" Margin="0,-4,0,0" />
             <StackPanel Orientation="Horizontal" Spacing="8">
               <Button Classes="secondary sm" Content="Suggest adaptive slots for all bosses" Command="{Binding SuggestAdaptiveSlotsCommand}" />
-              <TextBlock Text="Gym leaders, rival and Elite Four (never the Champion) get 3 candidates each." Classes="small muted" VerticalAlignment="Center" />
+              <TextBlock Text="Gym leaders, rival and Elite Four with 3+ Pokémon (never the Champion; a rival's starter always stays) get 3 candidates each." Classes="small muted" VerticalAlignment="Center" />
             </StackPanel>
             <ToggleSwitch IsChecked="{Binding OfficialOnly}" Content="Official Pokémon only: suggested teams use main-series Pokémon (National Dex 1–1025, no novelty forms)" />
             <ToggleSwitch IsChecked="{Binding FairPlay}" Content="Fair play: bosses only use as many legendaries as the player could own by then" />

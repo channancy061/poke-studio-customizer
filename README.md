@@ -7,7 +7,7 @@
 A friendly desktop editor (Windows + Linux) for customising games you legally own.
 It ships **no game files or assets**, never modifies your originals, and uses only open-source components (MIT-licensed).
 
-## Status: Phase 8 (game options, Nuzlocke, adaptive bosses, Center helper) done, not yet test-built
+## Status: Phase 9 (Player's Guide) done; Phase 8 game code not yet test-built
 - **Phase 1:** solution skeleton, plugin system, projects, undo/redo + change log, backups/restore, settings,
   Avalonia shell with light/dark theming, CI on Windows + Linux, Windows installer and Linux AppImage.
 - **Phase 2:** edit a **pokeemerald-expansion 1.17.1** project (Emerald-based, Gen 1–9 Pokémon):
@@ -129,6 +129,11 @@ It ships **no game files or assets**, never modifies your originals, and uses on
   - **Pokémon Center helper**: an NPC in every Center (behind the counter next to the nurse when there's room,
     otherwise a free tile that blocks no path, door, sign or machine — read from the map's collision and
     metatile behaviours) who changes natures, gives perfect IVs and sets EV spreads, each optional with a price.
+- **Phase 9 — Player's Guide** (Tools): one self-contained `guide/players-guide.html` (light/dark, prints well) plus
+  Markdown, built from the project: the new-game questions (with the "don't keep pressing A" warning), Nuzlocke
+  rules, level caps, every important battle in story order with where it is (from the map scripts), team, "Bring"
+  advice and every difficulty version, adaptive slots shown as "?" with their candidates, wild Pokémon per place
+  with chances, shops with badge stock, and how special Pokémon evolve.
 - **FireRed base:** projects made from **pokefirered-expansion** (community port, cawtds/pokefirered-expansion,
   expansion 1.15.x) open with the same editors. Differences handled: the ROM is `pokefirered.gba`, the text
   box is 26 tiles (208 px, read from `src/menu.c`), shops live in `src/data/shops.json` (stages; edited in

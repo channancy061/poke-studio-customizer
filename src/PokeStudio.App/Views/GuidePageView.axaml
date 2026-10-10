@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             x:Class="PokeStudio.App.Views.GuidePageView"
+             x:DataType="vm:GuidePageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="32,28" Spacing="16" MaxWidth="960" HorizontalAlignment="Left">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Player's Guide" Classes="title" />
+        <TextBlock Text="A walkthrough of your hack for players who want help: every important battle with its team, what to bring, the level caps, where to catch Pokémon, the shops and how special Pokémon evolve. Built from your project's own data — create it again after changes."
+                   Classes="muted" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Title" FontWeight="Bold" />
+          <TextBox Text="{Binding Title}" AutomationProperties.Name="Guide title" />
+          <TextBlock Text="Include" FontWeight="Bold" Margin="0,6,0,0" />
+          <CheckBox IsChecked="{Binding StartOptions}" Content="Starting a new game (the options menu, Nuzlocke rules, Pokémon Center helper)" />
+          <CheckBox IsChecked="{Binding LevelCaps}" Content="Level caps" />
+          <CheckBox IsChecked="{Binding Bosses}" Content="Important battles (gym leaders, rival, Elite Four, Champion…) with every difficulty version" />
+          <CheckBox IsChecked="{Binding OtherTrainers}" Content="Every other trainer too (makes the guide much longer)" Margin="24,0,0,0" IsEnabled="{Binding Bosses}" />
+          <CheckBox IsChecked="{Binding Wild}" Content="Where to catch Pokémon" />
+          <CheckBox IsChecked="{Binding Shops}" Content="Shops" />
+          <CheckBox IsChecked="{Binding Evolutions}" Content="How special Pokémon evolve" />
+          <TextBlock Text="{Binding Contents}" Classes="small muted" TextWrapping="Wrap" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Classes="primary" Content="Create guide" Command="{Binding CreateCommand}" />
+            <Button Classes="quiet" Content="Show in folder" Command="{Binding ShowFolderCommand}" />
+          </StackPanel>
+          <TextBlock Text="{Binding Status}" IsVisible="{Binding Status, Converter={x:Static ObjectConverters.IsNotNull}}" Classes="small" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding HtmlFile}" IsVisible="{Binding HasGuide}" Classes="small muted" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

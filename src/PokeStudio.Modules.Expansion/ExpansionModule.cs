@@ -303,6 +303,47 @@ public sealed class ExpansionModule : IGameModule
         "Sun, Moon, Ultra Sun & Ultra Moon", "Sword & Shield", "Scarlet & Violet",
     ];
 
+    /// <summary>From the map scripts: the first map whose script starts a battle with each trainer.</summary>
+    public IReadOnlyDictionary<string, string> TrainerPlaces(GameData data)
+    {
+        var places = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (!_states.TryGetValue(data, out var state))
+        {
+            return places;
+        }
+
+        var maps = state.Layout.Full("data/maps");
+        if (!Directory.Exists(maps))
+        {
+            return places;
+        }
+
+        foreach (var dir in Directory.GetDirectories(maps).Order(StringComparer.Ordinal))
+        {
+            var script = Path.Combine(dir, "scripts.inc");
+            if (!File.Exists(script))
+            {
+                continue;
+            }
+
+            var place = MapPlace(Path.GetFileName(dir));
+            foreach (Match m in Regex.Matches(File.ReadAllText(script), @"\btrainerbattle\w*\s+(TRAINER_\w+)"))
+            {
+                places.TryAdd(m.Groups[1].Value, place);
+            }
+        }
+
+        return places;
+    }
+
+    /// <summary>"RustboroCity_Gym" → "Rustboro City Gym"; "Route104_Frlg" → "Route 104".</summary>
+    internal static string MapPlace(string mapDir)
+    {
+        var name = Regex.Replace(mapDir, "_Frlg$", "");
+        name = Regex.Replace(name, "(?<=[a-z])(?=[A-Z0-9])|(?<=[0-9])(?=[A-Z][a-z])", " ").Replace('_', ' ');
+        return Regex.Replace(name, @"\s+", " ").Trim();
+    }
+
     public bool SupportsGameOptions(GameData data) =>
         _states.TryGetValue(data, out var state) && File.Exists(state.Layout.Full(GameOptionsWriter.StartMapScripts(state.Layout)))
         && File.Exists(state.Layout.Full(GameOptionsWriter.EventScripts)) && File.Exists(state.Layout.Full(GameOptionsWriter.FlagsFile));

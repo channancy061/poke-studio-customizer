@@ -12,10 +12,44 @@ public static class AdaptiveSlots
 {
     public const int DefaultCandidates = 3;
 
+    /// <summary>Smaller teams keep their Pokémon (swapping one of two would change the whole fight).</summary>
+    public const int MinTeam = 3;
+
     public static bool Allowed(TrainerGroup group) => group is TrainerGroup.EarlyGym or TrainerGroup.LateGym or TrainerGroup.Rival or TrainerGroup.EliteFour;
 
     /// <summary>The member that flexes by default: the one before the ace (the ace stays last), or the only one.</summary>
     public static int DefaultFlexIndex(Trainer t) => t.Party.Count >= 2 ? t.Party.Count - 2 : 0;
+
+    /// <summary>
+    /// The flexible member for this trainer: the one before the ace, but never the rival's starter (or its evolutions).
+    /// -1 when no member may flex.
+    /// </summary>
+    public static int FlexIndexFor(GameData data, LabSettings lab, Trainer t)
+    {
+        if (t.Party.Count < MinTeam)
+        {
+            return -1;
+        }
+
+        var keep = new HashSet<string>(StringComparer.Ordinal);
+        if (Lab.GroupOf(data, lab, t) == TrainerGroup.Rival)
+        {
+            foreach (var starter in data.Starters)
+            {
+                keep.UnionWith(Starters.Family(data, starter));
+            }
+        }
+
+        for (var i = t.Party.Count - 2; i >= 0; i--)
+        {
+            if (!keep.Contains(t.Party[i].Species))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
 
     /// <summary>Candidates from the team builder (theme, legendary rules and level respected), different from the team and each other.</summary>
     public static List<TrainerPokemon> SuggestCandidates(GameData data, LabSettings lab, Trainer t, int flexIndex, int count = DefaultCandidates)
@@ -74,12 +108,17 @@ public static class AdaptiveSlots
         var parts = new List<IChange>();
         foreach (var t in data.Trainers.ToList())
         {
-            if (t.LockedReason is not null || t.HasAdaptiveSlot || t.Party.Count == 0 || !Allowed(Lab.GroupOf(data, lab, t)))
+            if (t.LockedReason is not null || t.HasAdaptiveSlot || !Allowed(Lab.GroupOf(data, lab, t)))
             {
                 continue;
             }
 
-            var flex = DefaultFlexIndex(t);
+            var flex = FlexIndexFor(data, lab, t);
+            if (flex < 0)
+            {
+                continue;
+            }
+
             var candidates = SuggestCandidates(data, lab, t, flex);
             if (candidates.Count > 0 && Set(data, t, flex, candidates, t.Name) is { } change)
             {
