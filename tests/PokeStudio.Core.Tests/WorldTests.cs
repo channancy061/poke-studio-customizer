@@ -172,6 +172,8 @@ public class WorldDataTests
             Methods = [e.Methods[0] with { Slots = [new EncounterSlot("SPECIES_GHOSTLING", 9, 5), .. e.Methods[0].Slots.Skip(1)] }],
         };
         data.Marts[0] = data.Marts[0] with { Items = [] };
+        var sign = data.Texts.Single(t => t.Key == "gText_LongSign");
+        data.Texts[data.Texts.IndexOf(sign)] = sign with { Text = sign.Text + " Really." }; // only changed text is checked
         data.Rules = data.Rules! with { LevelCaps = [data.Rules.LevelCaps[0] with { Level = 30 }, .. data.Rules.LevelCaps.Skip(1)] };
 
         var issues = GameValidator.Run(data, module);

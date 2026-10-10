@@ -77,6 +77,12 @@ It ships **no game files or assets**, never modifies your originals, and uses on
   - **Physical/Special split** (`B_PHYSICAL_SPECIAL_SPLIT`): switch between the Gen 4+ rule and the
     Gen 1–3 type rule; Modernize offers it when moving between generations; the move editor explains
     which category a move really uses.
+- **FireRed base:** projects made from **pokefirered-expansion** (community port, cawtds/pokefirered-expansion,
+  expansion 1.15.x) open with the same editors. Differences handled: the ROM is `pokefirered.gba`, the text
+  box is 26 tiles (208 px, read from `src/menu.c`), shops live in `src/data/shops.json` (stages; edited in
+  place; badge stock adds stages plus eight marked `PokeStudio_HasBadgeN` checks in `src/shop.c`; shops
+  that already change with the story keep their stages; shared lists are edited once).
+- Only text you change is checked against the text box (the original game has lines meant for wider windows).
 - The **Demo** module still edits an invented sample (`samples/Demo Valley.demogame.json`).
 
 ## Layout
@@ -170,9 +176,10 @@ Exception (owner's decision, 2026-10-10): at the user's request the app may down
 from the original games and has no open-source licence; it is downloaded to the user's computer only,
 never bundled with this app.
 
-## Optional: test against a real pokeemerald-expansion
+## Optional: test against real projects
 ```bash
 POKESTUDIO_EXPANSION_DIR=/path/to/pokeemerald-expansion dotnet test --filter Real_project
+POKESTUDIO_FIRERED_DIR=/path/to/pokefirered-expansion dotnet test --filter FireRedRealTests
 ```
 The folder is copied first; the test checks that saving without changes keeps every file identical
 and that one edit changes exactly one line.

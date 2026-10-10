@@ -443,7 +443,7 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
     public BuildPageViewModel(ShellViewModel shell, bool checkNow = true)
     {
         _shell = shell;
-        Definition = shell.Session.Module.Build;
+        Definition = shell.Session.Module.BuildFor(shell.Session.Project.WorkingSourcePath);
         Tools = new ToolsPanelViewModel(shell.Main, Definition);
         Tools.Checked += (_, _) => { OnPropertyChanged(nameof(BuildBlockedReason)); OnPropertyChanged(nameof(IsBuildBlocked)); BuildCommand.NotifyCanExecuteChanged(); };
         Emulator = new EmulatorSlotViewModel(shell.Main, shell.Session.Module.Platform == GamePlatform.Demo ? GamePlatform.Gba : shell.Session.Module.Platform);

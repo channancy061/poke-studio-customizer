@@ -26,7 +26,7 @@ public sealed class ExpansionModule : IGameModule
     private GameLimits _limits = new() { SpeciesNameLength = 12 };
 
     public string Id => ModuleId;
-    public string DisplayName => "pokeemerald-expansion project";
+    public string DisplayName => "pokeemerald-expansion project (Emerald or FireRed base)";
     public GamePlatform Platform => GamePlatform.Gba;
     public ModuleCapabilities Capabilities =>
         ModuleCapabilities.Species | ModuleCapabilities.Moves | ModuleCapabilities.Learnsets | ModuleCapabilities.Evolutions | ModuleCapabilities.Build
@@ -45,6 +45,10 @@ public sealed class ExpansionModule : IGameModule
         ToolsDescription = "GBA build tools",
         EstimatedSteps = 1800,
     };
+
+    /// <summary>Same build, but the ROM is named after the base game (pokeemerald.gba / pokefirered.gba).</summary>
+    public BuildDefinition BuildFor(string workingSourcePath) =>
+        Build with { OutputFile = $"poke{new ExpansionLayout(workingSourcePath).BuildName}.gba" };
 
     public IReadOnlyList<FeatureSupport> DescribeFeatures() =>
     [
@@ -70,7 +74,12 @@ public sealed class ExpansionModule : IGameModule
         }
 
         var version = ExpansionLayout.ReadVersion(source.Path);
+        var fireRed = new ExpansionLayout(source.Path).IsFireRedBase;
         var notes = new List<string> { "Your project folder is edited directly. Every file is backed up before the app changes it." };
+        if (fireRed)
+        {
+            notes.Add("FireRed-based (pokefirered-expansion, a community port of pokeemerald-expansion).");
+        }
         if (version is null)
         {
             notes.Add("The app couldn't read the expansion version. Editing may still work.");
@@ -84,7 +93,7 @@ public sealed class ExpansionModule : IGameModule
         {
             IsMatch = true,
             Confidence = 0.95,
-            GameTitle = "pokeemerald-expansion" + (version is null ? "" : $" {version}"),
+            GameTitle = (fireRed ? "pokefirered-expansion" : "pokeemerald-expansion") + (version is null ? "" : $" {version}"),
             Version = version?.ToString(),
             SourceKind = GameSourceKind.DecompProject,
             Notes = notes,
@@ -95,7 +104,7 @@ public sealed class ExpansionModule : IGameModule
     {
         var layout = new ExpansionLayout(workingSourcePath);
         return [.. layout.SpeciesFiles(), layout.LevelUpFile, ExpansionLayout.EggMovesFile, ExpansionLayout.LearnablesJson, MovesInfo.File, TrainerParty.File,
-            EncountersFile.File, ItemsInfo.File, CapsFiles.Source, CapsFiles.Config, BattleConfig, .. ScriptFiles(layout.Root)];
+            EncountersFile.File, ItemsInfo.File, CapsFiles.Source, CapsFiles.Config, BattleConfig, ShopsJson.File, ShopsJson.ShopC, .. ScriptFiles(layout.Root)];
     }
 
     public Task<GameData> LoadDataAsync(string workingSourcePath, string projectDataDir, CancellationToken cancellationToken = default) =>
@@ -395,7 +404,7 @@ public sealed class ExpansionModule : IGameModule
             TrainerNameLength = layout.NameLength("TRAINER_NAME_LENGTH", 10),
             MaxPartySize = layout.NameLength("PARTY_SIZE", 6),
             ItemNameLength = layout.NameLength("ITEM_NAME_LENGTH", 20),
-            TextLineWidth = 216, // the standard message box is 27 tiles wide
+            TextLineWidth = layout.TextBoxWidth,
             MaxMovePower = 511, // u16 power:9
             MinMovePriority = -8, // s32 priority:4
             MaxMovePriority = 7,
@@ -650,9 +659,22 @@ public sealed class ExpansionModule : IGameModule
                 }
 
                 state.TextEntries[key] = entry;
-                var model = new TextEntry { Key = key, Place = TextScripts.PlaceName(rel), Text = entry.Text };
+                var model = new TextEntry { Key = key, Place = TextScripts.PlaceName(rel), Text = entry.Text, Original = entry.Text };
                 state.Texts[key] = model;
                 data.Texts.Add(model);
+            }
+        }
+
+        if (File.Exists(layout.Full(ShopsJson.File)))
+        {
+            state.ShopsJson = ShopsJson.Parse(File.ReadAllText(layout.Full(ShopsJson.File)));
+            foreach (var mart in state.ShopsJson is null ? [] : ShopsJson.ToMarts(state.ShopsJson))
+            {
+                if (state.Marts.TryAdd(mart.Key, mart))
+                {
+                    state.MartFiles[mart.Key] = ShopsJson.File;
+                    data.Marts.Add(mart);
+                }
             }
         }
 
@@ -725,8 +747,28 @@ public sealed class ExpansionModule : IGameModule
 
         // shops and text share the map script files
         var scriptEdits = new Dictionary<string, List<TextEdit>>(StringComparer.Ordinal);
+        var jsonShops = data.Marts.Where(m => state.MartFiles.GetValueOrDefault(m.Key) == ShopsJson.File
+            && state.Marts.TryGetValue(m.Key, out var b) && !ReferenceEquals(b, m)).ToList();
+        if (jsonShops.Count > 0 && state.ShopsJson is { } shopsJson)
+        {
+            var (shopEdits, needsFuncs) = ShopsJson.EditsFor(shopsJson, jsonShops.Select(m => (state.Marts[m.Key], m)).ToList());
+            if (shopEdits.Count > 0)
+            {
+                await context.Writer.WriteAllTextAsync(state.Layout.Full(ShopsJson.File), TextEdits.Apply(shopsJson.Text, shopEdits), cancellationToken);
+            }
+
+            if (needsFuncs && File.Exists(state.Layout.Full(ShopsJson.ShopC)))
+            {
+                var shopC = await File.ReadAllTextAsync(state.Layout.Full(ShopsJson.ShopC), cancellationToken);
+                if (ShopsJson.BadgeFunctionsEdit(shopC) is { } add)
+                {
+                    await context.Writer.WriteAllTextAsync(state.Layout.Full(ShopsJson.ShopC), TextEdits.Apply(shopC, [add]), cancellationToken);
+                }
+            }
+        }
+
         foreach (var group in data.Marts
-            .Where(m => state.Marts.TryGetValue(m.Key, out var b) && !ReferenceEquals(b, m))
+            .Where(m => state.MartFiles.GetValueOrDefault(m.Key) != ShopsJson.File && state.Marts.TryGetValue(m.Key, out var b) && !ReferenceEquals(b, m))
             .GroupBy(m => state.MartFiles[m.Key]))
         {
             var file = state.ScriptFiles[group.Key];
@@ -906,6 +948,7 @@ public sealed class ExpansionModule : IGameModule
         public string? CapsSource { get; set; }
         public string? CapsConfig { get; set; }
         public List<CapsFiles.CapEntry> CapEntries { get; set; } = [];
+        public ShopsJson.Parsed? ShopsJson { get; set; }
         public GameRules? Rules { get; set; }
         public Dictionary<string, TrainerBlock> TrainerBlocks { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, Trainer> Trainers { get; } = new(StringComparer.Ordinal);

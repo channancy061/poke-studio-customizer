@@ -51,6 +51,50 @@ internal sealed partial class ExpansionLayout
 
     public string Full(string relative) => Path.Combine([Root, .. relative.Split('/')]);
 
+    /// <summary>"firered" for pokefirered-expansion, "emerald" for pokeemerald-expansion (from the Makefile).</summary>
+    public string BuildName
+    {
+        get
+        {
+            var makefile = Full("Makefile");
+            var text = File.Exists(makefile) ? File.ReadAllText(makefile) : "";
+            var version = Regex.Match(text, @"^GAME_VERSION\s*\??=\s*(\w+)", RegexOptions.Multiline);
+            if (version.Success)
+            {
+                var block = Regex.Match(text, $@"ifeq\s*\(\$\(GAME_VERSION\),\s*{version.Groups[1].Value}\)[\s\S]*?BUILD_NAME\s*:?=\s*(\w+)");
+                if (block.Success)
+                {
+                    return block.Groups[1].Value;
+                }
+            }
+
+            var plain = Regex.Match(text, @"^BUILD_NAME\s*\??=\s*(\w+)", RegexOptions.Multiline);
+            return plain.Success ? plain.Groups[1].Value : "emerald";
+        }
+    }
+
+    public bool IsFireRedBase => BuildName is "firered" or "leafgreen";
+
+    /// <summary>The standard message box width in pixels, from src/menu.c (27 tiles in Emerald, 26 in FireRed).</summary>
+    public int TextBoxWidth
+    {
+        get
+        {
+            var menu = Full("src/menu.c");
+            if (File.Exists(menu))
+            {
+                var text = File.ReadAllText(menu);
+                var at = text.IndexOf("sStandardTextBox_WindowTemplates[]", StringComparison.Ordinal);
+                if (at >= 0 && Regex.Match(text[at..], @"\.width\s*=\s*(\d+)") is { Success: true } m)
+                {
+                    return int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture) * 8;
+                }
+            }
+
+            return IsFireRedBase ? 208 : 216;
+        }
+    }
+
     /// <summary>The generation-specific level-up file the game is built with (P_LVL_UP_LEARNSETS).</summary>
     public string LevelUpFile
     {

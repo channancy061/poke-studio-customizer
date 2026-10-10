@@ -316,6 +316,9 @@ public sealed record Mart
     public IReadOnlyDictionary<int, IReadOnlyList<string>> BadgeTiers { get; init; } = new Dictionary<int, IReadOnlyList<string>>();
 
     public string? LockedReason { get; init; }
+
+    /// <summary>Why badge-unlocked stock can't be added to this shop, or null.</summary>
+    public string? TiersLockedReason { get; init; }
 }
 
 /// <summary>A piece of in-game text (dialogue, sign…). Line breaks use "\n" (new line), "\l" (scroll), "\p" (new box).</summary>
@@ -324,6 +327,10 @@ public sealed record TextEntry
     public required string Key { get; init; }
     public string Place { get; init; } = "";
     public required string Text { get; init; }
+
+    /// <summary>The text as it was when the project was opened; only changed text is checked for width.</summary>
+    public string? Original { get; init; }
+
     public string? LockedReason { get; init; }
 }
 

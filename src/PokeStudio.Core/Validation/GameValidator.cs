@@ -443,7 +443,8 @@ public static class GameValidator
 
         if (limits.TextLineWidth is { } width)
         {
-            foreach (var t in data.Texts.Where(t => t.LockedReason is null))
+            // the original game's own lines are its business (some use wider windows); check what the user changed
+            foreach (var t in data.Texts.Where(t => t.LockedReason is null && t.Text != t.Original))
             {
                 foreach (var line in TextLines(t.Text))
                 {

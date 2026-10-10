@@ -148,6 +148,9 @@ public interface IGameModule
     /// <summary>How to turn the project into a playable game, or null when this game type can't be built.</summary>
     PokeStudio.Core.Build.BuildDefinition? Build => null;
 
+    /// <summary>The build for one project (e.g. its ROM name differs between Emerald and FireRed bases).</summary>
+    PokeStudio.Core.Build.BuildDefinition? BuildFor(string workingSourcePath) => Build;
+
     /// <summary>
     /// True when the module edits the user's folder directly (decomp projects) instead of a copy.
     /// Such modules must list every file they may write in <see cref="ManagedFiles"/>.

@@ -745,7 +745,7 @@ internal static partial class CapsFiles
     public static string Label(string flag) => flag switch
     {
         _ when Regex.IsMatch(flag, @"^FLAG_BADGE0(\d)_GET$") => "Gym " + flag[11],
-        "FLAG_IS_CHAMPION" => "Champion",
+        "FLAG_IS_CHAMPION" or "FLAG_SYS_GAME_CLEAR" => "Champion",
         _ => GameCatalog.Prettify(flag.Replace("FLAG_", "", StringComparison.Ordinal)),
     };
 

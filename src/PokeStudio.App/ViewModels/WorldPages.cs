@@ -687,6 +687,11 @@ public sealed partial class MartEditorViewModel : ViewModelBase
     }
 
     public bool HasTiers => Tiers.Count > 0;
+    public bool CanAddTiers => IsEditable && Model.TiersLockedReason is null;
+    public string? TiersLockedReason => Model.TiersLockedReason;
+    public bool TiersLocked => Model.TiersLockedReason is not null;
+    public string? LockedReason => Model.LockedReason;
+    public bool IsLocked => Model.LockedReason is not null;
 
     public void Refresh()
     {

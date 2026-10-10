@@ -360,8 +360,7 @@ public class ExpansionTests
         Assert.Equal(58, data.Rules.LevelCaps[^1].Level);
         Assert.True(data.Rules.PhysicalSpecialSplit);
         Assert.InRange(module.MeasureText("Hello! You")!.Value, 40, 70);
-        var wide = Validation.GameValidator.Run(data, module).Where(i => i.Area == "Text").ToList();
-        Assert.True(wide.Count < 50, $"{wide.Count} original lines reported as too wide: " + string.Join(" | ", wide.Take(25).Select(w => w.Subject + ": " + w.Message)));
+        Assert.DoesNotContain(Validation.GameValidator.Run(data, module), i => i.Area == "Text"); // unchanged text isn't reported
 
         await module.SaveDataAsync(data, ctx);
         foreach (var (f, text) in before)
