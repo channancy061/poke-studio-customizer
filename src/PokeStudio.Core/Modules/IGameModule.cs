@@ -94,6 +94,9 @@ public sealed class GameData
     /// <summary>New-game options (saved with the Poke Studio project; the module writes them into the game).</summary>
     public GameOptions.GameOptionsSettings? GameOptions { get; set; }
 
+    /// <summary>Pending sprite and palette changes (written by modules that support graphics).</summary>
+    public Graphics.GraphicsEdits Graphics { get; } = new();
+
     /// <summary>False for games that can't evolve a Pokémon by levelling up while it holds an item (Gen 3).</summary>
     public bool HeldItemLevelEvolutions { get; set; } = true;
     public GameCatalog Catalog { get; } = new();
@@ -180,6 +183,9 @@ public interface IGameModule
 
     /// <summary>Paths (relative to the working source) this module may write; backed up before each save.</summary>
     IReadOnlyList<string> ManagedFiles(string workingSourcePath) => [];
+
+    /// <summary>Managed files plus any the pending edits need (e.g. the sprite files of edited Pokémon).</summary>
+    IReadOnlyList<string> ManagedFiles(string workingSourcePath, GameData data) => ManagedFiles(workingSourcePath);
 
     /// <summary>Game-specific checks run before saving. General checks live in <see cref="Validation.GameValidator"/>.</summary>
     IReadOnlyList<Validation.ValidationIssue> Validate(GameData data) => [];

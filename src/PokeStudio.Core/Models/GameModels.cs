@@ -283,13 +283,6 @@ public sealed record Trainer
     public string? LockedReason { get; init; }
 }
 
-public enum SpriteKind
-{
-    Front, Back, Icon, Overworld, Trainer, Npc,
-}
-
-public sealed record SpriteAsset(string OwnerKey, SpriteKind Kind, int Width, int Height, string? ImportedFilePath);
-
 public sealed record ModelAsset(string OwnerKey, string Name, string? ImportedFilePath);
 
 /// <summary>One wild slot: a Pokémon and its level range.</summary>

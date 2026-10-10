@@ -248,6 +248,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             NavKey.GameOptions => new GameOptionsPageViewModel(this),
             NavKey.EvolutionFixes => new EvolutionFixPageViewModel(this),
             NavKey.Guide => new GuidePageViewModel(this),
+            NavKey.Graphics when item is { IsEnabled: true } && Session.Module is PokeStudio.Core.Graphics.ISpriteSource => new GraphicsPageViewModel(this),
             NavKey.Encounters when item is { IsEnabled: true } => new EncountersPageViewModel(this),
             NavKey.Items when item is { IsEnabled: true } => new ItemsPageViewModel(this),
             NavKey.Text when item is { IsEnabled: true } => new TextPageViewModel(this),

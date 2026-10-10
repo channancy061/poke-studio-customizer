@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             x:Class="PokeStudio.App.Views.SpriteEditorView"
+             x:DataType="vm:SpriteEditorViewModel">
+  <StackPanel Spacing="16" MaxWidth="960" HorizontalAlignment="Left">
+    <StackPanel Spacing="4">
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <TextBlock Text="{Binding Name}" Classes="title" />
+        <Border Classes="pill" IsVisible="{Binding IsEdited}" VerticalAlignment="Center">
+          <TextBlock Text="Changed — not saved yet" Classes="caption" />
+        </Border>
+      </StackPanel>
+      <TextBlock Text="See and replace this Pokémon's pictures and colours. Draw in any paint program and import a PNG: the picture is fitted to the game's size and colour limits for you."
+                 Classes="muted" TextWrapping="Wrap" />
+    </StackPanel>
+
+    <TextBlock Text="This Pokémon has no pictures this game can edit here." IsVisible="{Binding NoSprites}" Classes="muted" />
+
+    <Border Classes="card" IsVisible="{Binding HasSprites}">
+      <StackPanel Spacing="12">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <ComboBox ItemsSource="{Binding Views}" SelectedItem="{Binding SelectedView}" MinWidth="160" AutomationProperties.Name="Which picture">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:SpriteViewOption">
+                <TextBlock Text="{Binding Label}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <ToggleSwitch IsChecked="{Binding Shiny}" IsEnabled="{Binding CanShiny}" OnContent="Shiny" OffContent="Normal" AutomationProperties.Name="Shiny colours" />
+        </StackPanel>
+
+        <Border Background="{DynamicResource PL.Surface2Brush}" CornerRadius="8" Padding="16" HorizontalAlignment="Left">
+          <Image Source="{Binding Picture}" Width="{Binding PictureWidth}" Height="{Binding PictureHeight}"
+                 RenderOptions.BitmapInterpolationMode="None" AutomationProperties.Name="Sprite preview" />
+        </Border>
+        <TextBlock Text="{Binding RulesText}" Classes="small muted" TextWrapping="Wrap" />
+
+        <TextBlock Text="Colours" FontWeight="Bold" />
+        <TextBlock Text="{Binding PaletteText}" Classes="small muted" TextWrapping="Wrap" />
+        <ItemsControl ItemsSource="{Binding Swatches}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SwatchViewModel">
+              <StackPanel Margin="0,0,8,8" Spacing="4" Width="84" ToolTip.Tip="{Binding Tip}">
+                <Border Height="28" CornerRadius="4" Background="{Binding Brush}" BorderThickness="1" BorderBrush="{DynamicResource PL.BorderBrush}" />
+                <TextBox Text="{Binding Hex}" IsEnabled="{Binding IsEditable}" FontSize="11" AutomationProperties.Name="{Binding Tip}" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Classes="primary" Content="Replace from PNG…" Command="{Binding ReplaceCommand}" />
+          <Button Classes="quiet" Content="Export PNG" Command="{Binding ExportPngCommand}" />
+        </StackPanel>
+        <TextBlock Text="{Binding Status}" IsVisible="{Binding Status, Converter={x:Static ObjectConverters.IsNotNull}}" Classes="small" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

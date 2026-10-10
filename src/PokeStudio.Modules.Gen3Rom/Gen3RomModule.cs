@@ -11,7 +11,7 @@ namespace PokeStudio.Modules.Gen3Rom;
 /// their contents; fixed-size data is changed in place and lists that grow (level-up moves, trainer teams) move to the
 /// ROM's free space.
 /// </summary>
-public sealed class Gen3RomModule : IGameModule
+public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISpriteSource
 {
     public const string ModuleId = "gba.gen3.rom";
 
@@ -27,7 +27,8 @@ public sealed class Gen3RomModule : IGameModule
     public GamePlatform Platform => GamePlatform.Gba;
 
     public ModuleCapabilities Capabilities => ModuleCapabilities.Species | ModuleCapabilities.Moves | ModuleCapabilities.Learnsets
-        | ModuleCapabilities.Evolutions | ModuleCapabilities.Trainers | ModuleCapabilities.TrainerAi | ModuleCapabilities.Encounters | ModuleCapabilities.ItemsAndMarts;
+        | ModuleCapabilities.Evolutions | ModuleCapabilities.Trainers | ModuleCapabilities.TrainerAi | ModuleCapabilities.Encounters | ModuleCapabilities.ItemsAndMarts
+        | ModuleCapabilities.Graphics;
 
     public GameLimits Limits => new()
     {
@@ -54,7 +55,7 @@ public sealed class Gen3RomModule : IGameModule
         new(ModuleCapabilities.Encounters, SupportLevel.Limited, "Pokémon and levels can change; the number of slots is fixed."),
         new(ModuleCapabilities.ItemsAndMarts, SupportLevel.Limited, "Item names and prices; shops not yet."),
         new(ModuleCapabilities.Text, SupportLevel.NotYet, "Dialogue editing in ROM mode comes later. Use a project (decomp) for full text editing."),
-        new(ModuleCapabilities.Graphics, SupportLevel.NotYet, "The graphics studio comes in a later phase."),
+        new(ModuleCapabilities.Graphics, SupportLevel.Limited, "Pokémon front and back sprites and their palettes; icons not yet."),
         new(ModuleCapabilities.Models3d, SupportLevel.Never, "GBA games have no 3D models."),
     ];
 
@@ -126,6 +127,7 @@ public sealed class Gen3RomModule : IGameModule
         }
 
         Gen3Writer.Write(state, data);
+        Gen3Sprites.Write(state, data);
         await context.Writer.WriteAllBytesAsync(context.WorkingSourceDir, state.Rom.Bytes, cancellationToken);
         var (_, fresh) = Gen3Reader.Read(state.Rom, state.Tables);
         fresh.Path = state.Path;
@@ -133,6 +135,15 @@ public sealed class Gen3RomModule : IGameModule
     }
 
     public IReadOnlyList<ValidationIssue> Validate(GameData data) => Gen3Writer.Check(data, Limits);
+
+    public PokeStudio.Core.Graphics.SpriteRules? Rules(GameData data, string species, PokeStudio.Core.Graphics.SpriteKind kind) =>
+        _states.TryGetValue(data, out var s) ? Gen3Sprites.Rules(s, kind) : null;
+
+    public PokeStudio.Core.Graphics.IndexedImage? Load(GameData data, string species, PokeStudio.Core.Graphics.SpriteKind kind) =>
+        _states.TryGetValue(data, out var s) ? Gen3Sprites.Load(s, species, kind) : null;
+
+    public IReadOnlyList<PokeStudio.Core.Graphics.Rgb>? LoadPalette(GameData data, string species, bool shiny) =>
+        _states.TryGetValue(data, out var s) ? Gen3Sprites.Palette(s, species, shiny) : null;
 
     public const string TablesFileName = "gba-tables.json";
 
@@ -152,7 +163,15 @@ public sealed class Gen3RomModule : IGameModule
                 var saved = System.Text.Json.JsonSerializer.Deserialize<TablesFile>(File.ReadAllText(file), PokeStudio.Core.Storage.JsonStore.Options);
                 if (saved is not null && saved.GameCode == rom.GameCode && saved.Length == rom.Length)
                 {
-                    return saved.Tables;
+                    if (saved.Tables.SpritesLocated)
+                    {
+                        return saved.Tables;
+                    }
+
+                    // a project from before graphics support: find the sprite tables too (their contents are still original)
+                    var upgraded = saved.Tables.WithSprites(rom);
+                    File.WriteAllText(file, System.Text.Json.JsonSerializer.Serialize(saved with { Tables = upgraded }, PokeStudio.Core.Storage.JsonStore.Options));
+                    return upgraded;
                 }
             }
             catch (System.Text.Json.JsonException)
@@ -161,7 +180,7 @@ public sealed class Gen3RomModule : IGameModule
             }
         }
 
-        var tables = Gen3Tables.Locate(rom, out var problem) ?? throw new InvalidDataException(problem);
+        var tables = (Gen3Tables.Locate(rom, out var problem) ?? throw new InvalidDataException(problem)).WithSprites(rom);
         Directory.CreateDirectory(projectDataDir);
         File.WriteAllText(file, System.Text.Json.JsonSerializer.Serialize(new TablesFile(rom.GameCode, rom.Length, tables), PokeStudio.Core.Storage.JsonStore.Options));
         return tables;

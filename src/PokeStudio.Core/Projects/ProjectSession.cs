@@ -86,7 +86,7 @@ public sealed class ProjectSession : IDisposable
 
     /// <summary>For in-place (decomp) projects: the files the module edits, so backups include them.</summary>
     public ExternalFiles? External => Project.Manifest.WorkInPlace
-        ? new ExternalFiles(Project.WorkingSourcePath, Module.ManagedFiles(Project.WorkingSourcePath))
+        ? new ExternalFiles(Project.WorkingSourcePath, Module.ManagedFiles(Project.WorkingSourcePath, Data))
         : null;
 
     /// <summary>Runs every check (general + module-specific) on the current data.</summary>
@@ -101,7 +101,7 @@ public sealed class ProjectSession : IDisposable
             _backedUpThisSession = true;
         }
 
-        await Module.SaveDataAsync(Data, Project.CreateSaveContext(Module), cancellationToken);
+        await Module.SaveDataAsync(Data, Project.CreateSaveContext(Module, Data), cancellationToken);
         if (Data.Lab is { } lab)
         {
             Directory.CreateDirectory(Project.DataDir);

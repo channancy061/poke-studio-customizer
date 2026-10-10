@@ -5,6 +5,7 @@ using PokeStudio.Core.Build;
 using PokeStudio.Core.Modernize;
 using PokeStudio.Core.Models;
 using PokeStudio.Core.GameOptions;
+using PokeStudio.Core.Graphics;
 using PokeStudio.Core.Modules;
 using PokeStudio.Core.SourceCode;
 using PokeStudio.Core.Validation;
@@ -16,7 +17,7 @@ namespace PokeStudio.Modules.Expansion;
 /// Edits the user's own project folder in place: only the data files listed in
 /// <see cref="ManagedFiles"/>, each backed up first, changing only the values that were edited.
 /// </summary>
-public sealed class ExpansionModule : IGameModule
+public sealed class ExpansionModule : IGameModule, ISpriteSource
 {
     public const string ModuleId = "gba.pokeemerald-expansion";
 
@@ -32,7 +33,7 @@ public sealed class ExpansionModule : IGameModule
     public ModuleCapabilities Capabilities =>
         ModuleCapabilities.Species | ModuleCapabilities.Moves | ModuleCapabilities.Learnsets | ModuleCapabilities.Evolutions | ModuleCapabilities.Build
         | ModuleCapabilities.Trainers | ModuleCapabilities.TrainerAi | ModuleCapabilities.Encounters | ModuleCapabilities.ItemsAndMarts
-        | ModuleCapabilities.Text;
+        | ModuleCapabilities.Text | ModuleCapabilities.Graphics;
     public bool WorksInPlace => true;
     public GameLimits Limits => _limits;
 
@@ -63,7 +64,7 @@ public sealed class ExpansionModule : IGameModule
         new(ModuleCapabilities.Encounters, SupportLevel.Supported),
         new(ModuleCapabilities.ItemsAndMarts, SupportLevel.Supported),
         new(ModuleCapabilities.Text, SupportLevel.Supported),
-        new(ModuleCapabilities.Graphics, SupportLevel.NotYet, "The graphics studio arrives in Phase 14."),
+        new(ModuleCapabilities.Graphics, SupportLevel.Supported),
         new(ModuleCapabilities.Models3d, SupportLevel.Never, "GBA games have no 3D models."),
     ];
 
@@ -108,6 +109,20 @@ public sealed class ExpansionModule : IGameModule
             EncountersFile.File, ItemsInfo.File, CapsFiles.Source, CapsFiles.Config, BattleConfig, ShopsJson.File, ShopsJson.ShopC, DifficultyFile, AiConfig,
             .. GameOptionsWriter.Files(layout).Where(f => !f.EndsWith("/scripts.inc", StringComparison.Ordinal)), .. ScriptFiles(layout.Root)];
     }
+
+    public IReadOnlyList<string> ManagedFiles(string workingSourcePath, GameData data) =>
+        _states.TryGetValue(data, out var state) && !data.Graphics.IsEmpty
+            ? [.. ManagedFiles(workingSourcePath), .. ExpansionSprites.PendingFiles(state, data.Graphics).Distinct()]
+            : ManagedFiles(workingSourcePath);
+
+    public SpriteRules? Rules(GameData data, string species, SpriteKind kind) =>
+        _states.TryGetValue(data, out var state) ? ExpansionSprites.Rules(state, species, kind) : null;
+
+    public IndexedImage? Load(GameData data, string species, SpriteKind kind) =>
+        _states.TryGetValue(data, out var state) ? ExpansionSprites.Load(state, species, kind) : null;
+
+    public IReadOnlyList<Rgb>? LoadPalette(GameData data, string species, bool shiny) =>
+        _states.TryGetValue(data, out var state) ? ExpansionSprites.Palette(state, species, shiny) : null;
 
     public Task<GameData> LoadDataAsync(string workingSourcePath, string projectDataDir, CancellationToken cancellationToken = default) =>
         Task.Run(() =>
@@ -289,6 +304,11 @@ public sealed class ExpansionModule : IGameModule
             {
                 await context.Writer.WriteAllTextAsync(state.Layout.Full(file), text, cancellationToken);
             }
+        }
+
+        if (!data.Graphics.IsEmpty)
+        {
+            await ExpansionSprites.WriteAsync(state, data, context, cancellationToken);
         }
 
         // Positions changed: read the files again so the next save starts from what's on disk now.
@@ -1107,8 +1127,9 @@ public sealed class ExpansionModule : IGameModule
         && a.Evolutions.Zip(b.Evolutions).All(p => p.First.Method == p.Second.Method && p.First.Parameter == p.Second.Parameter
             && p.First.TargetSpecies == p.Second.TargetSpecies && p.First.Conditions.SequenceEqual(p.Second.Conditions));
 
-    private sealed class LoadedState
+    internal sealed class LoadedState
     {
+        public Dictionary<string, string>? GraphicsPaths { get; set; }
         public required ExpansionLayout Layout { get; init; }
         public Dictionary<string, SourceFile> Files { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, SpeciesBlock> Blocks { get; } = new(StringComparer.Ordinal);

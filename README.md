@@ -7,7 +7,7 @@
 A friendly desktop editor (Windows + Linux) for customising games you legally own.
 It ships **no game files or assets**, never modifies your originals, and uses only open-source components (MIT-licensed).
 
-## Status: Phase 11 (Game Boy Color mode) done; Phase 8 game code not yet test-built
+## Status: Phase 12 (graphics studio) done; Phase 8 game code not yet test-built
 - **Phase 1:** solution skeleton, plugin system, projects, undo/redo + change log, backups/restore, settings,
   Avalonia shell with light/dark theming, CI on Windows + Linux, Windows installer and Linux AppImage.
 - **Phase 2:** edit a **pokeemerald-expansion 1.17.1** project (Emerald-based, Gen 1–9 Pokémon):
@@ -156,6 +156,13 @@ It ships **no game files or assets**, never modifies your originals, and uses on
   "MASTER BALL", Falkner's team…), banked pointers followed; edits Pokémon, moves, level-up and TM/HM/tutor lists,
   evolutions, trainers, wild Pokémon (numbered areas) and item prices; grown lists move to free space in their own
   bank; the cartridge checksum is updated. New "Game Boy" emulator slot (mGBA / VBA-M). Tested on Crystal.
+- **Phase 12 — Graphics studio** (expansion projects and GBA ROMs): a Graphics page lists every Pokémon with its
+  front (both animation frames), back and party icon, normal and shiny. Colours are edited as #RRGGBB swatches
+  (rounded to what the GBA can show); "Replace from PNG…" fits any picture to the game's size and 16-colour limit
+  (a single frame is repeated for two-frame sprites; icons are matched to their shared palette); "Export PNG"
+  writes a paletted PNG to `<project>/graphics-export`. Every change is one undo step. Expansion projects get
+  the PNG/.pal files that `src/data/graphics/pokemon.h` points to rewritten (honouring the GBA-style settings);
+  GBA ROMs get the graphics LZ77-compressed into free space and the tables repointed. DS/3DS/GBC sprites: not yet.
 - **FireRed base:** projects made from **pokefirered-expansion** (community port, cawtds/pokefirered-expansion,
   expansion 1.15.x) open with the same editors. Differences handled: the ROM is `pokefirered.gba`, the text
   box is 26 tiles (208 px, read from `src/menu.c`), shops live in `src/data/shops.json` (stages; edited in
@@ -168,7 +175,7 @@ It ships **no game files or assets**, never modifies your originals, and uses on
 ```
 src/PokeStudio.Core           platform-neutral engine (no UI / OS APIs)
   Modules/   IGameModule, ModuleCapabilities, FeatureSupport, ModuleRegistry
-  Models/    Species, Move, Learnset, EvolutionMethod, Trainer, TrainerPokemon, AiProfile, SpriteAsset, ModelAsset, Encounter
+  Models/    Species, Move, Learnset, EvolutionMethod, Trainer, TrainerPokemon, AiProfile, ModelAsset, Encounter
   Projects/  Project (project.json + source/ + data/ + history.db), ProjectService, ProjectSession
   Changes/   UndoRedoStack (with drag-merging), ChangeLog (SQLite)
   Backups/   BackupService (timestamped snapshots, SHA-256, pin, prune, verified restore)

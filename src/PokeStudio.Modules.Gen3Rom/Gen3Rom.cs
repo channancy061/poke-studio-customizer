@@ -130,6 +130,67 @@ internal sealed record Gen3Tables
 
     public int MapNamesFirstSection { get; init; }
 
+    // sprites and palettes: 8-byte entries {pointer, size, tag}; -1 = not found (or a cache from before graphics support)
+    public int FrontPics { get; init; } = -1;
+    public int BackPics { get; init; } = -1;
+    public int AnimFrontPics { get; init; } = -1;
+    public int Palettes { get; init; } = -1;
+    public int ShinyPalettes { get; init; } = -1;
+    public bool SpritesLocated { get; init; }
+
+    /// <summary>
+    /// Pokémon picture tables have an entry per species whose tag is the species number (pictures: tag at +6; palettes:
+    /// tag at +4, shiny ones + 500). The first two picture tables are the front and back sprites; Emerald adds an
+    /// animated (two-frame) front table.
+    /// </summary>
+    public Gen3Tables WithSprites(RomImage rom)
+    {
+        bool Table(int at, int tagOffset, int tagAdd, Func<int, bool> sizeOk)
+        {
+            for (var i = 1; i <= 8; i++)
+            {
+                var e = at + (8 * i);
+                var p = rom.Offset(e);
+                if (p < 0 || p + 4 > rom.Length || rom.U16(e + tagOffset) != i + tagAdd || rom.U8(p) != 0x10 || !sizeOk(rom.U8(p + 1) | (rom.U8(p + 2) << 8) | (rom.U8(p + 3) << 16)))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        var pics = new List<(int At, int Size)>();
+        int normal = -1, shiny = -1;
+        for (var at = 0; at < rom.Length - 128; at += 4)
+        {
+            if (Table(at, 6, 0, sz => sz is 0x800 or 0x1000))
+            {
+                var p = rom.Offset(at + 8);
+                pics.Add((at, rom.U8(p + 1) | (rom.U8(p + 2) << 8)));
+            }
+            else if (normal < 0 && Table(at, 4, 0, sz => sz == 0x20))
+            {
+                normal = at;
+            }
+            else if (shiny < 0 && Table(at, 4, 500, sz => sz == 0x20))
+            {
+                shiny = at;
+            }
+        }
+
+        var still = pics.Where(p => p.Size == 0x800).Select(p => p.At).ToList();
+        return this with
+        {
+            FrontPics = still.Count > 0 ? still[0] : -1,
+            BackPics = still.Count > 1 ? still[1] : -1,
+            AnimFrontPics = pics.Where(p => p.Size == 0x1000).Select(p => p.At).DefaultIfEmpty(-1).First(),
+            Palettes = normal,
+            ShinyPalettes = shiny,
+            SpritesLocated = true,
+        };
+    }
+
     public static Gen3Tables? Locate(RomImage rom, out string? problem)
     {
         problem = null;

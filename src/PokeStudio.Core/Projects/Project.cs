@@ -72,9 +72,9 @@ public sealed class Project
     public SafeFileWriter CreateWriter() => new(Directory, [Manifest.OriginalSourcePath]);
 
     /// <summary>Where a module may write when saving. In-place projects may only touch the module's managed files.</summary>
-    public ModuleSaveContext CreateSaveContext(IGameModule? module = null) =>
+    public ModuleSaveContext CreateSaveContext(IGameModule? module = null, GameData? data = null) =>
         Manifest.WorkInPlace && module is not null
-            ? new(new SafeFileWriter(WorkingSourcePath, allowedFiles: module.ManagedFiles(WorkingSourcePath)), DataDir, WorkingSourcePath)
+            ? new(new SafeFileWriter(WorkingSourcePath, allowedFiles: data is null ? module.ManagedFiles(WorkingSourcePath) : module.ManagedFiles(WorkingSourcePath, data)), DataDir, WorkingSourcePath)
             : new(CreateWriter(), DataDir, WorkingSourcePath);
 }
 

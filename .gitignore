@@ -7,3 +7,4 @@ artifacts/
 TestResults/
 *.AppImage
 build/linux/AppDir/usr/
+review/
