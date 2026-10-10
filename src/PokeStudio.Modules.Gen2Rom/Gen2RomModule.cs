@@ -45,9 +45,11 @@ public sealed class Gen2RomModule : IGameModule
     public GamePlatform Platform => GamePlatform.Gb;
 
     public ModuleCapabilities Capabilities => ModuleCapabilities.Species | ModuleCapabilities.Moves | ModuleCapabilities.Learnsets
-        | ModuleCapabilities.Evolutions | ModuleCapabilities.Trainers | ModuleCapabilities.Encounters | ModuleCapabilities.ItemsAndMarts;
+        | ModuleCapabilities.Evolutions | ModuleCapabilities.Trainers | ModuleCapabilities.Encounters | ModuleCapabilities.ItemsAndMarts | ModuleCapabilities.Text;
 
-    public GameLimits Limits => new() { SpeciesNameLength = 10, MoveNameLength = 12, TrainerNameLength = 10, ItemNameLength = 12, MaxEvolutionsPerSpecies = 3, MaxPrice = 65_535, MaxMovePriority = 0, MinMovePriority = 0 };
+    public GameLimits Limits => new() { SpeciesNameLength = 10, MoveNameLength = 12, TrainerNameLength = 10, ItemNameLength = 12, MaxEvolutionsPerSpecies = 3, MaxPrice = 65_535, MaxMovePriority = 0, MinMovePriority = 0, TextLineWidth = 144 };
+
+    public int? MeasureText(string line) => Gen2Dialogue.Measure(line);
 
     public IReadOnlyList<FeatureSupport> DescribeFeatures() =>
     [
@@ -59,7 +61,7 @@ public sealed class Gen2RomModule : IGameModule
         new(ModuleCapabilities.Encounters, SupportLevel.Limited, "Areas are numbered; the number of slots is fixed."),
         new(ModuleCapabilities.ItemsAndMarts, SupportLevel.Limited, "Item prices; shops not yet."),
         new(ModuleCapabilities.TrainerAi, SupportLevel.Never, "These games have no per-trainer AI settings."),
-        new(ModuleCapabilities.Text, SupportLevel.NotYet, "Dialogue editing for Game Boy games comes later."),
+        new(ModuleCapabilities.Text, SupportLevel.Limited, "What people, signs and trainers say (the messages the maps link to). Places show as text banks; {CMD …} codes must stay."),
         new(ModuleCapabilities.Models3d, SupportLevel.Never, "Game Boy games have no 3D models."),
     ];
 
@@ -96,6 +98,7 @@ public sealed class Gen2RomModule : IGameModule
             var rom = new GbRom(File.ReadAllBytes(workingSourcePath));
             var tables = LoadTables(rom, projectDataDir);
             var (data, state) = Read(rom, tables);
+            Gen2Dialogue.Load(state, data);
             _states.AddOrUpdate(data, state);
             return data;
         }, cancellationToken);
@@ -114,9 +117,11 @@ public sealed class Gen2RomModule : IGameModule
         }
 
         Write(state, data);
+        Gen2Dialogue.Save(state, data);
         state.Rom.FixChecksum();
         await context.Writer.WriteAllBytesAsync(context.WorkingSourceDir, state.Rom.Bytes, cancellationToken);
         var (_, fresh) = Read(state.Rom, state.Tables);
+        Gen2Dialogue.Load(fresh, new GameData()); // the edited text stays in data
         _states.AddOrUpdate(data, fresh);
     }
 
@@ -164,6 +169,8 @@ public sealed class Gen2RomModule : IGameModule
         public (int Start, int Length) MoveNamesRegion { get; set; }
         public (int Start, int Length) ItemNamesRegion { get; set; }
         public Dictionary<string, (int Offset, int Length)> EvoRegions { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, Gen2Dialogue.Message> Messages { get; set; } = new(StringComparer.Ordinal);
+        public Dictionary<string, TextEntry> Texts { get; } = new(StringComparer.Ordinal);
     }
 
     // ---------- reading ----------
@@ -561,6 +568,8 @@ public sealed class Gen2RomModule : IGameModule
             {
                 Error("Learnsets", l.Key, "Only TM, HM and tutor moves can be taught in these games.", l.Key);
             }
+
+            issues.AddRange(Gen2Dialogue.Check(s, data));
         }
 
         foreach (var t in data.Trainers.Where(t => t.LockedReason is null && (t.Party.Count is 0 or > 6 || t.HasAdaptiveSlot || t.Name.Length > 10)))

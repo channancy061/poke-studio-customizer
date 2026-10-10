@@ -1,6 +1,7 @@
 using PokeStudio.Core.Models;
 using PokeStudio.Core.Modules;
 using PokeStudio.Core.Safety;
+using PokeStudio.Modules.Gen2Rom;
 using PokeStudio.Modules.Gen3Rom;
 using PokeStudio.Modules.N3ds;
 using PokeStudio.Modules.Nds;
@@ -115,5 +116,22 @@ public class RomTextTests
 
         var reloaded = await module.LoadDataAsync(real, tmp.Combine("data"));
         Assert.Equal(edited, reloaded.Texts.Single(t => t.Key == key).Text);
+    }
+
+    [Fact]
+    public Task Real_crystal_dialogue_edits_when_available() =>
+        EditAndReload(new Gen2RomModule(), Environment.GetEnvironmentVariable("POKESTUDIO_CRYSTAL_ROM"), "crystal.gbc", 1500, "{PLAYER}", "\\pPoke Studio was\\nhere, {PLAYER}!");
+
+    [Fact]
+    public void Gen2_text_round_trips()
+    {
+        foreach (var text in new[] { "Hi, {PLAYER}!\\nI'm here.\\pBye…{PROMPT}", "You got{CMD 01 34 12}!\\nWow.{END}", "Plain line." })
+        {
+            var bytes = Gen2Dialogue.Encode(text, out var problem);
+            Assert.Null(problem);
+            var rom = new GbRom([.. bytes!, .. new byte[8]]);
+            Assert.Equal(text, Gen2Dialogue.Decode(rom, 0, out var size));
+            Assert.Equal(bytes!.Length, size);
+        }
     }
 }

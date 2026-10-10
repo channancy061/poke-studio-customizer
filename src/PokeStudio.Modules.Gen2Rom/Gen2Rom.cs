@@ -51,6 +51,9 @@ internal static class Gen2Text
 
     public static bool CanWrite(string text) => Tokens(text).All(t => t is not null);
 
+    /// <summary>True when the byte is a printable character of the font.</summary>
+    public static bool IsCharacter(byte b) => Decode.ContainsKey(b);
+
     public static byte[] Write(string text) => [.. Tokens(text).Select(t => t ?? Encode["?"]), End];
 
     private static IEnumerable<byte?> Tokens(string text)
