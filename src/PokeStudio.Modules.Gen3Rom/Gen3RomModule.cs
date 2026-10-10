@@ -48,7 +48,7 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
     [
         new(ModuleCapabilities.Species, SupportLevel.Supported),
         new(ModuleCapabilities.Moves, SupportLevel.Limited, "Descriptions and physical/special can't change: in these games a move's type decides physical or special."),
-        new(ModuleCapabilities.Learnsets, SupportLevel.Limited, "Level-up moves and TM/HM lists can be edited; egg moves and tutors not yet."),
+        new(ModuleCapabilities.Learnsets, SupportLevel.Limited, "Level-up moves, TM/HM lists and egg moves (up to 10) can be edited; move tutors not yet."),
         new(ModuleCapabilities.Evolutions, SupportLevel.Limited, "Up to 5 per Pokémon, using the methods these games know."),
         new(ModuleCapabilities.Trainers, SupportLevel.Supported),
         new(ModuleCapabilities.TrainerAi, SupportLevel.Supported),
@@ -109,6 +109,7 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
             var tables = LoadTables(rom, projectDataDir);
             var (data, state) = Gen3Reader.Read(rom, tables);
             state.Path = workingSourcePath;
+            Gen3EggMoves.Read(state, data);
             Gen3Dialogue.Load(state, data);
             _states.AddOrUpdate(data, state);
             return data;
@@ -128,12 +129,14 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
         }
 
         Gen3Writer.Write(state, data);
+        Gen3EggMoves.Write(state, data);
         Gen3Sprites.Write(state, data);
         Gen3Dialogue.Save(state, data);
         Gen3Marts.Save(state, data);
         await context.Writer.WriteAllBytesAsync(context.WorkingSourceDir, state.Rom.Bytes, cancellationToken);
-        var (_, fresh) = Gen3Reader.Read(state.Rom, state.Tables);
+        var (freshData, fresh) = Gen3Reader.Read(state.Rom, state.Tables);
         fresh.Path = state.Path;
+        Gen3EggMoves.Read(fresh, freshData);
         Gen3Dialogue.Load(fresh, new GameData()); // positions only: the edited text stays in data
         _states.AddOrUpdate(data, fresh);
     }
@@ -141,6 +144,7 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
     public IReadOnlyList<ValidationIssue> Validate(GameData data)
     {
         var issues = Gen3Writer.Check(data, Limits).ToList();
+        issues.AddRange(Gen3EggMoves.Check(data));
         _states.TryGetValue(data, out var state);
         foreach (var t in data.Texts)
         {
@@ -185,13 +189,23 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
                 var saved = System.Text.Json.JsonSerializer.Deserialize<TablesFile>(File.ReadAllText(file), PokeStudio.Core.Storage.JsonStore.Options);
                 if (saved is not null && saved.GameCode == rom.GameCode && saved.Length == rom.Length)
                 {
-                    if (saved.Tables.SpritesLocated)
+                    if (saved.Tables.SpritesLocated && saved.Tables.EggMovesLocated)
                     {
                         return saved.Tables;
                     }
 
-                    // a project from before graphics support: find the sprite tables too (their contents are still original)
-                    var upgraded = saved.Tables.WithSprites(rom);
+                    // a project from before graphics or egg move support: find those tables too (their contents are still original)
+                    var upgraded = saved.Tables;
+                    if (!upgraded.SpritesLocated)
+                    {
+                        upgraded = upgraded.WithSprites(rom);
+                    }
+
+                    if (!upgraded.EggMovesLocated)
+                    {
+                        upgraded = upgraded with { EggMovePointers = Gen3EggMoves.Locate(rom, upgraded.MoveCount), EggMovesLocated = true };
+                    }
+
                     File.WriteAllText(file, System.Text.Json.JsonSerializer.Serialize(saved with { Tables = upgraded }, PokeStudio.Core.Storage.JsonStore.Options));
                     return upgraded;
                 }
@@ -203,6 +217,7 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
         }
 
         var tables = (Gen3Tables.Locate(rom, out var problem) ?? throw new InvalidDataException(problem)).WithSprites(rom);
+        tables = tables with { EggMovePointers = Gen3EggMoves.Locate(rom, tables.MoveCount), EggMovesLocated = true };
         Directory.CreateDirectory(projectDataDir);
         File.WriteAllText(file, System.Text.Json.JsonSerializer.Serialize(new TablesFile(rom.GameCode, rom.Length, tables), PokeStudio.Core.Storage.JsonStore.Options));
         return tables;
@@ -229,6 +244,7 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
         public Dictionary<string, (EncounterTable Table, int Header)> Encounters { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, Item> Items { get; } = new(StringComparer.Ordinal);
         public List<string> TmMoves { get; } = [];
+        public bool EggMovesFound { get; set; }
         public Dictionary<string, Gen3Dialogue.Message> Messages { get; set; } = new(StringComparer.Ordinal);
         public Dictionary<string, TextEntry> Texts { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, Mart> Marts { get; } = new(StringComparer.Ordinal);

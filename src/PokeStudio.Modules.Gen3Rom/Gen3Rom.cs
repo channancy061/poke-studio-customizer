@@ -138,6 +138,11 @@ internal sealed record Gen3Tables
     public int ShinyPalettes { get; init; } = -1;
     public bool SpritesLocated { get; init; }
 
+    /// <summary>Places in the game's code that point to the egg move table (empty = not found).</summary>
+    public IReadOnlyList<int> EggMovePointers { get; init; } = [];
+
+    public bool EggMovesLocated { get; init; }
+
     /// <summary>
     /// Pokémon picture tables have an entry per species whose tag is the species number (pictures: tag at +6; palettes:
     /// tag at +4, shiny ones + 500). The first two picture tables are the front and back sprites; Emerald adds an

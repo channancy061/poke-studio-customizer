@@ -1,0 +1,53 @@
+using PokeStudio.Core.Modules;
+using PokeStudio.Core.Safety;
+using PokeStudio.Modules.Gen3Rom;
+
+namespace PokeStudio.Core.Tests;
+
+/// <summary>Egg move editing in ROM mode, on copies of the user's own ROMs when their environment variables are set.</summary>
+public class RomEggMoveTests
+{
+    private static async Task EditEggMoves(IGameModule module, string? real, string file)
+    {
+        if (string.IsNullOrEmpty(real) || !File.Exists(real))
+        {
+            return;
+        }
+
+        using var tmp = new TempDir();
+        var rom = tmp.Combine(file);
+        File.Copy(real, rom);
+        var data = await module.LoadDataAsync(rom, tmp.Combine("data"));
+        var bulba = data.Learnsets.Single(l => l.Key == "SPECIES_BULBASAUR");
+        Assert.Contains("MOVE_LIGHT_SCREEN", bulba.EggMoves);
+        Assert.False(bulba.LockedParts.ContainsKey("egg"));
+        Assert.True(data.Learnsets.Count(l => l.EggMoves.Count > 0) > 100);
+
+        // Bulbasaur grows to 10 (the table no longer fits and moves), Charmander loses all of its egg moves
+        var extra = data.Moves.Select(m => m.Key).Where(k => k != "MOVE_NONE").Except(bulba.EggMoves).Take(10 - bulba.EggMoves.Count).ToList();
+        var bi = data.Learnsets.IndexOf(bulba);
+        data.Learnsets[bi] = bulba with { EggMoves = [.. bulba.EggMoves, .. extra] };
+        var ci = data.Learnsets.FindIndex(l => l.Key == "SPECIES_CHARMANDER");
+        data.Learnsets[ci] = data.Learnsets[ci] with { EggMoves = [] };
+        Assert.DoesNotContain(module.Validate(data), v => v.Severity == Validation.IssueSeverity.Error);
+
+        var tooMany = data.Learnsets[bi] with { EggMoves = [.. data.Learnsets[bi].EggMoves, "MOVE_POUND"] };
+        data.Learnsets[bi] = tooMany;
+        Assert.Contains(module.Validate(data), v => v.Area == "Learnsets" && v.Message.Contains("10 egg moves", StringComparison.Ordinal));
+        data.Learnsets[bi] = bulba with { EggMoves = [.. bulba.EggMoves, .. extra] };
+
+        await module.SaveDataAsync(data, new ModuleSaveContext(new SafeFileWriter(tmp.Path), tmp.Combine("data"), rom));
+        var reloaded = await module.LoadDataAsync(rom, tmp.Combine("data"));
+        Assert.Equal([.. bulba.EggMoves, .. extra], reloaded.Learnsets.Single(l => l.Key == "SPECIES_BULBASAUR").EggMoves);
+        Assert.Empty(reloaded.Learnsets.Single(l => l.Key == "SPECIES_CHARMANDER").EggMoves);
+        Assert.Equal(data.Learnsets.Single(l => l.Key == "SPECIES_SQUIRTLE").EggMoves, reloaded.Learnsets.Single(l => l.Key == "SPECIES_SQUIRTLE").EggMoves);
+    }
+
+    [Fact]
+    public Task Real_emerald_egg_moves_edit_when_available() =>
+        EditEggMoves(new Gen3RomModule(), Environment.GetEnvironmentVariable("POKESTUDIO_EMERALD_ROM"), "emerald.gba");
+
+    [Fact]
+    public Task Real_firered_egg_moves_edit_when_available() =>
+        EditEggMoves(new Gen3RomModule(), Environment.GetEnvironmentVariable("POKESTUDIO_FIRERED_ROM"), "firered.gba");
+}
