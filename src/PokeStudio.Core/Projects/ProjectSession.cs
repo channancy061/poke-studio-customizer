@@ -48,11 +48,33 @@ public sealed class ProjectSession : IDisposable
         var module = registry.Find(project.Manifest.ModuleId)
             ?? throw new ProjectFormatException($"This project needs the \"{project.Manifest.ModuleId}\" module, which isn't installed.");
         var data = await module.LoadDataAsync(project.WorkingSourcePath, project.DataDir, cancellationToken);
+        data.Lab = await LoadLabAsync(project, cancellationToken);
         var session = new ProjectSession(project, module, data, projects, backups, clock ?? TimeProvider.System);
         var all = await backups.ListAsync(project.Manifest.Id, cancellationToken);
         var latest = all.Count > 0 ? all[0] : null;
         session.LastBackupUtc = latest?.CreatedUtc;
         return session;
+    }
+
+    public const string LabFileName = "champion-lab.json";
+
+    /// <summary>Champion Lab settings from the project's data folder, or the defaults.</summary>
+    private static async Task<ChampionLab.LabSettings> LoadLabAsync(Project project, CancellationToken cancellationToken)
+    {
+        var path = Path.Combine(project.DataDir, LabFileName);
+        if (!File.Exists(path))
+        {
+            return new ChampionLab.LabSettings();
+        }
+
+        try
+        {
+            return await Storage.JsonStore.ReadAsync<ChampionLab.LabSettings>(path, cancellationToken) ?? new ChampionLab.LabSettings();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return new ChampionLab.LabSettings(); // a damaged file never stops the project from opening
+        }
     }
 
     public IReadOnlyList<ChangeLogEntry> History(int limit = 500) => _log.ReadRecent(limit);
@@ -77,6 +99,12 @@ public sealed class ProjectSession : IDisposable
         }
 
         await Module.SaveDataAsync(Data, Project.CreateSaveContext(Module), cancellationToken);
+        if (Data.Lab is { } lab)
+        {
+            Directory.CreateDirectory(Project.DataDir);
+            await Storage.JsonStore.WriteAsync(Path.Combine(Project.DataDir, LabFileName), lab, cancellationToken);
+        }
+
         await _projects.SaveManifestAsync(Project, cancellationToken);
         Undo.MarkSaved();
         _log.MarkSaved();

@@ -153,5 +153,20 @@
         <TextBlock Text="Press Enter to start a new line. The game shows about 4 lines." Classes="caption muted" />
       </StackPanel>
     </Border>
+
+    <Border Classes="card" IsEnabled="{Binding CanEditOther}">
+      <StackPanel Spacing="8">
+        <TextBlock Text="Special category" Classes="heading" />
+        <TextBlock Text="Used by Champion Lab's legendary rules, and by the game for some features (e.g. the Battle Frontier bans)." Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+        <WrapPanel>
+          <CheckBox IsChecked="{Binding IsRestrictedLegendary}" Content="Restricted legendary" Margin="0,0,16,4" ToolTip.Tip="Box legendaries like Mewtwo, Kyogre or Zacian" />
+          <CheckBox IsChecked="{Binding IsSubLegendary}" Content="Sub-legendary" Margin="0,0,16,4" ToolTip.Tip="Legendary birds, beasts, Regis, Lati@s…" />
+          <CheckBox IsChecked="{Binding IsMythical}" Content="Mythical" Margin="0,0,16,4" ToolTip.Tip="Event Pokémon like Mew or Jirachi" />
+          <CheckBox IsChecked="{Binding IsUltraBeast}" Content="Ultra Beast" Margin="0,0,16,4" />
+          <CheckBox IsChecked="{Binding IsParadox}" Content="Paradox" Margin="0,0,16,4" />
+          <CheckBox IsChecked="{Binding IsMega, Mode=OneWay}" Content="Mega / Primal form" IsEnabled="False" Margin="0,0,16,4" />
+        </WrapPanel>
+      </StackPanel>
+    </Border>
   </StackPanel>
 </UserControl>

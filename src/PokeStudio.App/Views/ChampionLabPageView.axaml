@@ -1,0 +1,160 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:m="using:PokeStudio.Core.Models"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.ChampionLabPageView"
+             x:DataType="vm:ChampionLabPageViewModel">
+  <UserControl.Resources>
+    <DataTemplate x:Key="EntryTemplate" x:DataType="m:CatalogEntry"><TextBlock Text="{Binding Name}" /></DataTemplate>
+  </UserControl.Resources>
+  <ScrollViewer>
+    <StackPanel Margin="32,28" Spacing="16" MaxWidth="1100" HorizontalAlignment="Left">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Champion Lab" Classes="title" />
+        <TextBlock Text="Rules for the battles that matter: who is a gym leader or rival, each gym's type theme, which legendaries are allowed at each difficulty, and what the player can have by then. Rules show up as “Check this” items when you save; they never stop you saving."
+                   Classes="muted" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <RadioButton GroupName="lab-tab" Content="Groups &amp; themes" IsChecked="{Binding IsGroupsTab}" />
+        <RadioButton GroupName="lab-tab" Content="Rules" IsChecked="{Binding IsRulesTab}" />
+        <RadioButton GroupName="lab-tab" Content="Scouting" IsChecked="{Binding IsScoutingTab}" />
+      </StackPanel>
+
+      <!-- Groups & themes -->
+      <StackPanel Spacing="12" IsVisible="{Binding IsGroupsTab}">
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+          <TextBox Text="{Binding Search}" Watermark="Search trainers" AutomationProperties.Name="Search trainers" />
+          <CheckBox Grid.Column="1" IsChecked="{Binding ShowAllTrainers}" Content="Show regular trainers too" />
+          <Button Grid.Column="2" Classes="secondary" Content="Suggest themes from current teams" Command="{Binding ApplySuggestedThemesCommand}" />
+        </Grid>
+        <Grid ColumnDefinitions="*,190,170,120" ColumnSpacing="12">
+          <TextBlock Text="Trainer" Classes="caption" />
+          <TextBlock Grid.Column="1" Text="Group" Classes="caption" />
+          <TextBlock Grid.Column="2" Text="Type theme" Classes="caption" />
+          <TextBlock Grid.Column="3" Text="Off-type allowed" Classes="caption" />
+        </Grid>
+        <ItemsControl ItemsSource="{Binding Trainers}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:LabTrainerRowViewModel">
+              <Border Classes="well" Margin="0,0,0,6" Padding="12,8">
+                <Grid ColumnDefinitions="*,190,170,120" ColumnSpacing="12">
+                  <StackPanel>
+                    <TextBlock Text="{Binding Title}" FontWeight="Bold" />
+                    <TextBlock Text="{Binding Subtitle}" Classes="caption muted" />
+                    <TextBlock Text="{Binding Suggested}" Classes="caption" Foreground="{DynamicResource PL.InfoTextBrush}" IsVisible="{Binding HasSuggestion}" />
+                  </StackPanel>
+                  <ComboBox Grid.Column="1" ItemsSource="{Binding $parent[ItemsControl].((vm:ChampionLabPageViewModel)DataContext).GroupOptions}" SelectedItem="{Binding Group}" HorizontalAlignment="Stretch" VerticalAlignment="Center" AutomationProperties.Name="Group">
+                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:GroupOption"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
+                  <ComboBox Grid.Column="2" ItemsSource="{Binding $parent[ItemsControl].((vm:ChampionLabPageViewModel)DataContext).ThemeOptions}" SelectedItem="{Binding Theme}" ItemTemplate="{StaticResource EntryTemplate}" HorizontalAlignment="Stretch" VerticalAlignment="Center" MaxDropDownHeight="360" AutomationProperties.Name="Type theme" />
+                  <ComboBox Grid.Column="3" ItemsSource="{Binding $parent[ItemsControl].((vm:ChampionLabPageViewModel)DataContext).OffTypeOptions}" SelectedItem="{Binding OffType}" HorizontalAlignment="Stretch" VerticalAlignment="Center" AutomationProperties.Name="Off-type Pokémon allowed" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
+      <!-- Rules -->
+      <StackPanel Spacing="12" IsVisible="{Binding IsRulesTab}">
+        <Border Classes="card">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Always" Classes="heading" />
+            <ToggleSwitch IsChecked="{Binding RivalKeepsStarter}" Content="Rivals keep their starter in every fight, evolved at the right level" />
+            <TextBlock Text="{Binding StartersText}" Classes="caption muted" Margin="0,-4,0,0" />
+            <ToggleSwitch IsChecked="{Binding FairPlay}" Content="Fair play: bosses only use as many legendaries as the player could own by then" />
+            <ToggleSwitch IsChecked="{Binding UniqueTypeCombos}" Content="Themed teams use varied second types (no two Water/Ground Pokémon)" />
+          </StackPanel>
+        </Border>
+        <Border Classes="card">
+          <StackPanel Spacing="10">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+              <TextBlock Text="Legendary limits" Classes="heading" VerticalAlignment="Center" />
+              <ComboBox Grid.Column="1" ItemsSource="{Binding DifficultyOptions}" SelectedItem="{Binding Difficulty}" Width="160" AutomationProperties.Name="Difficulty">
+                <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:DifficultyOption"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+              </ComboBox>
+              <Button Grid.Column="2" Classes="ghost sm" Content="Reset to defaults" Command="{Binding ResetRulesCommand}" />
+            </Grid>
+            <TextBlock Text="How many of each a team may have. −1 means no limit." Classes="caption muted" />
+            <Grid ColumnDefinitions="130,90,90,90,90,90,90" ColumnSpacing="8">
+              <TextBlock Text="Group" Classes="caption" />
+              <TextBlock Grid.Column="1" Text="Restricted" Classes="caption" ToolTip.Tip="Box legendaries like Mewtwo or Kyogre" />
+              <TextBlock Grid.Column="2" Text="Sub-legend." Classes="caption" ToolTip.Tip="Legendary birds, beasts, Regis…" />
+              <TextBlock Grid.Column="3" Text="Mythical" Classes="caption" />
+              <TextBlock Grid.Column="4" Text="Ultra Beast" Classes="caption" />
+              <TextBlock Grid.Column="5" Text="Paradox" Classes="caption" />
+              <TextBlock Grid.Column="6" Text="Mega" Classes="caption" />
+            </Grid>
+            <ItemsControl ItemsSource="{Binding Rules}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:GroupRulesRowViewModel">
+                  <StackPanel Margin="0,4,0,8" Spacing="4">
+                  <Grid ColumnDefinitions="130,90,90,90,90,90,90" ColumnSpacing="8">
+                    <TextBlock Text="{Binding Group}" FontWeight="Bold" VerticalAlignment="Center" />
+                    <NumericUpDown Grid.Column="1" Value="{Binding MaxRestricted}" Minimum="-1" Maximum="6" FormatString="0" ShowButtonSpinner="False" AutomationProperties.Name="Restricted legendaries" />
+                    <NumericUpDown Grid.Column="2" Value="{Binding MaxSubLegendary}" Minimum="-1" Maximum="6" FormatString="0" ShowButtonSpinner="False" AutomationProperties.Name="Sub-legendaries" />
+                    <NumericUpDown Grid.Column="3" Value="{Binding MaxMythical}" Minimum="-1" Maximum="6" FormatString="0" ShowButtonSpinner="False" AutomationProperties.Name="Mythicals" />
+                    <NumericUpDown Grid.Column="4" Value="{Binding MaxUltraBeast}" Minimum="-1" Maximum="6" FormatString="0" ShowButtonSpinner="False" AutomationProperties.Name="Ultra Beasts" />
+                    <NumericUpDown Grid.Column="5" Value="{Binding MaxParadox}" Minimum="-1" Maximum="6" FormatString="0" ShowButtonSpinner="False" AutomationProperties.Name="Paradox" />
+                    <NumericUpDown Grid.Column="6" Value="{Binding MaxMega}" Minimum="-1" Maximum="6" FormatString="0" ShowButtonSpinner="False" AutomationProperties.Name="Megas" />
+                  </Grid>
+                  <StackPanel Orientation="Horizontal" Spacing="16" Margin="138,0,0,0">
+                    <CheckBox IsChecked="{Binding RestrictedOrSub}" Content="One restricted OR the sub-legendaries" FontSize="12" />
+                    <CheckBox IsChecked="{Binding SpeciesClause}" Content="Species Clause" FontSize="12" ToolTip.Tip="No two of the same Pokémon" />
+                    <CheckBox IsChecked="{Binding ItemClause}" Content="Item Clause" FontSize="12" ToolTip.Tip="No two Pokémon holding the same item" />
+                  </StackPanel>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+        <Border Classes="card">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Story locks" Classes="heading" />
+            <TextBlock Text="Keep a legendary off every trainer's team until the story introduces it." Classes="small muted" />
+            <ItemsControl ItemsSource="{Binding StoryLocks}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:StoryLockRowViewModel">
+                  <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                    <TextBlock Text="{Binding Text}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Classes="ghost icon sm" Command="{Binding RemoveCommand}" AutomationProperties.Name="Remove"><c:Icon Data="{StaticResource Icon.Close}" Size="14" /></Button>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Grid ColumnDefinitions="*,180,Auto" ColumnSpacing="8">
+              <AutoCompleteBox ItemsSource="{Binding LegendaryOptions}" SelectedItem="{Binding LockSpecies}" FilterMode="Contains" MinimumPrefixLength="0"
+                               ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" Watermark="Legendary" AutomationProperties.Name="Legendary to lock" />
+              <ComboBox Grid.Column="1" ItemsSource="{Binding MilestoneOptions}" SelectedIndex="{Binding LockMilestone}" HorizontalAlignment="Stretch" AutomationProperties.Name="Not before" />
+              <Button Grid.Column="2" Classes="quiet" Content="Add" Command="{Binding AddStoryLockCommand}" />
+            </Grid>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <!-- Scouting -->
+      <StackPanel Spacing="12" IsVisible="{Binding IsScoutingTab}">
+        <Border Classes="callout info">
+          <TextBlock TextWrapping="Wrap" Text="What the player can catch before each big fight: places whose wild Pokémon are at or below that fight's level cap, plus what those evolve into by then. An estimate — gifts and in-game trades aren't counted yet." />
+        </Border>
+        <ItemsControl ItemsSource="{Binding Scouting}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ScoutRowViewModel">
+              <Border Classes="card" Margin="0,0,0,10">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="heading"><Run Text="Before " /><Run Text="{Binding Milestone}" /><Run Text=" (cap " /><Run Text="{Binding Cap}" /><Run Text=")" /></TextBlock>
+                  <TextBlock Text="{Binding Summary}" FontWeight="Bold" />
+                  <TextBlock Text="{Binding Types}" Classes="small" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding Pokemon}" Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

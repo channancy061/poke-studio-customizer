@@ -355,6 +355,47 @@ public sealed class ExpansionModule : IGameModule
 
     private const string BattleConfig = "include/config/battle.h";
 
+    /// <summary>Grass, fire, water starter (Emerald: src/starter_choose.c; FireRed: src/field_specials.c).</summary>
+    private static List<string> ReadStarters(ExpansionLayout layout)
+    {
+        var fireRed = layout.IsFireRedBase;
+        var choose = layout.Full("src/starter_choose.c");
+        if (!fireRed && File.Exists(choose))
+        {
+            var text = File.ReadAllText(choose);
+            var list = new List<string>();
+            foreach (var name in new[] { "GRASS_STARTER", "FIRE_STARTER", "WATER_STARTER" })
+            {
+                var m = Regex.Match(text, $@"#define\s+{name}\s+\(?\s*(?:IS_FRLG\s*\?\s*(SPECIES_\w+)\s*:\s*)?(SPECIES_\w+)");
+                if (m.Success)
+                {
+                    list.Add(m.Groups[2].Value);
+                }
+            }
+
+            if (list.Count == 3)
+            {
+                return list;
+            }
+        }
+
+        var specials = layout.Full("src/field_specials.c");
+        if (fireRed && File.Exists(specials))
+        {
+            var m = Regex.Match(File.ReadAllText(specials), @"sStarterSpecies\[\]\s*=\s*\{([^}]*)\}");
+            if (m.Success)
+            {
+                var list = Regex.Matches(m.Groups[1].Value, @"SPECIES_\w+").Select(x => x.Value).ToList();
+                if (list.Count == 3)
+                {
+                    return list;
+                }
+            }
+        }
+
+        return [];
+    }
+
     public int? MeasureText(string line) => _font?.Measure(line);
 
     private FontMetrics? _font;
@@ -587,6 +628,7 @@ public sealed class ExpansionModule : IGameModule
         }
 
         ParseWorld(layout, state, data);
+        data.Starters.AddRange(ReadStarters(layout));
         FillCatalog(layout, data.Catalog);
         return (data, state);
     }

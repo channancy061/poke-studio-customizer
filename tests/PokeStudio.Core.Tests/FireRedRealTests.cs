@@ -67,6 +67,13 @@ public class FireRedRealTests
         Assert.True(townLines.Count > 50);
         Assert.All(townLines, l => Assert.True(module.MeasureText(l) <= 208, $"“{l}” measures {module.MeasureText(l)} px"));
 
+        // Champion Lab: FireRed's starters and its rival convention (the suffix is the rival's own starter)
+        Assert.Equal(["SPECIES_BULBASAUR", "SPECIES_SQUIRTLE", "SPECIES_CHARMANDER"], data.Starters);
+        var lab = new ChampionLab.LabSettings();
+        var rivalIssues = ChampionLab.LabChecks.RivalChecks(data, lab, new ChampionLab.StarterSet(data.Starters)).ToList();
+        Assert.True(rivalIssues.Count == 0, string.Join(" | ", rivalIssues.Take(10).Select(i => i.Subject + " " + i.Message)));
+        Assert.Equal(ChampionLab.TrainerGroup.Rival, ChampionLab.Lab.GroupOf(data, lab, data.Trainers.Single(t => t.Key == "TRAINER_RIVAL_OAKS_LAB_SQUIRTLE")));
+
         // saving with no changes keeps every file identical
         await module.SaveDataAsync(data, ctx);
         foreach (var (f, text) in files)

@@ -320,6 +320,19 @@ public sealed partial class PokemonEditorViewModel : ViewModelBase, IRefreshable
         }, (a, b) => $"{label} {Catalog.NameOf(a.Abilities.ElementAtOrDefault(slot))} → {Catalog.NameOf(b.Abilities[slot])}");
     }
 
+    // ---- special categories (used by Champion Lab's legendary rules) ----
+    private bool HasTag(SpeciesTags t) => Model.Tags.HasFlag(t);
+
+    private void SetTag(SpeciesTags t, bool on, string label) =>
+        Edit("tag:" + t, s => s with { Tags = on ? s.Tags | t : s.Tags & ~t }, (_, _) => on ? $"now {label}" : $"no longer {label}");
+
+    public bool IsRestrictedLegendary { get => HasTag(SpeciesTags.RestrictedLegendary); set => SetTag(SpeciesTags.RestrictedLegendary, value, "a restricted legendary"); }
+    public bool IsSubLegendary { get => HasTag(SpeciesTags.SubLegendary); set => SetTag(SpeciesTags.SubLegendary, value, "a sub-legendary"); }
+    public bool IsMythical { get => HasTag(SpeciesTags.Mythical); set => SetTag(SpeciesTags.Mythical, value, "mythical"); }
+    public bool IsUltraBeast { get => HasTag(SpeciesTags.UltraBeast); set => SetTag(SpeciesTags.UltraBeast, value, "an Ultra Beast"); }
+    public bool IsParadox { get => HasTag(SpeciesTags.Paradox); set => SetTag(SpeciesTags.Paradox, value, "a Paradox Pokémon"); }
+    public bool IsMega => HasTag(SpeciesTags.Mega);
+
     public CatalogEntry? Ability1 { get => GetAbility(0); set => SetAbility(0, value, "ability 1"); }
     public CatalogEntry? Ability2 { get => GetAbility(1); set => SetAbility(1, value, "ability 2"); }
     public CatalogEntry? AbilityHidden { get => GetAbility(2); set => SetAbility(2, value, "hidden ability"); }

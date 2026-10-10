@@ -7,7 +7,7 @@
 A friendly desktop editor (Windows + Linux) for customising games you legally own.
 It ships **no game files or assets**, never modifies your originals, and uses only open-source components (MIT-licensed).
 
-## Status: Phase 6 (World, shops, text, levels & caps)
+## Status: Phase 7 in progress (Champion Lab, first half done)
 - **Phase 1:** solution skeleton, plugin system, projects, undo/redo + change log, backups/restore, settings,
   Avalonia shell with light/dark theming, CI on Windows + Linux, Windows installer and Linux AppImage.
 - **Phase 2:** edit a **pokeemerald-expansion 1.17.1** project (Emerald-based, Gen 1–9 Pokémon):
@@ -77,6 +77,23 @@ It ships **no game files or assets**, never modifies your originals, and uses on
   - **Physical/Special split** (`B_PHYSICAL_SPECIAL_SPLIT`): switch between the Gen 4+ rule and the
     Gen 1–3 type rule; Modernize offers it when moving between generations; the move editor explains
     which category a move really uses.
+- **Phase 7 (first half) — Champion Lab:**
+  - **Groups:** trainers are sorted into Regular / Gyms 1–5 / Gyms 6–8 / Rival / Elite Four / Champion /
+    Post-game from their class, code name and level (rematches go to Post-game); move any trainer.
+  - **Type themes** per trainer (strict, or 1–2 off-type Pokémon allowed), suggested from current teams;
+    varied second types.
+  - **Legendary rules** per group × difficulty using the project's own `isRestrictedLegendary`,
+    `isSubLegendary`, `isMythical`, `isUltraBeast`, `isParadox`, Mega/Primal flags (editable as tickboxes in
+    the Pokémon editor): limits per category, "one restricted OR the sub-legendaries", max Megas, Species
+    and Item Clause, story locks (not before a milestone), fair play (no more legendaries than the player
+    can catch by then). Defaults as agreed; all editable.
+  - **Rival keeps their starter:** starters read from the project (Emerald `starter_choose.c`, FireRed
+    `field_specials.c`); the rival naming convention is detected (Emerald: suffix = player's pick; FireRed:
+    suffix = the rival's own); flags fights without the line, or unevolved more than 3 levels past evolution.
+  - **Scouting:** what the player can catch before each milestone (areas at or below the cap, plus
+    evolutions by then).
+  - Rule breaks are "Check this" warnings with "Take me there"; settings live in the Poke Studio project
+    (`data/champion-lab.json`), never in the game files, and every change is undoable.
 - **FireRed base:** projects made from **pokefirered-expansion** (community port, cawtds/pokefirered-expansion,
   expansion 1.15.x) open with the same editors. Differences handled: the ROM is `pokefirered.gba`, the text
   box is 26 tiles (208 px, read from `src/menu.c`), shops live in `src/data/shops.json` (stages; edited in

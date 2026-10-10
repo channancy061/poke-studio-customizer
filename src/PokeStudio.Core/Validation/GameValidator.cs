@@ -64,6 +64,10 @@ public static class GameValidator
         }
 
         CheckPhase6(data, module, limits, speciesKeys, issues);
+        if (data.Lab is { } lab)
+        {
+            issues.AddRange(ChampionLab.LabChecks.Run(data, lab, data.Starters.Count == 3 ? new ChampionLab.StarterSet(data.Starters) : null));
+        }
         issues.AddRange(module.Validate(data));
         return issues;
     }

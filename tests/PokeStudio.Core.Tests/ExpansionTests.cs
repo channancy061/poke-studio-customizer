@@ -336,7 +336,7 @@ public class ExpansionTests
         ProjectService.CopyDirectory(Path.Combine(real, "src", "data"), Path.Combine(root, "src", "data"));
         ProjectService.CopyDirectory(Path.Combine(real, "data", "maps"), Path.Combine(root, "data", "maps"));
         ProjectService.CopyDirectory(Path.Combine(real, "data", "text"), Path.Combine(root, "data", "text"));
-        foreach (var f in new[] { "src/caps.c", "src/fonts.c", "charmap.txt" })
+        foreach (var f in new[] { "src/caps.c", "src/fonts.c", "src/starter_choose.c", "charmap.txt" })
         {
             File.Copy(Path.Combine([real, .. f.Split('/')]), Path.Combine([root, .. f.Split('/')]));
         }
@@ -361,6 +361,24 @@ public class ExpansionTests
         Assert.True(data.Rules.PhysicalSpecialSplit);
         Assert.InRange(module.MeasureText("Hello! You")!.Value, 40, 70);
         Assert.DoesNotContain(Validation.GameValidator.Run(data, module), i => i.Area == "Text"); // unchanged text isn't reported
+
+        // Champion Lab on the original Emerald data
+        Assert.Equal(["SPECIES_TREECKO", "SPECIES_TORCHIC", "SPECIES_MUDKIP"], data.Starters);
+        Assert.True(data.Species.Count(s => s.Tags.HasFlag(SpeciesTags.RestrictedLegendary)) > 40);
+        Assert.True(data.Species.Count(s => s.Tags.HasFlag(SpeciesTags.Mythical)) > 30);
+        var lab = new ChampionLab.LabSettings();
+        ChampionLab.TrainerGroup G(string key) => ChampionLab.Lab.GroupOf(data, lab, data.Trainers.Single(t => t.Key == key));
+        Assert.Equal(ChampionLab.TrainerGroup.EarlyGym, G("TRAINER_ROXANNE_1"));
+        Assert.Equal(ChampionLab.TrainerGroup.LateGym, G("TRAINER_JUAN_1"));
+        Assert.Equal(ChampionLab.TrainerGroup.EliteFour, G("TRAINER_SIDNEY"));
+        Assert.Equal(ChampionLab.TrainerGroup.Champion, G("TRAINER_WALLACE"));
+        Assert.Equal(ChampionLab.TrainerGroup.Rival, G("TRAINER_MAY_ROUTE_103_MUDKIP"));
+        Assert.Equal(ChampionLab.TrainerGroup.PostGame, G("TRAINER_ROXANNE_2"));
+        var rivalIssues = ChampionLab.LabChecks.RivalChecks(data, lab, new ChampionLab.StarterSet(data.Starters)).ToList();
+        Assert.True(rivalIssues.Count == 0, string.Join(" | ", rivalIssues.Select(i => i.Subject + " " + i.Message)));
+        var scout = ChampionLab.Scouting.Run(data);
+        Assert.Equal(9, scout.Count);
+        Assert.True(scout[0].Species.Count > 5 && scout[^1].Species.Count > scout[0].Species.Count);
 
         await module.SaveDataAsync(data, ctx);
         foreach (var (f, text) in before)

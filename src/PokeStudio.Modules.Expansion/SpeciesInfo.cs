@@ -420,6 +420,14 @@ internal static partial class SpeciesInfo
         }
 
         var category = Value("categoryName", "Category") is { } c ? CStrings.DecodeLiterals(c) : "";
+        var tags = SpeciesTags.None;
+        foreach (var (field, tag) in TagFields)
+        {
+            if (Value(field, "Tags") is { } v && v is not ("FALSE" or "0"))
+            {
+                tags |= tag;
+            }
+        }
         return new Species
         {
             Id = index,
@@ -439,11 +447,19 @@ internal static partial class SpeciesInfo
             Category = category,
             DexEntry = description,
             IsEnabled = block.Active,
+            Tags = tags,
             LearnsetKey = $"{levelUp}|{teachable}|{egg}",
             LockedFields = locked,
             SettingDependentFields = dependent,
         };
     }
+
+    internal static readonly (string Field, SpeciesTags Tag)[] TagFields =
+    [
+        ("isRestrictedLegendary", SpeciesTags.RestrictedLegendary), ("isSubLegendary", SpeciesTags.SubLegendary),
+        ("isMythical", SpeciesTags.Mythical), ("isUltraBeast", SpeciesTags.UltraBeast), ("isParadox", SpeciesTags.Paradox),
+        ("isMegaEvolution", SpeciesTags.Mega), ("isPrimalReversion", SpeciesTags.Mega),
+    ];
 
     /// <summary>"SPECIES_RATICATE_ALOLA" + "Raticate" → "Alola".</summary>
     public static string? FormNameFor(string symbol, string name)
@@ -646,6 +662,31 @@ internal static partial class SpeciesInfo
         if (before.Category != after.Category)
         {
             Set("categoryName", $"_(\"{CStrings.Escape(after.Category)}\")");
+        }
+
+        if (before.Tags != after.Tags)
+        {
+            foreach (var (field, tag) in TagFields.Where(t => t.Field is not ("isMegaEvolution" or "isPrimalReversion")))
+            {
+                var on = after.Tags.HasFlag(tag);
+                if (on == before.Tags.HasFlag(tag))
+                {
+                    continue;
+                }
+
+                if (on)
+                {
+                    Set(field, "TRUE", "eggGroups", "abilities", "categoryName");
+                }
+                else if (block.Get(field) is { } f)
+                {
+                    // remove the whole line
+                    var lineStart = file.Text.LastIndexOf('\n', Math.Max(0, f.DesignatorStart - 1)) + 1;
+                    var end = f.HasComma ? f.SegmentEnd + 1 : f.ValueEnd;
+                    end = file.Text.IndexOf('\n', end) is var n and >= 0 ? n + 1 : file.Text.Length;
+                    edits.Add(new TextEdit(lineStart, end - lineStart, ""));
+                }
+            }
         }
 
         if (before.DexEntry != after.DexEntry && block.Get("description") is { } desc)

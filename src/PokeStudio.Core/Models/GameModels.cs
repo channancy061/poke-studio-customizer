@@ -90,6 +90,9 @@ public sealed record Species
     /// <summary>Fields the user can't edit here, with a plain-English reason (field name → reason).</summary>
     public IReadOnlyDictionary<string, string> LockedFields { get; init; } = new Dictionary<string, string>();
 
+    /// <summary>Legendary, mythical, Ultra Beast, Paradox, Mega… (from the game's species data).</summary>
+    public SpeciesTags Tags { get; init; }
+
     /// <summary>Fields whose value comes from a game setting (field name → note shown in Advanced mode).</summary>
     public IReadOnlyDictionary<string, string> SettingDependentFields { get; init; } = new Dictionary<string, string>();
 
@@ -172,6 +175,21 @@ public sealed record EvolutionSet
 
     /// <summary>Reason the evolutions can't be edited here, if any.</summary>
     public string? LockedReason { get; init; }
+}
+
+/// <summary>Special categories a species can belong to (from the game's own data).</summary>
+[Flags]
+public enum SpeciesTags
+{
+    None = 0,
+    RestrictedLegendary = 1 << 0,
+    SubLegendary = 1 << 1,
+    Mythical = 1 << 2,
+    UltraBeast = 1 << 3,
+    Paradox = 1 << 4,
+
+    /// <summary>Mega Evolution or Primal Reversion form.</summary>
+    Mega = 1 << 5,
 }
 
 public enum BattleType
