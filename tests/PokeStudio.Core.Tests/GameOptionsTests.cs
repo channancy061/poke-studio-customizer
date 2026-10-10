@@ -182,7 +182,7 @@ public class GameOptionsTests
         // every line of text fits FireRed's narrower box (208 px at about 6 px a letter → keep lines under 34 letters)
         foreach (var line in script.Split('\n').Where(l => l.StartsWith("\t.string", StringComparison.Ordinal)))
         {
-            foreach (var part in line[10..^2].Replace("$", "", StringComparison.Ordinal).Split("\\n"))
+            foreach (var part in line[10..^2].Replace("$", "", StringComparison.Ordinal).Replace("\\p", "\\n", StringComparison.Ordinal).Split("\\n"))
             {
                 Assert.True(part.Length <= 32, $"too long: {part}");
             }
@@ -318,7 +318,13 @@ public class GameOptionsCodeTests
         var setup = ReadRel(GameOptionsWriter.BattleSetup);
         Assert.Contains("PokeStudio_BeforeWildBattle();", setup, StringComparison.Ordinal);
         Assert.Equal(2, System.Text.RegularExpressions.Regex.Count(setup, @"PokeStudio_AfterBattle\(\);"));
-        Assert.Contains("FLAG_PS_NUZ_NICK", ReadRel(GameOptionsWriter.BattleScripts), StringComparison.Ordinal);
+        var battleScripts = ReadRel(GameOptionsWriter.BattleScripts);
+        Assert.Contains("FLAG_PS_NUZ_NICK", battleScripts, StringComparison.Ordinal);
+        Assert.Contains("the species name doesn't count", battleScripts, StringComparison.Ordinal);
+        Assert.Contains("no Revival Blessing in a Nuzlocke", battleScripts, StringComparison.Ordinal);
+        Assert.Contains("no revives in a Nuzlocke", ReadRel(GameOptionsWriter.Pokemon), StringComparison.Ordinal);
+        Assert.Contains("PokeStudio_UpdateCatchFlag();", ReadRel(GameOptionsWriter.ItemUse), StringComparison.Ordinal);
+        Assert.Contains("IMPORTANT: read each question.", ReadRel(GameOptionsWriter.Script), StringComparison.Ordinal);
         Assert.Contains("POOL_PICK_POKE_STUDIO_ADAPTIVE", ReadRel(GameOptionsWriter.PoolsHeader), StringComparison.Ordinal);
         Assert.Contains("case POOL_PICK_POKE_STUDIO_ADAPTIVE:", ReadRel(GameOptionsWriter.PoolsSource), StringComparison.Ordinal);
         var centers = Directory.GetDirectories(Path.Combine(root, "data", "maps")).Where(d => d.Contains("PokemonCenter_1F", StringComparison.Ordinal)).ToList();

@@ -81,6 +81,17 @@ public class AdaptiveSlotTests
     }
 
     [Fact]
+    public void An_easy_version_keeps_the_adaptive_slot_at_its_own_levels()
+    {
+        var (_, t) = TrainerParty.Parse(Party.ReplaceLineEndings("\n"), Species).Single();
+        var easy = DifficultyVersions.Make(new GameData(), new LabSettings(), t, Difficulty.Easy);
+        Assert.Equal("TRAINER_LEADER_X@Easy", easy.Key);
+        Assert.Equal(1, easy.FlexIndex);
+        Assert.All(easy.FlexCandidates, c => Assert.Equal(easy.Party[1].Level, c.Level));
+        Assert.True(easy.Party[1].Level < t.Party[1].Level);
+    }
+
+    [Fact]
     public void Other_pools_stay_locked()
     {
         var other = Party.Replace("Pool Pick Functions: Poke Studio Adaptive", "Pool Rules: Weather Doubles", StringComparison.Ordinal);

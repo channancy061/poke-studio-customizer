@@ -156,13 +156,13 @@ public static class DifficultyVersions
         switch (d)
         {
             case Difficulty.Easy:
-                return normal with
+                return WithFlex(normal, normal with
                 {
                     Key = KeyFor(normal, d),
                     Party = normal.Party.Select(p => p with { Level = Math.Max(1, p.Level - Math.Max(2, p.Level / 10)), Ivs = new BaseStats(0, 0, 0, 0, 0, 0), Evs = null, HeldItem = null }).ToList(),
                     Items = [],
                     AiFlags = Ai("beginner"),
-                };
+                }, sameOrder: true);
             case Difficulty.Hard:
             case Difficulty.ExtraHard:
             {
@@ -182,19 +182,41 @@ public static class DifficultyVersions
                     party.Insert(0, p with { Level = Math.Min(100, p.Level + (extra ? 3 : 1)) });
                 }
 
-                return normal with
+                return WithFlex(normal, normal with
                 {
                     Key = KeyFor(normal, d),
                     Party = party.Count > 0 ? party : normal.Party,
                     AiFlags = extra ? Ai(normal.Battle == BattleType.Double ? "double-ace" : "champion", "expert") : Ai("smart", "basic"),
                     Items = boss ? normal.Items : [],
-                };
+                }, sameOrder: party.Count == 0);
             }
 
             default:
                 return normal;
         }
     }
+
+    /// <summary>A version keeps the adaptive slot: same flexible member (or the one before the ace), candidates at its level.</summary>
+    private static Trainer WithFlex(Trainer normal, Trainer version, bool sameOrder)
+    {
+        if (!normal.HasAdaptiveSlot || version.Party.Count == 0)
+        {
+            return version with { FlexIndex = null, FlexCandidates = [] };
+        }
+
+        var flex = sameOrder && normal.FlexIndex < version.Party.Count ? normal.FlexIndex!.Value : AdaptiveSlots.DefaultFlexIndex(version);
+        var level = version.Party[flex].Level;
+        var easy = DifficultyOf(version) == Difficulty.Easy;
+        return version with
+        {
+            FlexIndex = flex,
+            FlexCandidates = normal.FlexCandidates.Select(c => easy
+                ? c with { Level = level, Ivs = new BaseStats(0, 0, 0, 0, 0, 0), Evs = null, HeldItem = null }
+                : c with { Level = level }).ToList(),
+        };
+    }
+
+    private static Difficulty DifficultyOf(Trainer t) => Lab.DifficultyOf(t);
 
     /// <summary>Adds or replaces the chosen versions for the given trainers, as one undo step.</summary>
     public static IChange? Generate(GameData data, LabSettings lab, IEnumerable<string> baseKeys, IReadOnlyList<Difficulty> versions)

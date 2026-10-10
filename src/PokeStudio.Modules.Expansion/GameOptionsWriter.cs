@@ -446,6 +446,8 @@ internal static partial class GameOptionsWriter
         {
             L("\tmsgbox PokeStudio_Text_Intro, MSGBOX_DEFAULT");
             Text("PokeStudio_Text_Intro", "Before you begin, choose how\\nyou want to play.");
+            L("\tmsgbox PokeStudio_Text_Careful, MSGBOX_DEFAULT");
+            Text("PokeStudio_Text_Careful", "IMPORTANT: read each question.\\nStop pressing A now!\\pYes is picked first. Press B\\nto answer No.\\pChoices can't be changed\\nlater in this save.");
         }
 
         if (o.Difficulty == OptionMode.PlayerChooses)

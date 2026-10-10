@@ -22,6 +22,7 @@ internal static partial class GameOptionsWriter
     public const string PoolsSource = "src/trainer_pools.c";
     public const string PoolsHeader = "include/trainer_pools.h";
     public const string WildConfig = "include/config/wild_encounter.h";
+    public const string ItemUse = "src/item_use.c";
 
     /// <summary>What the code needs from the rest of the project.</summary>
     public sealed record Extras(
@@ -32,7 +33,7 @@ internal static partial class GameOptionsWriter
         public static readonly Extras None = new(new Dictionary<string, string>(), [], []);
     }
 
-    public static IReadOnlyList<string> CodeFiles => [CodeFile, CodeHeader, BattleSetup, BattleScripts, PoolsSource, PoolsHeader, WildConfig];
+    public static IReadOnlyList<string> CodeFiles => [CodeFile, CodeHeader, BattleSetup, BattleScripts, PoolsSource, PoolsHeader, WildConfig, ItemUse];
 
     private static readonly string[] CodeFlagNames =
         ["FLAG_PS_NUZ_FIRST", "FLAG_PS_NUZ_FAINT", "FLAG_PS_NUZ_DUPES", "FLAG_PS_NUZ_EEVEE", "FLAG_PS_NUZ_SHINY", "FLAG_PS_NUZ_NICK", "FLAG_PS_ADAPTIVE", "FLAG_PS_NO_CATCH"];
@@ -158,6 +159,58 @@ internal static partial class GameOptionsWriter
             put(BattleSetup, setup, updated);
         }
 
+        // item_use.c: the catch rule is checked when a ball is about to be thrown
+        if (read(ItemUse) is { } itemUse && !itemUse.Contains("PokeStudio_UpdateCatchFlag", StringComparison.Ordinal))
+        {
+            var updated = InsertAtBodyStart(itemUse, "static u32 GetBallThrowableState(void)", "PokeStudio_UpdateCatchFlag(); // Poke Studio: Nuzlocke catch rules");
+            if (updated != itemUse)
+            {
+                put(ItemUse, itemUse, AddInclude(updated));
+            }
+            else
+            {
+                notes.Add("The ball-throw check wasn't found, so the first-encounter rule applies to the first wild Pokémon only.");
+            }
+        }
+
+        // pokemon.c: no revive items in a Nuzlocke (Revive, Max Revive, Revival Herb, Sacred Ash all go through here)
+        if (read(Pokemon) is { } pokemonC && !pokemonC.Contains("no revives in a Nuzlocke", StringComparison.Ordinal))
+        {
+            var at = pokemonC.IndexOf("// Check use validity.", StringComparison.Ordinal);
+            if (at >= 0 && pokemonC.IndexOf("ITEM4_REVIVE >> 2", at, StringComparison.Ordinal) is var r and > 0 && r - at < 200)
+            {
+                var nl = CScanner.LineEnding(pokemonC);
+                var lineStart = pokemonC.LastIndexOf('\n', at) + 1;
+                var indent = CScanner.IndentAt(pokemonC, at);
+                var block = string.Join(nl,
+                    $"{indent}if ((effectFlags & (ITEM4_REVIVE >> 2)) && FlagGet(FLAG_PS_NUZ_FAINT)) // {Mark}: no revives in a Nuzlocke",
+                    $"{indent}{{",
+                    $"{indent}    itemEffectParam++;",
+                    $"{indent}    break;",
+                    $"{indent}}}") + nl;
+                put(Pokemon, pokemonC, pokemonC.Insert(lineStart, block));
+            }
+            else
+            {
+                notes.Add("The revive item check wasn't found, so revive items still work in a Nuzlocke.");
+            }
+        }
+
+        // battle_script_commands.c: Revival Blessing fails for the player in a Nuzlocke
+        if (read(BattleScripts) is { } bsc && !bsc.Contains("no Revival Blessing in a Nuzlocke", StringComparison.Ordinal))
+        {
+            var fn = bsc.IndexOf("void BS_TryRevivalBlessing(void)", StringComparison.Ordinal);
+            var first = fn < 0 ? -1 : bsc.IndexOf("u8 index = GetFirstFaintedPartyIndex(gBattlerAttacker);", fn, StringComparison.Ordinal);
+            if (first >= 0)
+            {
+                var nl = CScanner.LineEnding(bsc);
+                var lineEnd = bsc.IndexOf('\n', first) + 1;
+                var indent = CScanner.IndentAt(bsc, first);
+                put(BattleScripts, bsc, bsc.Insert(lineEnd,
+                    $"{indent}if (FlagGet(FLAG_PS_NUZ_FAINT) && IsOnPlayerSide(gBattlerAttacker)) // {Mark}: no Revival Blessing in a Nuzlocke{nl}{indent}    index = PARTY_SIZE;{nl}"));
+            }
+        }
+
         // battle_script_commands.c: nicknames required → straight to the naming screen
         if (read(BattleScripts) is { } scripts && !scripts.Contains("FLAG_PS_NUZ_NICK", StringComparison.Ordinal))
         {
@@ -181,6 +234,29 @@ internal static partial class GameOptionsWriter
             else
             {
                 notes.Add("The caught-Pokémon nickname step wasn't found, so \"nicknames required\" only works as a rule the player follows.");
+            }
+        }
+
+        // ... and the species' own name (or an empty one) doesn't count: the naming screen opens again
+        if (read(BattleScripts) is { } named && !named.Contains("the species name doesn't count", StringComparison.Ordinal))
+        {
+            var fn = named.IndexOf("static void Cmd_trygivecaughtmonnick(void)", StringComparison.Ordinal);
+            var set = fn < 0 ? -1 : named.IndexOf("SetMonData(GetBattlerMon(gBattlerTarget), MON_DATA_NICKNAME, gBattleStruct->caughtMonNick);", fn, StringComparison.Ordinal);
+            if (set >= 0)
+            {
+                var nl = CScanner.LineEnding(named);
+                var lineStart = named.LastIndexOf('\n', set) + 1;
+                var indent = CScanner.IndentAt(named, set);
+                var block = string.Join(nl,
+                    $"{indent}if (FlagGet(FLAG_PS_NUZ_NICK) && (gBattleStruct->caughtMonNick[0] == EOS",
+                    $"{indent} || StringCompare(gBattleStruct->caughtMonNick, GetSpeciesName(GetMonData(GetBattlerMon(gBattlerTarget), MON_DATA_SPECIES))) == 0))",
+                    $"{indent}{{",
+                    $"{indent}    // {Mark}: Nuzlocke nicknames - the species name doesn't count, so the naming screen opens again",
+                    $"{indent}    gBattleCommunication[MULTIUSE_STATE] = 2;",
+                    $"{indent}    BeginFastPaletteFade(3);",
+                    $"{indent}    break;",
+                    $"{indent}}}") + nl;
+                put(BattleScripts, named, named.Insert(lineStart, block));
             }
         }
 
@@ -304,6 +380,7 @@ internal static partial class GameOptionsWriter
         struct PoolRules;
 
         void PokeStudio_BeforeWildBattle(void);
+        void PokeStudio_UpdateCatchFlag(void);
         void PokeStudio_AfterBattle(void);
         u32 PokeStudio_PickNone(const struct Trainer *trainer, u8 *poolIndexArray, u32 partyIndex, u32 monsCount, u32 battleTypeFlags, struct PoolRules *rules);
         u32 PokeStudio_PickAdaptive(const struct Trainer *trainer, u8 *poolIndexArray, u32 partyIndex, u32 monsCount, u32 battleTypeFlags, struct PoolRules *rules);
@@ -322,6 +399,7 @@ internal static partial class GameOptionsWriter
         L("// Edit them in the app (Game options); changes made here are replaced on the next save.");
         L("#include \"global.h\"");
         L("#include \"battle.h\"");
+        L("#include \"battle_script_commands.h\"");
         L("#include \"battle_util.h\"");
         L("#include \"data.h\"");
         L("#include \"event_data.h\"");
@@ -391,31 +469,64 @@ internal static partial class GameOptionsWriter
                 return 0;
             }
 
+            // Which wild Pokémon of this battle may be caught (bit per enemy party slot); valid while sCatchRulesActive.
+            EWRAM_DATA static u8 sCatchable = 0;
+            EWRAM_DATA static bool8 sCatchRulesActive = FALSE;
+
+            static bool32 IsDuplicate(u32 species)
+            {
+                return FlagGet(FLAG_PS_NUZ_DUPES) && FamilyCaught(species)
+                    && !(FlagGet(FLAG_PS_NUZ_EEVEE) && FamilyRoot(species) == SPECIES_EEVEE);
+            }
+
             // Before a wild battle: only the first Pokémon met in an area can be caught (dupes and shiny clauses aside).
+            // In a wild double battle either of the two may be the catch (a ball can only be thrown once one is left).
             void PokeStudio_BeforeWildBattle(void)
             {
-                struct Pokemon *wild = &gEnemyParty[0];
-                u32 species = GetMonData(wild, MON_DATA_SPECIES);
-                u32 flag;
+                u32 flag, fresh = 0;
 
                 FlagClear(PS_NO_CATCH);
-                if (!FlagGet(FLAG_PS_NUZ_FIRST))
+                sCatchable = 0;
+                sCatchRulesActive = FlagGet(FLAG_PS_NUZ_FIRST);
+                if (!sCatchRulesActive)
                     return;
-                if (FlagGet(FLAG_PS_NUZ_SHINY) && IsMonShiny(wild))
-                    return;
-                if (FlagGet(FLAG_PS_NUZ_DUPES) && FamilyCaught(species)
-                 && !(FlagGet(FLAG_PS_NUZ_EEVEE) && FamilyRoot(species) == SPECIES_EEVEE))
+                for (u32 i = 0; i < 2; i++)
                 {
-                    FlagSet(PS_NO_CATCH); // a duplicate doesn't use up the area
-                    return;
+                    struct Pokemon *wild = &gEnemyParty[i];
+                    u32 species = GetMonData(wild, MON_DATA_SPECIES);
+                    if (species == SPECIES_NONE)
+                        continue;
+                    if (FlagGet(FLAG_PS_NUZ_SHINY) && IsMonShiny(wild))
+                        sCatchable |= 1u << i; // shiny clause: always catchable, doesn't use up the area
+                    else if (!IsDuplicate(species))
+                        fresh |= 1u << i;      // a duplicate doesn't use up the area
                 }
+                if (fresh == 0)
+                    return;
                 flag = AreaFlag(gMapHeader.regionMapSectionId);
                 if (flag == 0)
-                    return;
-                if (FlagGet(flag))
-                    FlagSet(PS_NO_CATCH);
-                else
+                {
+                    sCatchable |= fresh; // an area the rules don't track
+                }
+                else if (!FlagGet(flag))
+                {
                     FlagSet(flag);
+                    sCatchable |= fresh;
+                }
+            }
+
+            // When a ball is about to be thrown: allowed only at a Pokémon the rules let the player catch.
+            void PokeStudio_UpdateCatchFlag(void)
+            {
+                u32 slot;
+
+                if (!sCatchRulesActive)
+                    return;
+                slot = gBattlerPartyIndexes[GetCatchingBattler()];
+                if (slot < 8 && (sCatchable & (1u << slot)))
+                    FlagClear(PS_NO_CATCH);
+                else
+                    FlagSet(PS_NO_CATCH);
             }
 
             static bool32 IsUsableMon(struct Pokemon *mon)
@@ -429,6 +540,7 @@ internal static partial class GameOptionsWriter
                 u32 alive = 0, released = 0;
 
                 FlagClear(PS_NO_CATCH);
+                sCatchRulesActive = FALSE;
                 if (!FlagGet(FLAG_PS_NUZ_FAINT))
                     return;
                 for (u32 i = 0; i < PARTY_SIZE; i++)
