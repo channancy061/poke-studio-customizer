@@ -32,9 +32,10 @@ public class ExpansionUiTests
         Assert.True(shell.NavItems.Single(n => n.Key == NavKey.Learnsets).IsEnabled);
         Assert.True(shell.NavItems.Single(n => n.Key == NavKey.Evolutions).IsEnabled);
         Assert.True(shell.NavItems.Single(n => n.Key == NavKey.Trainers).IsEnabled);
-        var encounters = shell.NavItems.Single(n => n.Key == NavKey.Encounters);
-        Assert.True(encounters.IsLocked);
-        Assert.Contains("Phase 6", encounters.Reason, StringComparison.Ordinal);
+        Assert.True(shell.NavItems.Single(n => n.Key == NavKey.Encounters).IsEnabled);
+        var graphics = shell.NavItems.Single(n => n.Key == NavKey.Graphics);
+        Assert.True(graphics.IsLocked);
+        Assert.Contains("Phase 14", graphics.Reason, StringComparison.Ordinal);
 
         var page = Assert.IsType<PokemonPageViewModel>(shell.CurrentPage);
         Assert.Equal(5, page.Items.Count);
@@ -54,12 +55,12 @@ public class ExpansionUiTests
         await shell.SaveCommand.ExecuteAsync(null);
 
         Assert.True(shell.IsValidationOpen); // Bloomtle learns 5 moves at level 1
-        var issue = Assert.Single(shell.Issues);
+        var issue = Assert.Single(shell.Issues, i => i.Text.StartsWith("Bloomtle", StringComparison.Ordinal)); // the fixture also has a deliberately long sign
         Assert.True(issue.HasFix);
         Assert.Equal(before, Read(root, SpeciesFile)); // nothing written yet
 
         issue.FixCommand.Execute(null);
-        Assert.Empty(shell.Issues);
+        Assert.DoesNotContain(shell.Issues, i => i.IsError || i.Text.StartsWith("Bloomtle", StringComparison.Ordinal));
         await shell.SaveAnywayCommand.ExecuteAsync(null);
 
         Assert.False(shell.IsValidationOpen);

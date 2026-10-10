@@ -1,0 +1,42 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             x:Class="PokeStudio.App.Views.TextEditorView"
+             x:DataType="vm:TextEditorViewModel">
+  <StackPanel Spacing="16" MaxWidth="900" HorizontalAlignment="Left">
+    <StackPanel Spacing="2">
+      <TextBlock Text="{Binding Title}" Classes="title" FontSize="28" />
+      <TextBlock Text="{Binding Subtitle}" Classes="mono muted" />
+    </StackPanel>
+    <Border Classes="card">
+      <StackPanel Spacing="8">
+        <TextBlock Text="What the game says" FontWeight="Bold" />
+        <TextBox Text="{Binding Draft}" AcceptsReturn="True" MinHeight="140" TextWrapping="NoWrap" FontFamily="{StaticResource PL.FontMono}" AutomationProperties.Name="Text" />
+        <TextBlock Text="Each line is one line in the game. Leave an empty line to start a new text box. Codes like {PLAYER} are filled in by the game." Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+      </StackPanel>
+    </Border>
+    <Border Classes="card">
+      <StackPanel Spacing="6">
+        <TextBlock Text="How it fits the text box" FontWeight="Bold" />
+        <Border Classes="callout warning" IsVisible="{Binding HasTooWide}">
+          <TextBlock Text="Some lines are wider than the text box and will be cut off. Break them into shorter lines." TextWrapping="Wrap" />
+        </Border>
+        <ItemsControl ItemsSource="{Binding Preview}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:TextLineViewModel">
+              <StackPanel>
+                <Separator IsVisible="{Binding NewBox}" Margin="0,6" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                  <TextBlock Text="{Binding Text}" Classes="mono" TextWrapping="NoWrap" />
+                  <TextBlock Grid.Column="1" Classes="caption" Text="{Binding Width, StringFormat='{}{0} px'}" Foreground="{DynamicResource PL.Text3Brush}" IsVisible="{Binding !TooWide}" />
+                  <TextBlock Grid.Column="1" Classes="caption" Text="{Binding Width, StringFormat='{}{0} px — too wide'}" Foreground="{DynamicResource PL.ErrorTextBrush}" IsVisible="{Binding TooWide}" />
+                </Grid>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Text="{Binding Width, StringFormat='The text box is {0} pixels wide.'}" Classes="caption muted" />
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

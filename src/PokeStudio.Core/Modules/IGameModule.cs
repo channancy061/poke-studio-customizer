@@ -73,7 +73,14 @@ public sealed class GameData
     public List<Learnset> Learnsets { get; } = [];
     public List<EvolutionSet> Evolutions { get; } = [];
     public List<Trainer> Trainers { get; } = [];
-    public List<Encounter> Encounters { get; } = [];
+    public List<EncounterTable> Encounters { get; } = [];
+    public List<EncounterSlotChances> EncounterChances { get; } = [];
+    public List<Item> Items { get; } = [];
+    public List<Mart> Marts { get; } = [];
+    public List<TextEntry> Texts { get; } = [];
+
+    /// <summary>Level caps and related settings, or null when the game has none.</summary>
+    public GameRules? Rules { get; set; }
     public GameCatalog Catalog { get; } = new();
 
     public Learnset? LearnsetFor(Species species) =>
@@ -100,6 +107,12 @@ public sealed record GameLimits
     public int MaxPartySize { get; init; } = 6;
     public int MaxTrainerItems { get; init; } = 4;
     public int NicknameLength { get; init; } = 10;
+    public int ItemNameLength { get; init; } = 14;
+    public int MaxPrice { get; init; } = 999_999;
+
+    /// <summary>Width of a dialogue line in pixels (null = not checked).</summary>
+    public int? TextLineWidth { get; init; }
+    public int TextLinesPerBox { get; init; } = 2;
 }
 
 /// <summary>Context handed to a module when saving: where it may write.</summary>
@@ -121,6 +134,9 @@ public interface IGameModule
     DetectionResult Detect(GameSource source);
 
     GameLimits Limits => new();
+
+    /// <summary>Width in pixels of one line of dialogue in the game's font, or null if the module can't measure it.</summary>
+    int? MeasureText(string line) => null;
 
     /// <summary>Generations whose movesets this game can switch to (empty = Modernize isn't available).</summary>
     IReadOnlyList<Modernize.GenerationChoice> ModernizeGenerations(GameData data) => [];

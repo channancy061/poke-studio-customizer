@@ -102,6 +102,11 @@ internal sealed partial class ExpansionLayout
 
         var table = new MacroTable();
         table.LoadDefines(File.ReadAllText(path));
+        if (!table.IsDefined(macro))
+        {
+            return fallback; // an unknown name would otherwise evaluate to 0, as in C
+        }
+
         return (int)(table.TryEvaluate(macro) ?? fallback);
     }
 

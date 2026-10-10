@@ -52,6 +52,9 @@ internal static partial class SpeciesInfo
     [GeneratedRegex(@"\[(MOVE_\w+)\]\s*=\s*\{")]
     private static partial Regex MoveBlockStartRegex();
 
+    [GeneratedRegex(@"\[(ITEM_\w+)\]\s*=\s*\{")]
+    private static partial Regex ItemBlockStartRegex();
+
     [GeneratedRegex(@"(?!^)([A-Z]+)")]
     private static partial Regex SnakifyRegex();
 
@@ -66,11 +69,11 @@ internal static partial class SpeciesInfo
         return new SourceFile { Relative = relative, Text = text, Map = map, Macros = macros };
     }
 
-    public static List<SpeciesBlock> ParseBlocks(SourceFile file, bool moves = false)
+    public static List<SpeciesBlock> ParseBlocks(SourceFile file, bool moves = false, bool items = false)
     {
         var text = file.Text;
         var blocks = new List<SpeciesBlock>();
-        foreach (Match m in (moves ? MoveBlockStartRegex() : BlockStartRegex()).Matches(text))
+        foreach (Match m in (items ? ItemBlockStartRegex() : moves ? MoveBlockStartRegex() : BlockStartRegex()).Matches(text))
         {
             var lineStart = text.LastIndexOf('\n', Math.Max(0, m.Index - 1)) + 1;
             var before = text.AsSpan(lineStart, m.Index - lineStart).Trim();

@@ -253,17 +253,103 @@ public sealed record SpriteAsset(string OwnerKey, SpriteKind Kind, int Width, in
 
 public sealed record ModelAsset(string OwnerKey, string Name, string? ImportedFilePath);
 
-public enum EncounterMethod
+/// <summary>One wild slot: a Pokémon and its level range.</summary>
+public sealed record EncounterSlot(string Species, int MinLevel, int MaxLevel);
+
+/// <summary>A way of meeting wild Pokémon on a map (grass, surfing, fishing, rock smash…).</summary>
+public sealed record EncounterMethodTable
 {
-    Grass, Surf, OldRod, GoodRod, SuperRod, RockSmash,
+    /// <summary>Storage key, e.g. "land_mons".</summary>
+    public required string Type { get; init; }
+
+    /// <summary>How often a step/attempt triggers an encounter (game-specific scale).</summary>
+    public int Rate { get; init; }
+
+    public IReadOnlyList<EncounterSlot> Slots { get; init; } = [];
 }
 
-public sealed record EncounterSlot(string Species, int MinLevel, int MaxLevel, int RatePercent);
-
-public sealed record Encounter
+/// <summary>All wild encounters of one map (or one special area).</summary>
+public sealed record EncounterTable
 {
-    public required string LocationName { get; init; }
-    public EncounterMethod Method { get; init; }
-    public IReadOnlyList<EncounterSlot> Slots { get; init; } = [];
-    public int TotalRate => Slots.Sum(s => s.RatePercent);
+    /// <summary>Unique key, e.g. "gRoute101".</summary>
+    public required string Key { get; init; }
+
+    /// <summary>Map constant, e.g. "MAP_ROUTE101" (empty for non-map tables).</summary>
+    public string Map { get; init; } = "";
+
+    public string Group { get; init; } = "";
+    public IReadOnlyList<EncounterMethodTable> Methods { get; init; } = [];
+    public string? LockedReason { get; init; }
+}
+
+/// <summary>Per-slot chances for a method type, shared by every map (e.g. land: 20,20,10,…).</summary>
+public sealed record EncounterSlotChances(string Type, IReadOnlyList<int> Percent, IReadOnlyDictionary<string, IReadOnlyList<int>> Groups);
+
+public sealed record Item
+{
+    public required string Key { get; init; }
+    public required string Name { get; init; }
+    public int Price { get; init; }
+    public string Description { get; init; } = "";
+
+    /// <summary>Strength of the item's effect where it's a simple number (e.g. HP a Potion restores).</summary>
+    public int? EffectAmount { get; init; }
+
+    public string Pocket { get; init; } = "";
+    public string HoldEffect { get; init; } = "";
+    public IReadOnlyDictionary<string, string> LockedFields { get; init; } = new Dictionary<string, string>();
+    public IReadOnlyDictionary<string, string> SettingDependentFields { get; init; } = new Dictionary<string, string>();
+}
+
+/// <summary>A shop's stock list.</summary>
+public sealed record Mart
+{
+    /// <summary>Label of the list, e.g. "OldaleTown_Mart_Pokemart_Basic".</summary>
+    public required string Key { get; init; }
+
+    /// <summary>Friendly place name, e.g. "Oldale Town Mart".</summary>
+    public string Place { get; init; } = "";
+
+    public IReadOnlyList<string> Items { get; init; } = [];
+
+    /// <summary>Extra stock unlocked by badges: badge number → items added at that point.</summary>
+    public IReadOnlyDictionary<int, IReadOnlyList<string>> BadgeTiers { get; init; } = new Dictionary<int, IReadOnlyList<string>>();
+
+    public string? LockedReason { get; init; }
+}
+
+/// <summary>A piece of in-game text (dialogue, sign…). Line breaks use "\n" (new line), "\l" (scroll), "\p" (new box).</summary>
+public sealed record TextEntry
+{
+    public required string Key { get; init; }
+    public string Place { get; init; } = "";
+    public required string Text { get; init; }
+    public string? LockedReason { get; init; }
+}
+
+/// <summary>Level caps and related settings.</summary>
+public sealed record LevelCap(string Milestone, string Label, int Level);
+
+public enum ExpCapKind
+{
+    None,
+    /// <summary>No experience at or above the cap.</summary>
+    Hard,
+    /// <summary>Reduced experience at or above the cap.</summary>
+    Soft,
+}
+
+public sealed record GameRules
+{
+    public IReadOnlyList<LevelCap> LevelCaps { get; init; } = [];
+    public bool CapsEnabled { get; init; }
+    public ExpCapKind ExpCap { get; init; }
+    public bool RareCandyCap { get; init; }
+    public bool ExpBoostBelowCap { get; init; }
+
+    /// <summary>
+    /// True: each move's own category decides physical/special (Gen 4+). False: the move's type decides (Gen 1–3).
+    /// Null when the game has no such setting.
+    /// </summary>
+    public bool? PhysicalSpecialSplit { get; init; }
 }

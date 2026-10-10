@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:m="using:PokeStudio.Core.Models"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.EncounterEditorView"
+             x:DataType="vm:EncounterEditorViewModel">
+  <UserControl.Resources>
+    <DataTemplate x:Key="EntryTemplate" x:DataType="m:CatalogEntry"><TextBlock Text="{Binding Name}" /></DataTemplate>
+  </UserControl.Resources>
+  <StackPanel Spacing="16">
+    <StackPanel Spacing="2">
+      <TextBlock Text="{Binding Title}" Classes="title" FontSize="30" />
+      <TextBlock Text="{Binding Subtitle}" Classes="mono muted" />
+    </StackPanel>
+    <Border Classes="callout warning" IsVisible="{Binding IsLocked}"><TextBlock Text="{Binding LockedReason}" TextWrapping="Wrap" /></Border>
+    <ItemsControl ItemsSource="{Binding Methods}" IsEnabled="{Binding IsEditable}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:EncounterMethodViewModel">
+          <Border Classes="card" Margin="0,0,0,12">
+            <StackPanel Spacing="8">
+              <TextBlock Text="{Binding Title}" Classes="heading" />
+              <TextBlock Text="{Binding Hint}" Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+              <Grid ColumnDefinitions="140,*,90,90" ColumnSpacing="12" Margin="0,4,0,0">
+                <TextBlock Text="Chance" Classes="caption" />
+                <TextBlock Grid.Column="1" Text="Pokémon" Classes="caption" />
+                <TextBlock Grid.Column="2" Text="From level" Classes="caption" />
+                <TextBlock Grid.Column="3" Text="To level" Classes="caption" />
+              </Grid>
+              <ItemsControl ItemsSource="{Binding Slots}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:EncounterSlotViewModel">
+                    <Grid ColumnDefinitions="140,*,90,90" ColumnSpacing="12" Margin="0,3">
+                      <TextBlock Text="{Binding Chance}" VerticalAlignment="Center" Classes="small" />
+                      <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding SpeciesOptions}" SelectedItem="{Binding Species}" FilterMode="Contains" MinimumPrefixLength="0"
+                                       ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" AutomationProperties.Name="Pokémon" />
+                      <NumericUpDown Grid.Column="2" Value="{Binding MinLevel}" Minimum="1" Maximum="100" Increment="1" FormatString="0" ShowButtonSpinner="False" AutomationProperties.Name="From level" />
+                      <NumericUpDown Grid.Column="3" Value="{Binding MaxLevel}" Minimum="1" Maximum="100" Increment="1" FormatString="0" ShowButtonSpinner="False" AutomationProperties.Name="To level" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </StackPanel>
+</UserControl>

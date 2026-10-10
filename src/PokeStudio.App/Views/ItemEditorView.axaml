@@ -1,0 +1,41 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             x:Class="PokeStudio.App.Views.ItemEditorView"
+             x:DataType="vm:ItemEditorViewModel">
+  <StackPanel Spacing="16">
+    <StackPanel Spacing="2">
+      <TextBlock Text="{Binding Title}" Classes="title" FontSize="30" />
+      <TextBlock Text="{Binding Subtitle}" Classes="muted" />
+    </StackPanel>
+    <Border Classes="callout info" IsVisible="{Binding HasNotes}">
+      <ItemsControl ItemsSource="{Binding Notes}">
+        <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" TextWrapping="Wrap" FontSize="12" /></DataTemplate></ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Border>
+    <Border Classes="card" IsEnabled="{Binding IsEditable}">
+      <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="20" RowSpacing="16">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Name" FontWeight="Bold" />
+          <TextBox Text="{Binding NameDraft}" AutomationProperties.Name="Item name" />
+          <TextBlock Text="{Binding NameError}" Classes="caption" Foreground="{DynamicResource PL.ErrorTextBrush}" IsVisible="{Binding NameError, Converter={x:Static ObjectConverters.IsNotNull}}" TextWrapping="Wrap" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Spacing="6" IsEnabled="{Binding CanEditPrice}">
+          <TextBlock Text="Price (₽)" FontWeight="Bold" />
+          <NumericUpDown Value="{Binding Price}" Minimum="0" Maximum="999999" Increment="100" FormatString="0" AutomationProperties.Name="Price" />
+          <TextBlock Text="Shops sell it for this; players get half back when selling. 0 = can't be bought." Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+        </StackPanel>
+        <StackPanel Grid.Row="1" Spacing="6">
+          <TextBlock Text="Description" FontWeight="Bold" />
+          <TextBox Text="{Binding DescriptionDraft}" AcceptsReturn="True" Height="96" FontFamily="{StaticResource PL.FontMono}" FontSize="13" AutomationProperties.Name="Item description" />
+        </StackPanel>
+        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6" IsVisible="{Binding HasEffectAmount}">
+          <TextBlock Text="Effect strength" FontWeight="Bold" />
+          <NumericUpDown Value="{Binding EffectAmount}" Minimum="0" Maximum="255" Increment="5" FormatString="0" AutomationProperties.Name="Effect strength" />
+          <TextBlock Text="E.g. HP a berry restores, or the % power boost of a type item." Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+        </StackPanel>
+      </Grid>
+    </Border>
+    <Border Classes="well"><TextBlock Text="{Binding Usage}" Classes="small" TextWrapping="Wrap" /></Border>
+  </StackPanel>
+</UserControl>

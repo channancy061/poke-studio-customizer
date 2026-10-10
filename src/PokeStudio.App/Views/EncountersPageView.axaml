@@ -1,0 +1,64 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:m="using:PokeStudio.Core.Models"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.EncountersPageView"
+             x:DataType="vm:EncountersPageViewModel">
+  <UserControl.Resources>
+    <DataTemplate x:Key="EntryTemplate" x:DataType="m:CatalogEntry"><TextBlock Text="{Binding Name}" /></DataTemplate>
+  </UserControl.Resources>
+  <Grid ColumnDefinitions="270,*">
+    <Border Classes="panel" BorderThickness="0,0,1,0">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Margin="14,14,14,8" Spacing="8">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="Wild encounters" Classes="heading" />
+            <TextBlock Grid.Column="1" Text="{Binding CountText}" Classes="caption muted" VerticalAlignment="Center" />
+          </Grid>
+          <TextBox Text="{Binding Search}" Watermark="Search places or Pokémon" AutomationProperties.Name="Search places">
+            <TextBox.InnerLeftContent><c:Icon Data="{StaticResource Icon.Search}" Margin="10,0,0,0" Foreground="{DynamicResource PL.Text3Brush}" /></TextBox.InnerLeftContent>
+          </TextBox>
+          <Button Classes="quiet sm" HorizontalAlignment="Stretch" Command="{Binding ToggleToolsCommand}" Content="Change levels or replace a Pokémon…" />
+        </StackPanel>
+        <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" Background="Transparent" AutomationProperties.Name="Places">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:PlaceItem">
+              <StackPanel Margin="0,2">
+                <TextBlock Text="{Binding Title}" FontWeight="Bold" />
+                <TextBlock Text="{Binding Subtitle}" Classes="caption muted" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+
+    <ScrollViewer Grid.Column="1">
+      <StackPanel Margin="28,22" Spacing="16" MaxWidth="1040" HorizontalAlignment="Stretch">
+        <Border Classes="card" BorderBrush="{DynamicResource PL.AccentBrush}" IsVisible="{Binding IsToolsOpen}">
+          <StackPanel Spacing="14">
+            <TextBlock Text="Wild Pokémon tools" Classes="heading" />
+            <Grid ColumnDefinitions="Auto,140,*,Auto" ColumnSpacing="12">
+              <TextBlock Text="Change wild levels by" VerticalAlignment="Center" FontWeight="Bold" />
+              <NumericUpDown Grid.Column="1" Value="{Binding LevelChange}" Minimum="-99" Maximum="99" Increment="1" FormatString="+0;-0;0" AutomationProperties.Name="Level change" />
+              <CheckBox Grid.Column="2" IsChecked="{Binding AllAreas}" Content="in every place (otherwise only this one)" VerticalAlignment="Center" />
+              <Button Grid.Column="3" Classes="primary" Content="Apply" Command="{Binding ApplyLevelChangeCommand}" />
+            </Grid>
+            <Grid ColumnDefinitions="Auto,*,Auto,*,Auto" ColumnSpacing="10" RowDefinitions="Auto,Auto" RowSpacing="8">
+              <TextBlock Text="Replace" VerticalAlignment="Center" FontWeight="Bold" />
+              <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding SpeciesOptions}" SelectedItem="{Binding ReplaceFrom}" FilterMode="Contains" MinimumPrefixLength="1"
+                               ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" Watermark="this Pokémon" AutomationProperties.Name="Replace this Pokémon" />
+              <TextBlock Grid.Column="2" Text="with" VerticalAlignment="Center" />
+              <AutoCompleteBox Grid.Column="3" ItemsSource="{Binding SpeciesOptions}" SelectedItem="{Binding ReplaceTo}" FilterMode="Contains" MinimumPrefixLength="1"
+                               ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" Watermark="that one" AutomationProperties.Name="With this Pokémon" />
+              <Button Grid.Column="4" Classes="primary" Content="Replace everywhere" Command="{Binding ApplyReplaceCommand}" />
+              <CheckBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" IsChecked="{Binding ReplaceInTrainers}" Content="Also on trainers' teams" />
+            </Grid>
+          </StackPanel>
+        </Border>
+        <ContentControl Content="{Binding Editor}" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

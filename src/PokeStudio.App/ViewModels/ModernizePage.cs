@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PokeStudio.Core.Changes;
 using PokeStudio.Core.Modernize;
 
 namespace PokeStudio.App.ViewModels;
@@ -30,6 +31,7 @@ public sealed partial class ModernizePageViewModel : ViewModelBase
         _shell = shell;
         Generations = shell.Session.Module.ModernizeGenerations(shell.Session.Data);
         _generation = Generations.FirstOrDefault(g => g.IsLatest) ?? Generations.FirstOrDefault();
+        ChangeSplit = _generation?.Generation >= 4;
     }
 
     public IReadOnlyList<GenerationChoice> Generations { get; }
@@ -48,6 +50,9 @@ public sealed partial class ModernizePageViewModel : ViewModelBase
             if (SetProperty(ref _generation, value))
             {
                 ClearPreview();
+                ChangeSplit = value?.Generation >= 4; // modernising: switch the split on; going back: keep the modern split unless asked
+                OnPropertyChanged(nameof(OffersSplit));
+                OnPropertyChanged(nameof(SplitText));
             }
         }
     }
@@ -68,13 +73,23 @@ public sealed partial class ModernizePageViewModel : ViewModelBase
     [ObservableProperty]
     public partial string? Message { get; set; }
 
+    /// <summary>Shown when the chosen generation and the game's physical/special rule don't match.</summary>
+    public bool OffersSplit => _shell.Session.Data.Rules?.PhysicalSpecialSplit is { } split && Generation is { } g && (g.Generation >= 4) != split;
+
+    public string SplitText => Generation?.Generation >= 4
+        ? "Also switch to the Physical/Special split (Gen 4+): each move uses its own category instead of its type."
+        : "Also use the Gen 1–3 rule: a move's type decides whether it's physical or special.";
+
+    [ObservableProperty]
+    public partial bool ChangeSplit { get; set; }
+
     partial void OnIncludeMovesChanged(bool value) => ClearPreview();
 
     partial void OnIncludeSpeciesChanged(bool value) => ClearPreview();
 
     public int IncludedCount => Rows.Count(r => r.IsIncluded);
     public string ApplyText => IncludedCount == 1 ? "Apply to 1 Pokémon" : $"Apply to {IncludedCount} Pokémon";
-    public bool CanApply => IncludedCount > 0;
+    public bool CanApply => IncludedCount > 0 || (OffersSplit && ChangeSplit && HasPreview);
     public bool NothingToChange => HasPreview && Rows.Count == 0;
     public string Summary => Rows.Count == 0 ? "" : $"{Rows.Count} Pokémon would change. Untick any you want to keep as they are.";
 
@@ -174,14 +189,22 @@ public sealed partial class ModernizePageViewModel : ViewModelBase
     private void Apply()
     {
         var chosen = Rows.Where(r => r.IsIncluded).Select(r => r.Row).ToList();
-        if (chosen.Count == 0 || Generation is not { } gen)
+        if ((chosen.Count == 0 && !(OffersSplit && ChangeSplit)) || Generation is not { } gen)
         {
             return;
         }
 
         var data = _shell.Session.Data;
         // rows hold display names in SharedWith; the change only needs keys and lists
-        _shell.Execute(Modernizer.ToChange(data, chosen, $"Gen {gen.Generation}"));
+        var change = Modernizer.ToChange(data, chosen, $"Gen {gen.Generation}");
+        if (OffersSplit && ChangeSplit && data.Rules is { } rules)
+        {
+            var parts = ((CompositeChange)change).Parts.ToList();
+            parts.Add(new ValueChange<Core.Models.GameRules?>("Moves", "physical/special rule", v => data.Rules = v, rules, rules with { PhysicalSpecialSplit = gen.Generation >= 4 }));
+            change = new CompositeChange(change.Area, change.Description + (gen.Generation >= 4 ? " + Physical/Special split" : " + Gen 1–3 move categories"), parts);
+        }
+
+        _shell.Execute(change);
         Rows.Clear();
         HasPreview = false;
         Changed();

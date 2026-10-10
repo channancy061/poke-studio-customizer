@@ -7,7 +7,7 @@
 A friendly desktop editor (Windows + Linux) for customising games you legally own.
 It ships **no game files or assets**, never modifies your originals, and uses only open-source components (MIT-licensed).
 
-## Status: Phase 5 (Trainers & Enemy AI)
+## Status: Phase 6 (World, shops, text, levels & caps)
 - **Phase 1:** solution skeleton, plugin system, projects, undo/redo + change log, backups/restore, settings,
   Avalonia shell with light/dark theming, CI on Windows + Linux, Windows installer and Linux AppImage.
 - **Phase 2:** edit a **pokeemerald-expansion 1.17.1** project (Emerald-based, Gen 1–9 Pokémon):
@@ -59,6 +59,24 @@ It ships **no game files or assets**, never modifies your originals, and uses on
   - Checks before saving: team size, levels, unknown Pokémon/moves/items, Pokémon switched off in
     settings, double battle with one Pokémon, EV limits; warnings for unusual abilities and moves
     a Pokémon can't normally learn. Trainers that pick from a random pool are shown locked.
+- **Phase 6:**
+  - **Wild encounters** (`wild_encounters.json`, written back in its exact layout): every place's grass,
+    surfing, fishing (per rod) and rock-smash slots with each slot's chance in plain words; change all
+    wild levels by N; replace a Pokémon everywhere (optionally on trainers' teams too).
+  - **Items & shops:** item name, price, description, effect strength (`items.h`). Every shop's stock
+    (`data/maps/*/scripts.inc`), ready-made lists (competitive held items, battle berries, X items,
+    training items, healing, balls, TMs), **stock unlocked by badges** (the app writes clearly marked
+    extra shop lists and `goto_if_set FLAG_BADGExx_GET` lines; removing them restores the file), and
+    **Rare Candies in every shop** at a price you choose.
+  - **Text:** search all dialogue; edit with real line breaks (a blank line = new text box); each line
+    is measured with the project's own font (`src/fonts.c` + `charmap.txt`) against the 216-pixel box.
+  - **Levels & caps:** set milestone levels (Gym 1 … Champion, from `src/caps.c`), with presets for a
+    Lv 70–100 Champion; every trainer and wild Pokémon follows the curve, optionally evolving trainers'
+    Pokémon; edit the caps and `include/config/caps.h` (caps on/off, hard or soft XP cap, Rare Candy
+    cap, more XP below the cap).
+  - **Physical/Special split** (`B_PHYSICAL_SPECIAL_SPLIT`): switch between the Gen 4+ rule and the
+    Gen 1–3 type rule; Modernize offers it when moving between generations; the move editor explains
+    which category a move really uses.
 - The **Demo** module still edits an invented sample (`samples/Demo Valley.demogame.json`).
 
 ## Layout
@@ -129,6 +147,10 @@ CI builds the AppImage on every `v*` tag (`release.yml`), so you can also downlo
 18. Trainers › Hiker Sawyer › level 25 → save → only that line changes in `src/data/trainers.party`.
 19. Trainers › Change levels… › Percent 120 › Every trainer › Apply → one entry in Changes.
 20. Enemy AI › Expert › Gym Leaders… › Apply → bosses use the new AI; Ctrl+Z undoes it.
+21. Wild encounters › Route 101 › first slot level 4 → save → two lines change in `wild_encounters.json`.
+22. Items & shops › Shops › Oldale Mart › Competitive held items after badge 4 → save → extra shop lists
+    appear at the end of the map's `scripts.inc`; build the game and check the shop after badge 4.
+23. Levels & caps › Champion at Lv 90 › Apply the curve → trainers, wild levels and caps all move; one undo.
 
 ## Where data lives
 | | Windows | Linux |

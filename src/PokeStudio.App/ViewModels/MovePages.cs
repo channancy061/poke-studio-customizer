@@ -170,6 +170,13 @@ public sealed partial class MoveEditorViewModel : ViewModelBase
         new("Status", MoveCategory.Status),
     ];
 
+    /// <summary>Under the Gen 1–3 rule the game ignores the category and uses the move's type.</summary>
+    public string? SplitNote => _shell.Session.Data.Rules?.PhysicalSpecialSplit == false && Model.Category != MoveCategory.Status
+        ? $"Your game uses the Gen 1–3 rule, so this move is {(GameCatalog.SpecialTypesBeforeSplit.Contains(Model.Type) ? "Special" : "Physical")} because it's {Catalog.NameOf(Model.Type)} type. Change it under Tools › Levels & caps."
+        : null;
+
+    public bool HasSplitNote => SplitNote is not null;
+
     public string CategoryHint => Model.Category switch
     {
         MoveCategory.Physical => "Damage uses Attack vs. Defense.",

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using PokeStudio.Core.Build;
@@ -29,7 +30,8 @@ public sealed class ExpansionModule : IGameModule
     public GamePlatform Platform => GamePlatform.Gba;
     public ModuleCapabilities Capabilities =>
         ModuleCapabilities.Species | ModuleCapabilities.Moves | ModuleCapabilities.Learnsets | ModuleCapabilities.Evolutions | ModuleCapabilities.Build
-        | ModuleCapabilities.Trainers | ModuleCapabilities.TrainerAi;
+        | ModuleCapabilities.Trainers | ModuleCapabilities.TrainerAi | ModuleCapabilities.Encounters | ModuleCapabilities.ItemsAndMarts
+        | ModuleCapabilities.Text;
     public bool WorksInPlace => true;
     public GameLimits Limits => _limits;
 
@@ -53,10 +55,10 @@ public sealed class ExpansionModule : IGameModule
         new(ModuleCapabilities.Moves, SupportLevel.Supported),
         new(ModuleCapabilities.Trainers, SupportLevel.Supported),
         new(ModuleCapabilities.TrainerAi, SupportLevel.Supported),
-        new(ModuleCapabilities.Encounters, SupportLevel.NotYet, "Wild encounters arrive in Phase 6."),
-        new(ModuleCapabilities.ItemsAndMarts, SupportLevel.NotYet, "Items and marts arrive in Phase 6."),
-        new(ModuleCapabilities.Text, SupportLevel.NotYet, "The text editor arrives in Phase 6. Names and Pokédex entries can already be edited."),
-        new(ModuleCapabilities.Graphics, SupportLevel.NotYet, "The graphics studio arrives in Phase 11."),
+        new(ModuleCapabilities.Encounters, SupportLevel.Supported),
+        new(ModuleCapabilities.ItemsAndMarts, SupportLevel.Supported),
+        new(ModuleCapabilities.Text, SupportLevel.Supported),
+        new(ModuleCapabilities.Graphics, SupportLevel.NotYet, "The graphics studio arrives in Phase 14."),
         new(ModuleCapabilities.Models3d, SupportLevel.Never, "GBA games have no 3D models."),
     ];
 
@@ -92,7 +94,8 @@ public sealed class ExpansionModule : IGameModule
     public IReadOnlyList<string> ManagedFiles(string workingSourcePath)
     {
         var layout = new ExpansionLayout(workingSourcePath);
-        return [.. layout.SpeciesFiles(), layout.LevelUpFile, ExpansionLayout.EggMovesFile, ExpansionLayout.LearnablesJson, MovesInfo.File, TrainerParty.File];
+        return [.. layout.SpeciesFiles(), layout.LevelUpFile, ExpansionLayout.EggMovesFile, ExpansionLayout.LearnablesJson, MovesInfo.File, TrainerParty.File,
+            EncountersFile.File, ItemsInfo.File, CapsFiles.Source, CapsFiles.Config, BattleConfig, .. ScriptFiles(layout.Root)];
     }
 
     public Task<GameData> LoadDataAsync(string workingSourcePath, string projectDataDir, CancellationToken cancellationToken = default) =>
@@ -217,6 +220,8 @@ public sealed class ExpansionModule : IGameModule
             }
         }
 
+        await SaveWorldAsync(data, state, context, edits, cancellationToken);
+
         foreach (var (file, list) in edits.Where(e => e.Value.Count > 0))
         {
             var updated = TextEdits.Apply(state.Files[file].Text, list);
@@ -311,6 +316,40 @@ public sealed class ExpansionModule : IGameModule
             return new ModernizeReference(generation, levelUp, species, notes);
         }, cancellationToken);
 
+    /// <summary>Map scripts and shared text files that may hold shops or dialogue.</summary>
+    private static IEnumerable<string> ScriptFiles(string root)
+    {
+        var maps = Path.Combine(root, "data", "maps");
+        if (Directory.Exists(maps))
+        {
+            foreach (var dir in Directory.GetDirectories(maps).Order(StringComparer.Ordinal))
+            {
+                foreach (var name in new[] { "scripts.inc", "text.inc" })
+                {
+                    if (File.Exists(Path.Combine(dir, name)))
+                    {
+                        yield return $"data/maps/{Path.GetFileName(dir)}/{name}";
+                    }
+                }
+            }
+        }
+
+        var text = Path.Combine(root, "data", "text");
+        if (Directory.Exists(text))
+        {
+            foreach (var f in Directory.GetFiles(text, "*.inc").Order(StringComparer.Ordinal))
+            {
+                yield return $"data/text/{Path.GetFileName(f)}";
+            }
+        }
+    }
+
+    private const string BattleConfig = "include/config/battle.h";
+
+    public int? MeasureText(string line) => _font?.Measure(line);
+
+    private FontMetrics? _font;
+
     public IReadOnlyList<ValidationIssue> Validate(GameData data)
     {
         var issues = new List<ValidationIssue>();
@@ -355,6 +394,8 @@ public sealed class ExpansionModule : IGameModule
             MoveNameLength = layout.NameLength("MOVE_NAME_LENGTH", 16),
             TrainerNameLength = layout.NameLength("TRAINER_NAME_LENGTH", 10),
             MaxPartySize = layout.NameLength("PARTY_SIZE", 6),
+            ItemNameLength = layout.NameLength("ITEM_NAME_LENGTH", 20),
+            TextLineWidth = 216, // the standard message box is 27 tiles wide
             MaxMovePower = 511, // u16 power:9
             MinMovePriority = -8, // s32 priority:4
             MaxMovePriority = 7,
@@ -536,8 +577,246 @@ public sealed class ExpansionModule : IGameModule
             }
         }
 
+        ParseWorld(layout, state, data);
         FillCatalog(layout, data.Catalog);
         return (data, state);
+    }
+
+    private void ParseWorld(ExpansionLayout layout, LoadedState state, GameData data)
+    {
+        _font = FontMetrics.Load(layout.Root);
+
+        state.Encounters = EncountersFile.Load(layout.Full(EncountersFile.File));
+        if (state.Encounters is { } enc)
+        {
+            var (tables, chances) = enc.Read();
+            foreach (var t in tables.Where(t => state.EncounterTables.TryAdd(t.Key, t)))
+            {
+                data.Encounters.Add(t);
+            }
+
+            data.EncounterChances.AddRange(chances);
+        }
+
+        if (File.Exists(layout.Full(ItemsInfo.File)))
+        {
+            var file = SpeciesInfo.LoadFile(layout, ItemsInfo.File);
+            state.Files[ItemsInfo.File] = file;
+            foreach (var block in SpeciesInfo.ParseBlocks(file, items: true).Where(b => b.Symbol != "ITEM_NONE"))
+            {
+                if (state.ItemBlocks.TryAdd(block.Symbol, block))
+                {
+                    var item = ItemsInfo.ToItem(file, block);
+                    state.Items[block.Symbol] = item;
+                    data.Items.Add(item);
+                }
+            }
+        }
+
+        foreach (var rel in ScriptFiles(layout.Root))
+        {
+            var text = File.ReadAllText(layout.Full(rel));
+            if (text.Contains("pokemartlistend", StringComparison.Ordinal))
+            {
+                var parsed = MartScripts.Parse(rel, text);
+                state.ScriptFiles[rel] = parsed;
+                foreach (var list in parsed.Lists)
+                {
+                    var tiers = parsed.Tiers.TryGetValue(list.Label, out var full)
+                        ? MartScripts.Additions(list.Items, full)
+                        : new Dictionary<int, IReadOnlyList<string>>();
+                    var mart = new Mart
+                    {
+                        Key = list.Label,
+                        Place = MartScripts.PlaceName(rel, list.Label, parsed.Lists.Count),
+                        Items = list.Items,
+                        BadgeTiers = tiers,
+                    };
+                    if (state.Marts.TryAdd(mart.Key, mart))
+                    {
+                        state.MartFiles[mart.Key] = rel;
+                        data.Marts.Add(mart);
+                    }
+                }
+            }
+
+            state.TextSources[rel] = text;
+            foreach (var entry in TextScripts.Parse(rel, text))
+            {
+                var key = entry.Label;
+                if (state.TextEntries.ContainsKey(key))
+                {
+                    continue;
+                }
+
+                state.TextEntries[key] = entry;
+                var model = new TextEntry { Key = key, Place = TextScripts.PlaceName(rel), Text = entry.Text };
+                state.Texts[key] = model;
+                data.Texts.Add(model);
+            }
+        }
+
+        if (File.Exists(layout.Full(CapsFiles.Source)) && File.Exists(layout.Full(CapsFiles.Config)))
+        {
+            var src = File.ReadAllText(layout.Full(CapsFiles.Source));
+            var cfg = File.ReadAllText(layout.Full(CapsFiles.Config));
+            var table = CapsFiles.ReadTable(src);
+            if (table.Count > 0)
+            {
+                string Def(string n) => CapsFiles.Define(cfg, n)?.Value ?? "";
+                state.CapsSource = src;
+                state.CapsConfig = cfg;
+                state.CapEntries = table;
+                state.Rules = new GameRules
+                {
+                    LevelCaps = table.Select(e => new LevelCap(e.Flag, CapsFiles.Label(e.Flag), e.Level)).ToList(),
+                    CapsEnabled = Def("B_LEVEL_CAP_TYPE") is { Length: > 0 } t && t != "LEVEL_CAP_NONE",
+                    ExpCap = Def("B_EXP_CAP_TYPE") switch { "EXP_CAP_HARD" => ExpCapKind.Hard, "EXP_CAP_SOFT" => ExpCapKind.Soft, _ => ExpCapKind.None },
+                    RareCandyCap = Def("B_RARE_CANDY_CAP") == "TRUE",
+                    ExpBoostBelowCap = Def("B_LEVEL_CAP_EXP_UP") == "TRUE",
+                    PhysicalSpecialSplit = SplitSetting(layout),
+                };
+                data.Rules = state.Rules;
+            }
+        }
+
+        if (data.Rules is null && SplitSetting(layout) is { } split)
+        {
+            state.Rules = new GameRules { PhysicalSpecialSplit = split };
+            data.Rules = state.Rules;
+        }
+    }
+
+    /// <summary>B_PHYSICAL_SPECIAL_SPLIT ≥ GEN_4 means each move's category counts.</summary>
+    private static bool? SplitSetting(ExpansionLayout layout) =>
+        layout.Macros.IsDefined("B_PHYSICAL_SPECIAL_SPLIT") && layout.Macros.TryEvaluate("B_PHYSICAL_SPECIAL_SPLIT >= GEN_4") is { } v ? v != 0 : null;
+
+    private async Task SaveWorldAsync(GameData data, LoadedState state, ModuleSaveContext context, Dictionary<string, List<TextEdit>> edits, CancellationToken cancellationToken)
+    {
+        void Add(string file, IEnumerable<TextEdit> list)
+        {
+            if (!edits.TryGetValue(file, out var l))
+            {
+                edits[file] = l = [];
+            }
+
+            l.AddRange(list);
+        }
+
+        // wild encounters (JSON)
+        if (state.Encounters is { RoundTrips: true } enc)
+        {
+            var changed = data.Encounters.Where(t => state.EncounterTables.TryGetValue(t.Key, out var b) && !ReferenceEquals(b, t)).ToList();
+            if (changed.Count > 0)
+            {
+                enc.Update(changed);
+                await context.Writer.WriteAllTextAsync(state.Layout.Full(EncountersFile.File), enc.Serialize(), cancellationToken);
+            }
+        }
+
+        // items
+        foreach (var item in data.Items)
+        {
+            if (state.Items.TryGetValue(item.Key, out var before) && !ReferenceEquals(before, item) && state.ItemBlocks.TryGetValue(item.Key, out var block) && block.Active)
+            {
+                Add(ItemsInfo.File, ItemsInfo.EditsFor(state.Files[ItemsInfo.File], block, before, item));
+            }
+        }
+
+        // shops and text share the map script files
+        var scriptEdits = new Dictionary<string, List<TextEdit>>(StringComparer.Ordinal);
+        foreach (var group in data.Marts
+            .Where(m => state.Marts.TryGetValue(m.Key, out var b) && !ReferenceEquals(b, m))
+            .GroupBy(m => state.MartFiles[m.Key]))
+        {
+            var file = state.ScriptFiles[group.Key];
+            var pairs = group.Select(m => (state.Marts[m.Key], m)).ToList();
+            scriptEdits[group.Key] = MartScripts.EditsFor(file, pairs);
+        }
+
+        foreach (var t in data.Texts)
+        {
+            if (state.Texts.TryGetValue(t.Key, out var before) && before.Text != t.Text && state.TextEntries.TryGetValue(t.Key, out var entry))
+            {
+                var src = state.TextSources[entry.File];
+                if (!scriptEdits.TryGetValue(entry.File, out var list))
+                {
+                    scriptEdits[entry.File] = list = [];
+                }
+
+                list.Add(new TextEdit(entry.Start, entry.End - entry.Start, TextScripts.Format(t.Text, entry.Indent, entry.Terminated, CScanner.LineEnding(src))));
+            }
+        }
+
+        foreach (var (rel, list) in scriptEdits.Where(e => e.Value.Count > 0))
+        {
+            await context.Writer.WriteAllTextAsync(state.Layout.Full(rel), TextEdits.Apply(state.TextSources[rel], list), cancellationToken);
+        }
+
+        // physical/special split (include/config/battle.h)
+        if (data.Rules?.PhysicalSpecialSplit is { } split && state.Rules?.PhysicalSpecialSplit is { } oldSplit && split != oldSplit
+            && File.Exists(state.Layout.Full(BattleConfig)))
+        {
+            var cfg = await File.ReadAllTextAsync(state.Layout.Full(BattleConfig), cancellationToken);
+            if (CapsFiles.Define(cfg, "B_PHYSICAL_SPECIAL_SPLIT") is { } d)
+            {
+                await context.Writer.WriteAllTextAsync(state.Layout.Full(BattleConfig),
+                    TextEdits.Apply(cfg, [new TextEdit(d.Start, d.End - d.Start, split ? "GEN_LATEST" : "GEN_3")]), cancellationToken);
+            }
+        }
+
+        // level caps
+        if (data.Rules is { } rules && state.Rules is { } beforeRules && !ReferenceEquals(rules, beforeRules) && state.CapsSource is { } capsSrc && state.CapsConfig is { } capsCfg)
+        {
+            var srcEdits = new List<TextEdit>();
+            for (var i = 0; i < rules.LevelCaps.Count && i < state.CapEntries.Count; i++)
+            {
+                if (rules.LevelCaps[i].Level != state.CapEntries[i].Level)
+                {
+                    var e = state.CapEntries[i];
+                    srcEdits.Add(new TextEdit(e.NumberStart, e.NumberEnd - e.NumberStart, rules.LevelCaps[i].Level.ToString(CultureInfo.InvariantCulture)));
+                }
+            }
+
+            if (srcEdits.Count > 0)
+            {
+                await context.Writer.WriteAllTextAsync(state.Layout.Full(CapsFiles.Source), TextEdits.Apply(capsSrc, srcEdits), cancellationToken);
+            }
+
+            var cfgEdits = new List<TextEdit>();
+            void Def(string name, string value)
+            {
+                if (CapsFiles.Define(capsCfg, name) is { } d && d.Value != value)
+                {
+                    cfgEdits.Add(new TextEdit(d.Start, d.End - d.Start, value));
+                }
+            }
+
+            if (rules.CapsEnabled != beforeRules.CapsEnabled)
+            {
+                Def("B_LEVEL_CAP_TYPE", rules.CapsEnabled ? "LEVEL_CAP_FLAG_LIST" : "LEVEL_CAP_NONE");
+            }
+
+            if (rules.ExpCap != beforeRules.ExpCap)
+            {
+                Def("B_EXP_CAP_TYPE", rules.ExpCap switch { ExpCapKind.Hard => "EXP_CAP_HARD", ExpCapKind.Soft => "EXP_CAP_SOFT", _ => "EXP_CAP_NONE" });
+            }
+
+            if (rules.RareCandyCap != beforeRules.RareCandyCap)
+            {
+                Def("B_RARE_CANDY_CAP", rules.RareCandyCap ? "TRUE" : "FALSE");
+            }
+
+            if (rules.ExpBoostBelowCap != beforeRules.ExpBoostBelowCap)
+            {
+                Def("B_LEVEL_CAP_EXP_UP", rules.ExpBoostBelowCap ? "TRUE" : "FALSE");
+            }
+
+            if (cfgEdits.Count > 0)
+            {
+                await context.Writer.WriteAllTextAsync(state.Layout.Full(CapsFiles.Config), TextEdits.Apply(capsCfg, cfgEdits), cancellationToken);
+            }
+        }
     }
 
     private static void FillCatalog(ExpansionLayout layout, GameCatalog c)
@@ -614,6 +893,20 @@ public sealed class ExpansionModule : IGameModule
         public LearnablesFile? Learnables { get; set; }
         public string? TrainersText { get; set; }
         public Dictionary<string, string> SpeciesAliases { get; set; } = new(StringComparer.Ordinal);
+        public EncountersFile? Encounters { get; set; }
+        public Dictionary<string, EncounterTable> EncounterTables { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, SpeciesBlock> ItemBlocks { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, Item> Items { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, MartScripts.ScriptFile> ScriptFiles { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, Mart> Marts { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, string> MartFiles { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, string> TextSources { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, TextScripts.Entry> TextEntries { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, TextEntry> Texts { get; } = new(StringComparer.Ordinal);
+        public string? CapsSource { get; set; }
+        public string? CapsConfig { get; set; }
+        public List<CapsFiles.CapEntry> CapEntries { get; set; } = [];
+        public GameRules? Rules { get; set; }
         public Dictionary<string, TrainerBlock> TrainerBlocks { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, Trainer> Trainers { get; } = new(StringComparer.Ordinal);
     }

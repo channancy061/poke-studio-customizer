@@ -15,7 +15,7 @@ namespace PokeStudio.App.ViewModels;
 public enum NavKey
 {
     Overview, Species, Moves, Learnsets, Evolutions, Trainers, TrainerAi, Graphics, Models3d,
-    Encounters, Items, Text, Randomizer, Build, Backups, Settings, About, Modernize,
+    Encounters, Items, Text, Randomizer, Build, Backups, Settings, About, Modernize, Progression,
 }
 
 public sealed class NavItemViewModel(NavKey key, string label, string icon, bool enabled, string? reason, string section)
@@ -72,7 +72,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         (NavKey.Graphics, ModuleCapabilities.Graphics, "Graphics", "Icon.Palette"),
         (NavKey.Models3d, ModuleCapabilities.Models3d, "3D models", "Icon.Cube"),
         (NavKey.Encounters, ModuleCapabilities.Encounters, "Wild encounters", "Icon.Map"),
-        (NavKey.Items, ModuleCapabilities.ItemsAndMarts, "Items & marts", "Icon.Bag"),
+        (NavKey.Items, ModuleCapabilities.ItemsAndMarts, "Items & shops", "Icon.Bag"),
         (NavKey.Text, ModuleCapabilities.Text, "Text", "Icon.Text"),
     ];
 
@@ -108,6 +108,11 @@ public sealed partial class ShellViewModel : ViewModelBase
 
     /// <summary>The trainer picked on the Trainers page.</summary>
     public string? SelectedTrainerKey { get; set; }
+
+    public string? SelectedEncounterKey { get; set; }
+    public string? SelectedItemKey { get; set; }
+    public string? SelectedMartKey { get; set; }
+    public string? SelectedTextKey { get; set; }
 
     public GlobalSearchViewModel Search { get; }
 
@@ -186,6 +191,11 @@ public sealed partial class ShellViewModel : ViewModelBase
         }
 
         HiddenCount = hidden;
+        if (Session.Data.Rules is { } rules && (rules.LevelCaps.Count > 0 || rules.PhysicalSpecialSplit is not null))
+        {
+            NavItems.Add(new NavItemViewModel(NavKey.Progression, "Levels & caps", "Icon.ChevronUp", true, null, "Tools"));
+        }
+
         if (Session.Module.ModernizeGenerations(Session.Data).Count > 0)
         {
             NavItems.Add(new NavItemViewModel(NavKey.Modernize, "Modernize", "Icon.Sparkle", true, null, "Tools"));
@@ -217,6 +227,10 @@ public sealed partial class ShellViewModel : ViewModelBase
             NavKey.Trainers when item is { IsEnabled: true } => new TrainersPageViewModel(this),
             NavKey.TrainerAi when item is { IsEnabled: true } => new EnemyAiPageViewModel(this),
             NavKey.Modernize => new ModernizePageViewModel(this),
+            NavKey.Progression => new ProgressionPageViewModel(this),
+            NavKey.Encounters when item is { IsEnabled: true } => new EncountersPageViewModel(this),
+            NavKey.Items when item is { IsEnabled: true } => new ItemsPageViewModel(this),
+            NavKey.Text when item is { IsEnabled: true } => new TextPageViewModel(this),
             NavKey.Learnsets when item is { IsEnabled: true } => new LearnsetPageViewModel(this),
             NavKey.Evolutions when item is { IsEnabled: true } => new EvolutionPageViewModel(this),
             NavKey.Build => new BuildPageViewModel(this),
@@ -500,6 +514,31 @@ public sealed partial class ShellViewModel : ViewModelBase
         {
             GoToTrainer(key);
             return;
+        }
+
+        switch (issue.Area)
+        {
+            case "Encounter":
+                SelectedEncounterKey = key;
+                Select(NavKey.Encounters);
+                return;
+            case "Item":
+                SelectedItemKey = key;
+                SelectedMartKey = null;
+                Select(NavKey.Items);
+                return;
+            case "Mart":
+                SelectedMartKey = key;
+                SelectedItemKey = null;
+                Select(NavKey.Items);
+                return;
+            case "Text":
+                SelectedTextKey = key;
+                Select(NavKey.Text);
+                return;
+            case "Level caps":
+                Select(NavKey.Progression);
+                return;
         }
 
         SelectedSpeciesKey = key;

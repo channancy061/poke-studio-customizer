@@ -47,6 +47,7 @@
             <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:CategoryOption"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
           </ComboBox>
           <TextBlock Text="{Binding CategoryHint}" Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+          <TextBlock Text="{Binding SplitNote}" Classes="caption" Foreground="{DynamicResource PL.WarningTextBrush}" TextWrapping="Wrap" IsVisible="{Binding HasSplitNote}" />
         </StackPanel>
         <StackPanel Grid.Column="2" Spacing="6" IsEnabled="{Binding CanEditPower}">
           <TextBlock Text="Power" FontWeight="Bold" />

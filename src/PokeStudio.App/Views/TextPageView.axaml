@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.TextPageView"
+             x:DataType="vm:TextPageViewModel">
+  <Grid ColumnDefinitions="320,*">
+    <Border Classes="panel" BorderThickness="0,0,1,0">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Margin="14,14,14,8" Spacing="8">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="Text" Classes="heading" />
+            <TextBlock Grid.Column="1" Text="{Binding CountText}" Classes="caption muted" VerticalAlignment="Center" />
+          </Grid>
+          <TextBox Text="{Binding Search}" Watermark="Search words, places or labels" AutomationProperties.Name="Search text">
+            <TextBox.InnerLeftContent><c:Icon Data="{StaticResource Icon.Search}" Margin="10,0,0,0" Foreground="{DynamicResource PL.Text3Brush}" /></TextBox.InnerLeftContent>
+          </TextBox>
+        </StackPanel>
+        <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" Background="Transparent" AutomationProperties.Name="Texts">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:PlaceItem">
+              <StackPanel Margin="0,2"><TextBlock Text="{Binding Title}" FontWeight="Bold" TextTrimming="CharacterEllipsis" /><TextBlock Text="{Binding Subtitle}" Classes="caption muted" /></StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+    <ScrollViewer Grid.Column="1">
+      <ContentControl Content="{Binding Editor}" Margin="28,22" />
+    </ScrollViewer>
+  </Grid>
+</UserControl>

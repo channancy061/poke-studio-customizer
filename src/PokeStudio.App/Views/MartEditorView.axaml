@@ -1,0 +1,88 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:m="using:PokeStudio.Core.Models"
+             xmlns:p="using:PokeStudio.Core.Progression"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.MartEditorView"
+             x:DataType="vm:MartEditorViewModel">
+  <UserControl.Resources>
+    <DataTemplate x:Key="EntryTemplate" x:DataType="m:CatalogEntry"><TextBlock Text="{Binding Name}" /></DataTemplate>
+    <DataTemplate x:Key="ChipTemplate" x:DataType="vm:MoveChipViewModel">
+      <Border Classes="chip" Margin="0,0,6,6">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="13" />
+          <Button Classes="ghost icon sm" Width="22" Height="22" MinHeight="22" Command="{Binding RemoveCommand}" AutomationProperties.Name="Remove"><c:Icon Data="{StaticResource Icon.Close}" Size="12" /></Button>
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+  </UserControl.Resources>
+  <StackPanel Spacing="16" IsEnabled="{Binding IsEditable}">
+    <StackPanel Spacing="2">
+      <TextBlock Text="{Binding Title}" Classes="title" FontSize="30" />
+      <TextBlock Text="{Binding Subtitle}" Classes="mono muted" />
+    </StackPanel>
+
+    <Border Classes="card">
+      <StackPanel Spacing="10">
+        <TextBlock Text="Sold from the start" Classes="heading" />
+        <ItemsControl ItemsSource="{Binding Stock}" ItemTemplate="{StaticResource ChipTemplate}">
+          <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        </ItemsControl>
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+          <AutoCompleteBox ItemsSource="{Binding ItemOptions}" SelectedItem="{Binding NewItem}" FilterMode="Contains" MinimumPrefixLength="0"
+                           ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" Watermark="Add an item" AutomationProperties.Name="Add an item" />
+          <Button Grid.Column="1" Classes="quiet" Content="Add" Command="{Binding AddItemCommand}" />
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel Spacing="10">
+        <TextBlock Text="Add a ready-made list" Classes="heading" />
+        <Grid ColumnDefinitions="*,200,Auto" ColumnSpacing="8">
+          <ComboBox ItemsSource="{Binding Presets}" SelectedItem="{Binding Preset}" PlaceholderText="Choose a list…" HorizontalAlignment="Stretch" AutomationProperties.Name="Ready-made list">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="p:MartPreset">
+                <StackPanel><TextBlock Text="{Binding Name}" FontWeight="Bold" /><TextBlock Text="{Binding Description}" Classes="caption muted" FontWeight="Normal" /></StackPanel>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <ComboBox SelectedIndex="{Binding PresetBadge}" HorizontalAlignment="Stretch" Grid.Column="1" AutomationProperties.Name="When">
+            <ComboBoxItem Content="From the start" />
+            <ComboBoxItem Content="After badge 1" /><ComboBoxItem Content="After badge 2" /><ComboBoxItem Content="After badge 3" /><ComboBoxItem Content="After badge 4" />
+            <ComboBoxItem Content="After badge 5" /><ComboBoxItem Content="After badge 6" /><ComboBoxItem Content="After badge 7" /><ComboBoxItem Content="After badge 8" />
+          </ComboBox>
+          <Button Grid.Column="2" Classes="primary" Content="Add" Command="{Binding AddPresetCommand}" />
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel Spacing="10">
+        <TextBlock Text="Unlocked by badges" Classes="heading" />
+        <TextBlock Text="The shop grows as the player earns badges. The app writes the extra shop lists into this map's script for you." Classes="small muted" TextWrapping="Wrap" />
+        <ItemsControl ItemsSource="{Binding Tiers}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:BadgeTierViewModel">
+              <StackPanel Spacing="4" Margin="0,0,0,8">
+                <TextBlock Text="{Binding Title}" FontWeight="Bold" />
+                <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ChipTemplate}">
+                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                </ItemsControl>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <Grid ColumnDefinitions="*,140,Auto" ColumnSpacing="8">
+          <AutoCompleteBox ItemsSource="{Binding ItemOptions}" SelectedItem="{Binding TierItem}" FilterMode="Contains" MinimumPrefixLength="0"
+                           ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" Watermark="Item" AutomationProperties.Name="Item unlocked by a badge" />
+          <ComboBox Grid.Column="1" ItemsSource="{Binding Badges}" SelectedItem="{Binding TierBadge}" HorizontalAlignment="Stretch" AutomationProperties.Name="Badge">
+            <ComboBox.ItemTemplate><DataTemplate x:DataType="x:Int32"><TextBlock Text="{Binding StringFormat='After badge {0}'}" /></DataTemplate></ComboBox.ItemTemplate>
+          </ComboBox>
+          <Button Grid.Column="2" Classes="quiet" Content="Add" Command="{Binding AddToTierCommand}" />
+        </Grid>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

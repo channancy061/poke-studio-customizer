@@ -29,6 +29,9 @@
             <TextBlock Text="Update" FontWeight="Bold" />
             <CheckBox IsChecked="{Binding IncludeMoves}" Content="Level-up moves" />
             <CheckBox IsChecked="{Binding IncludeSpecies}" Content="Base stats, types and abilities (the changes Game Freak made in later games, like Clefairy becoming Fairy type)" />
+            <CheckBox IsChecked="{Binding ChangeSplit}" IsVisible="{Binding OffersSplit}">
+              <TextBlock Text="{Binding SplitText}" TextWrapping="Wrap" />
+            </CheckBox>
           </StackPanel>
           <Button Classes="primary" HorizontalAlignment="Left" Command="{Binding PreviewCommand}">
             <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Search}" /><TextBlock Text="Show what would change" /></StackPanel>

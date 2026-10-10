@@ -334,6 +334,13 @@ public class ExpansionTests
         var root = tmp.Combine("real");
         ProjectService.CopyDirectory(Path.Combine(real, "include"), Path.Combine(root, "include"));
         ProjectService.CopyDirectory(Path.Combine(real, "src", "data"), Path.Combine(root, "src", "data"));
+        ProjectService.CopyDirectory(Path.Combine(real, "data", "maps"), Path.Combine(root, "data", "maps"));
+        ProjectService.CopyDirectory(Path.Combine(real, "data", "text"), Path.Combine(root, "data", "text"));
+        foreach (var f in new[] { "src/caps.c", "src/fonts.c", "charmap.txt" })
+        {
+            File.Copy(Path.Combine([real, .. f.Split('/')]), Path.Combine([root, .. f.Split('/')]));
+        }
+
         File.WriteAllText(Path.Combine(root, "Makefile"), "");
         var files = new ExpansionModule().ManagedFiles(root);
         var before = files.Where(f => File.Exists(Path.Combine(root, f))).ToDictionary(f => f, f => Read(root, f));
@@ -342,6 +349,19 @@ public class ExpansionTests
         Assert.True(data.Species.Count > 1000, $"only {data.Species.Count} species read");
         Assert.All(data.Species.Where(s => s.IsEnabled), s => Assert.False(string.IsNullOrWhiteSpace(s.Name)));
         Assert.True(data.Learnsets.Count(l => l.LevelUp.Count > 0) > 500);
+
+        // Phase 6 data
+        Assert.True(data.Encounters.Count > 300, $"only {data.Encounters.Count} encounter tables");
+        Assert.All(data.Encounters, e => Assert.Null(e.LockedReason)); // the JSON round-trips exactly
+        Assert.True(data.Items.Count > 800, $"only {data.Items.Count} items");
+        Assert.True(data.Marts.Count > 30, $"only {data.Marts.Count} marts");
+        Assert.True(data.Texts.Count > 3000, $"only {data.Texts.Count} texts");
+        Assert.Equal(9, data.Rules!.LevelCaps.Count);
+        Assert.Equal(58, data.Rules.LevelCaps[^1].Level);
+        Assert.True(data.Rules.PhysicalSpecialSplit);
+        Assert.InRange(module.MeasureText("Hello! You")!.Value, 40, 70);
+        var wide = Validation.GameValidator.Run(data, module).Where(i => i.Area == "Text").ToList();
+        Assert.True(wide.Count < 50, $"{wide.Count} original lines reported as too wide: " + string.Join(" | ", wide.Take(25).Select(w => w.Subject + ": " + w.Message)));
 
         await module.SaveDataAsync(data, ctx);
         foreach (var (f, text) in before)
@@ -392,6 +412,44 @@ public class ExpansionTests
         await module.SaveDataAsync(data, ctx);
         var partyChanged = partyText.Split('\n').Zip(Read(root, "src/data/trainers.party").Split('\n')).Where(p => p.First != p.Second).ToList();
         Assert.Equal("Level: 25", Assert.Single(partyChanged).Second.Trim());
+
+        // Phase 6 edits: each changes only its own lines.
+        static List<(string First, string Second)> Diff(string a, string b) =>
+            a.Split('\n').Zip(b.Split('\n')).Where(p => p.First != p.Second).ToList();
+
+        var encText = Read(root, "src/data/wild_encounters.json");
+        var ei = data.Encounters.FindIndex(e => e.Key == "gRoute101");
+        var r101 = data.Encounters[ei];
+        data.Encounters[ei] = r101 with { Methods = [r101.Methods[0] with { Slots = [r101.Methods[0].Slots[0] with { MinLevel = 4, MaxLevel = 4 }, .. r101.Methods[0].Slots.Skip(1)] }, .. r101.Methods.Skip(1)] };
+        await module.SaveDataAsync(data, ctx);
+        Assert.Equal(2, Diff(encText, Read(root, "src/data/wild_encounters.json")).Count); // min and max level
+
+        var martFile = "data/maps/OldaleTown_Mart/scripts.inc";
+        var martText = Read(root, martFile);
+        var mi = data.Marts.FindIndex(m => m.Key == "OldaleTown_Mart_Pokemart_Basic");
+        data.Marts[mi] = data.Marts[mi] with { Items = [.. data.Marts[mi].Items, "ITEM_RARE_CANDY"], BadgeTiers = new Dictionary<int, IReadOnlyList<string>> { [4] = ["ITEM_CHOICE_SCARF"] } };
+        var ti2 = data.Texts.FindIndex(t => t.Key == "Route101_Text_HelpMe");
+        data.Texts[ti2] = data.Texts[ti2] with { Text = "Please help me!" };
+        var capsText = Read(root, "src/caps.c");
+        data.Rules = data.Rules with { LevelCaps = [.. data.Rules.LevelCaps.SkipLast(1), data.Rules.LevelCaps[^1] with { Level = 95 }] };
+        await module.SaveDataAsync(data, ctx);
+
+        var martAfter = Read(root, martFile);
+        Assert.Contains("\t.2byte ITEM_AWAKENING\n\t.2byte ITEM_RARE_CANDY\n\tpokemartlistend", martAfter, StringComparison.Ordinal);
+        Assert.Contains("goto_if_set FLAG_BADGE04_GET, OldaleTown_Mart_Pokemart_Basic_PokeStudioTier4 @ Poke Studio badge tier 4\n\tpokemart OldaleTown_Mart_Pokemart_Basic", martAfter, StringComparison.Ordinal);
+        Assert.Contains("OldaleTown_Mart_Pokemart_Basic_PokeStudioTier4_Items:", martAfter, StringComparison.Ordinal);
+        Assert.Contains("\t.string \"Please help me!$\"", Read(root, "data/maps/Route101/scripts.inc"), StringComparison.Ordinal);
+        Assert.Equal("        {FLAG_IS_CHAMPION, 95},", Assert.Single(Diff(capsText, Read(root, "src/caps.c"))).Second);
+
+        // reading back finds the tier; removing it restores the original file except the Rare Candy line
+        var (module2, again, ctx2) = await LoadAsync(root);
+        var oldale = again.Marts.Single(m => m.Key == "OldaleTown_Mart_Pokemart_Basic");
+        Assert.Equal(["ITEM_CHOICE_SCARF"], oldale.BadgeTiers[4]);
+        var mi2 = again.Marts.IndexOf(oldale);
+        again.Marts[mi2] = oldale with { BadgeTiers = new Dictionary<int, IReadOnlyList<string>>() };
+        await module2.SaveDataAsync(again, ctx2);
+        var cleaned = Read(root, martFile);
+        Assert.Equal(martText.Replace("\t.2byte ITEM_AWAKENING\n\tpokemartlistend\n\nOldaleTown_Mart_ExpandedItems", "\t.2byte ITEM_AWAKENING\n\t.2byte ITEM_RARE_CANDY\n\tpokemartlistend\n\nOldaleTown_Mart_ExpandedItems", StringComparison.Ordinal), cleaned);
     }
 }
 

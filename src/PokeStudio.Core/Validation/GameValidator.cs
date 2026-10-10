@@ -63,6 +63,7 @@ public static class GameValidator
             }
         }
 
+        CheckPhase6(data, module, limits, speciesKeys, issues);
         issues.AddRange(module.Validate(data));
         return issues;
     }
@@ -373,6 +374,113 @@ public static class GameValidator
             }
         }
     }
+
+    private static void CheckPhase6(GameData data, IGameModule module, GameLimits limits, HashSet<string> speciesKeys, List<ValidationIssue> issues)
+    {
+        var enabled = data.Species.Where(s => s.IsEnabled).Select(s => s.Key).ToHashSet(StringComparer.Ordinal);
+        foreach (var e in data.Encounters.Where(e => e.LockedReason is null))
+        {
+            var where = PlaceName(e);
+            foreach (var m in e.Methods)
+            {
+                foreach (var s in m.Slots)
+                {
+                    void Add(IssueSeverity sev, string msg) => issues.Add(new ValidationIssue(sev, "Encounter", where, msg) { TargetKey = e.Key });
+                    if (!speciesKeys.Contains(s.Species))
+                    {
+                        Add(IssueSeverity.Error, $"has “{s.Species}” in the wild, which isn't a Pokémon in this game.");
+                    }
+                    else if (!enabled.Contains(s.Species))
+                    {
+                        Add(IssueSeverity.Error, $"has {data.Species.First(x => x.Key == s.Species).DisplayName} in the wild, but it's switched off in your settings.");
+                    }
+
+                    if (s.MinLevel < 1 || s.MaxLevel > limits.MaxLevel)
+                    {
+                        Add(IssueSeverity.Error, $"has a wild level outside 1–{limits.MaxLevel}.");
+                    }
+                    else if (s.MinLevel > s.MaxLevel)
+                    {
+                        Add(IssueSeverity.Error, $"has a slot from level {s.MinLevel} to {s.MaxLevel}; the lowest level must come first.");
+                    }
+                }
+            }
+        }
+
+        var itemKeys = data.Catalog.Items.Select(i => i.Key).ToHashSet(StringComparer.Ordinal);
+        foreach (var item in data.Items.Where(i => !i.LockedFields.ContainsKey("*")))
+        {
+            void Add(IssueSeverity sev, string msg, string? suggestion = null) => issues.Add(new ValidationIssue(sev, "Item", item.Name, msg, suggestion) { TargetKey = item.Key });
+            if (item.Name.Length > limits.ItemNameLength)
+            {
+                Add(IssueSeverity.Error, $"name is {item.Name.Length} letters; this game allows {limits.ItemNameLength}.");
+            }
+
+            if (item.Price < 0 || item.Price > limits.MaxPrice)
+            {
+                Add(IssueSeverity.Error, $"costs {item.Price}; prices go from 0 to {limits.MaxPrice:N0}.");
+            }
+        }
+
+        foreach (var mart in data.Marts.Where(m => m.LockedReason is null))
+        {
+            void Add(IssueSeverity sev, string msg, string? suggestion = null) => issues.Add(new ValidationIssue(sev, "Mart", mart.Place, msg, suggestion) { TargetKey = mart.Key });
+            if (mart.Items.Count == 0)
+            {
+                Add(IssueSeverity.Error, "sells nothing. A shop needs at least one item.");
+            }
+
+            foreach (var i in mart.Items.Concat(mart.BadgeTiers.Values.SelectMany(v => v)).Where(i => itemKeys.Count > 0 && !itemKeys.Contains(i)).Distinct())
+            {
+                Add(IssueSeverity.Error, $"sells “{i}”, which isn't an item in this game.");
+            }
+
+            foreach (var i in mart.Items.Where(i => data.Items.FirstOrDefault(x => x.Key == i) is { Price: 0 } && i != "ITEM_RARE_CANDY").Distinct())
+            {
+                Add(IssueSeverity.Warning, $"sells {data.Catalog.NameOf(i)} for nothing (its price is 0).", "Fine if you meant to give it away.");
+            }
+        }
+
+        if (limits.TextLineWidth is { } width)
+        {
+            foreach (var t in data.Texts.Where(t => t.LockedReason is null))
+            {
+                foreach (var line in TextLines(t.Text))
+                {
+                    if (module.MeasureText(line) is { } px && px > width)
+                    {
+                        issues.Add(new ValidationIssue(IssueSeverity.Warning, "Text", t.Place.Length > 0 ? t.Place : t.Key,
+                            $"line “{Shorten(line)}” is {px} pixels wide; the text box fits {width}.", "Break it into two lines.") { TargetKey = t.Key });
+                    }
+                }
+            }
+        }
+
+        if (data.Rules is { } rules)
+        {
+            for (var i = 1; i < rules.LevelCaps.Count; i++)
+            {
+                if (rules.LevelCaps[i].Level < rules.LevelCaps[i - 1].Level)
+                {
+                    issues.Add(new ValidationIssue(IssueSeverity.Warning, "Level caps", rules.LevelCaps[i].Label,
+                        $"cap {rules.LevelCaps[i].Level} is lower than the one before it ({rules.LevelCaps[i - 1].Level})."));
+                }
+            }
+
+            if (rules.LevelCaps.Any(c => c.Level < 1 || c.Level > limits.MaxLevel))
+            {
+                issues.Add(new ValidationIssue(IssueSeverity.Error, "Level caps", "Level caps", $"must be between 1 and {limits.MaxLevel}."));
+            }
+        }
+    }
+
+    /// <summary>Visible lines of a text: split at the "\n", "\l" and "\p" codes; placeholders like {PLAYER} kept.</summary>
+    public static IEnumerable<string> TextLines(string text) =>
+        text.Replace("\\l", "\\n", StringComparison.Ordinal).Replace("\\p", "\\n", StringComparison.Ordinal).Split("\\n");
+
+    private static string Shorten(string s) => s.Length <= 40 ? s : s[..37] + "…";
+
+    public static string PlaceName(EncounterTable e) => e.Map.Length > 0 ? GameCatalog.Prettify(e.Map.Replace("MAP_", "", StringComparison.Ordinal)) : e.Key;
 
     private static IReadOnlyList<TrainerPokemon> ReplaceAt(IReadOnlyList<TrainerPokemon> list, int index, TrainerPokemon value)
     {

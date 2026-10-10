@@ -49,6 +49,12 @@ public sealed class GameCatalog
     /// <summary>Call after changing entries so names are looked up again.</summary>
     public void Invalidate() => _names = null;
 
+    /// <summary>Types that were special before the Gen 4 physical/special split (Gen 1–3 rule).</summary>
+    public static readonly IReadOnlySet<string> SpecialTypesBeforeSplit = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "TYPE_FIRE", "TYPE_WATER", "TYPE_GRASS", "TYPE_ELECTRIC", "TYPE_ICE", "TYPE_PSYCHIC", "TYPE_DRAGON", "TYPE_DARK",
+    };
+
     /// <summary>Keeps pickers and lists in step after a move is renamed.</summary>
     public void RenameMove(string key, string name)
     {

@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.ItemsPageView"
+             x:DataType="vm:ItemsPageViewModel">
+  <Grid ColumnDefinitions="270,*">
+    <Border Classes="panel" BorderThickness="0,0,1,0">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Margin="14,14,14,8" Spacing="8">
+          <TextBlock Text="Items &amp; shops" Classes="heading" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <RadioButton GroupName="items-tab" Content="Items" IsChecked="{Binding ShowItems}" />
+            <RadioButton GroupName="items-tab" Content="Shops" IsChecked="{Binding ShowShops}" />
+          </StackPanel>
+          <TextBox Text="{Binding Search}" Watermark="Search" AutomationProperties.Name="Search items and shops">
+            <TextBox.InnerLeftContent><c:Icon Data="{StaticResource Icon.Search}" Margin="10,0,0,0" Foreground="{DynamicResource PL.Text3Brush}" /></TextBox.InnerLeftContent>
+          </TextBox>
+        </StackPanel>
+        <Panel>
+          <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" Background="Transparent" IsVisible="{Binding ShowItems}" AutomationProperties.Name="Items">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:PlaceItem">
+                <StackPanel Margin="0,2"><TextBlock Text="{Binding Title}" FontWeight="Bold" /><TextBlock Text="{Binding Subtitle}" Classes="caption muted" /></StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <ListBox ItemsSource="{Binding Marts}" SelectedItem="{Binding SelectedMart}" Background="Transparent" IsVisible="{Binding ShowShops}" AutomationProperties.Name="Shops">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:PlaceItem">
+                <StackPanel Margin="0,2"><TextBlock Text="{Binding Title}" FontWeight="Bold" /><TextBlock Text="{Binding Subtitle}" Classes="caption muted" /></StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Panel>
+      </DockPanel>
+    </Border>
+    <ScrollViewer Grid.Column="1">
+      <StackPanel Margin="28,22" Spacing="16" MaxWidth="1040" HorizontalAlignment="Stretch">
+        <Border Classes="card" IsVisible="{Binding ShowShops}">
+          <StackPanel Spacing="8">
+            <TextBlock Text="No grinding: Rare Candies everywhere" FontWeight="Bold" />
+            <TextBlock Text="Adds Rare Candies to every shop at this price. If level caps are on, candies still stop at the cap." Classes="small muted" TextWrapping="Wrap" />
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Text="Price ₽" VerticalAlignment="Center" />
+              <NumericUpDown Value="{Binding CandyPrice}" Minimum="0" Maximum="9999" Increment="1" FormatString="0" Width="130" AutomationProperties.Name="Rare Candy price" />
+              <Button Classes="primary" Content="Add to every shop" Command="{Binding CheapCandiesCommand}" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+        <ContentControl Content="{Binding ItemEditor}" IsVisible="{Binding ShowItems}" />
+        <ContentControl Content="{Binding MartEditor}" IsVisible="{Binding ShowShops}" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

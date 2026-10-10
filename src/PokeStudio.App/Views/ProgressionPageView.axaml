@@ -1,0 +1,88 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.ProgressionPageView"
+             x:DataType="vm:ProgressionPageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="32,28" Spacing="16" MaxWidth="960" HorizontalAlignment="Left">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Levels &amp; caps" Classes="title" />
+        <TextBlock Text="Set how strong the big fights are, and the whole game follows: trainers and wild Pokémon in between keep their place on the curve."
+                   Classes="muted" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <Border Classes="callout info" IsVisible="{Binding NoCaps}">
+        <TextBlock Text="This project has no level-cap list, so only the move setting below is available." TextWrapping="Wrap" />
+      </Border>
+
+      <Border Classes="card" IsVisible="{Binding HasCaps}">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Level curve" Classes="heading" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="Champion at:" VerticalAlignment="Center" Classes="small" />
+            <ItemsControl ItemsSource="{Binding ChampionPresets}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="6" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="x:Int32">
+                  <Button Classes="quiet sm" Content="{Binding StringFormat='Lv {0}'}"
+                          Command="{Binding $parent[ItemsControl].((vm:ProgressionPageViewModel)DataContext).UsePresetCommand}" CommandParameter="{Binding}" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+          <Grid ColumnDefinitions="160,90,140" ColumnSpacing="12">
+            <TextBlock Text="Milestone" Classes="caption" />
+            <TextBlock Grid.Column="1" Text="Now" Classes="caption" />
+            <TextBlock Grid.Column="2" Text="New level" Classes="caption" />
+          </Grid>
+          <ItemsControl ItemsSource="{Binding Milestones}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:MilestoneViewModel">
+                <Grid ColumnDefinitions="160,90,140" ColumnSpacing="12" Margin="0,2">
+                  <TextBlock Text="{Binding Label}" FontWeight="Bold" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{Binding Current}" VerticalAlignment="Center" Classes="muted" />
+                  <NumericUpDown Grid.Column="2" Value="{Binding Target}" Minimum="1" Maximum="100" Increment="1" FormatString="0" AutomationProperties.Name="{Binding Label}" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="{Binding Preview, StringFormat='Others follow the curve: {0}'}" Classes="small muted" TextWrapping="Wrap" />
+          <StackPanel Spacing="6">
+            <CheckBox IsChecked="{Binding IncludeTrainers}" Content="Change every trainer's levels" />
+            <CheckBox IsChecked="{Binding IncludeWild}" Content="Change wild Pokémon levels" />
+            <CheckBox IsChecked="{Binding UpdateCaps}" Content="Set the level caps to these levels" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <CheckBox IsChecked="{Binding EvolveTrainers}" Content="Evolve trainers' Pokémon that would have evolved by their level; item/trade evolutions from level" VerticalAlignment="Center" />
+              <NumericUpDown Value="{Binding OtherEvolutionLevel}" Minimum="1" Maximum="100" Increment="1" FormatString="0" Width="110" AutomationProperties.Name="Level for item and trade evolutions" />
+            </StackPanel>
+          </StackPanel>
+          <Button Classes="primary" HorizontalAlignment="Left" Command="{Binding ApplyCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.ChevronUp}" /><TextBlock Text="Apply the curve" /></StackPanel>
+          </Button>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card" IsVisible="{Binding HasCaps}">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Level caps" Classes="heading" />
+          <ToggleSwitch IsChecked="{Binding CapsEnabled}" Content="Use the level caps above (the next cap applies until that badge is earned)" />
+          <StackPanel Spacing="6">
+            <TextBlock Text="Experience at the cap" FontWeight="Bold" />
+            <ComboBox ItemsSource="{Binding ExpCapOptions}" SelectedIndex="{Binding ExpCapIndex}" Width="320" AutomationProperties.Name="Experience at the cap" />
+          </StackPanel>
+          <ToggleSwitch IsChecked="{Binding RareCandyCap}" Content="Rare Candies can't go above the cap" />
+          <ToggleSwitch IsChecked="{Binding ExpBoostBelowCap}" Content="More experience while below the cap (less grinding)" />
+          <TextBlock Text="A switch the player can turn on or off in the game arrives with the new-game options menu." Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card" IsVisible="{Binding HasSplit}">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Physical and special moves" Classes="heading" />
+          <ToggleSwitch IsChecked="{Binding PhysicalSpecialSplit}" OnContent="Each move uses its own category (Gen 4 and later)" OffContent="A move's type decides it (Gen 1–3: Fire, Water, Grass… are special)" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
