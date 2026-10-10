@@ -1,0 +1,265 @@
+using PokeStudio.Core.Changes;
+using PokeStudio.Core.Models;
+using PokeStudio.Core.Modules;
+
+namespace PokeStudio.Core.Progression;
+
+/// <summary>How an evolution the player can't do (trade, time of day) is replaced.</summary>
+public enum EvolutionFix
+{
+    /// <summary>Keep it as it is.</summary>
+    Leave,
+
+    /// <summary>Level up: at a level (trades) or at any time of day (time evolutions, other requirements kept).</summary>
+    Level,
+
+    /// <summary>Use an evolution item: Linking Cord for trades; Sun / Moon / Dusk Stone for day / night / evening.</summary>
+    Stone,
+
+    /// <summary>Level up while holding an item (the trade item, the Linking Cord, or the matching stone).</summary>
+    HoldItem,
+}
+
+public enum EvolutionProblem
+{
+    Trade,
+    TradeWithItem,
+    TradePartner,
+    TimeOfDay,
+}
+
+/// <summary>One evolution that needs a fix, with the fix the rules suggest.</summary>
+public sealed record EvolutionFixRow(
+    string FromSpecies,
+    int Index,
+    Evolution Original,
+    EvolutionProblem Problem,
+    EvolutionFix Suggested,
+    IReadOnlyList<EvolutionFix> Choices,
+    string Reason);
+
+/// <summary>
+/// Finds evolutions that need trading or a time of day and turns them into ones a single player can do. Rule-based:
+/// trades → level (or Linking Cord), trades with an item → level up holding that item, time of day → any time
+/// (or the matching stone when two branches would otherwise clash, e.g. Espeon and Umbreon).
+/// </summary>
+public static class EvolutionFixer
+{
+    public const int DefaultTradeLevel = 36;
+    public const string LinkingCord = "ITEM_LINKING_CORD";
+
+    private static readonly string[] TimeKinds = ["IF_TIME", "IF_NOT_TIME"];
+    private static readonly string[] TradeKinds = ["IF_HOLD_ITEM", "IF_TRADE_PARTNER_SPECIES"];
+
+    // only level-up and item evolutions: special ones (Alcremie spinning…) keep their own rules
+    private static bool IsTime(Evolution e) => e.Method is "EVO_LEVEL" or "EVO_ITEM" && e.Conditions.Any(c => TimeKinds.Contains(c.Kind));
+
+    /// <summary>"Day", "Night" or "Evening": the time of day a time evolution needs.</summary>
+    public static string TimeOf(Evolution e)
+    {
+        var c = e.Conditions.First(c => TimeKinds.Contains(c.Kind));
+        var night = c.Value.Contains("NIGHT", StringComparison.Ordinal);
+        var evening = c.Value.Contains("EVENING", StringComparison.Ordinal);
+        return c.Kind == "IF_NOT_TIME" ? (night ? "Day" : "Night") : night ? "Night" : evening ? "Evening" : "Day";
+    }
+
+    public static string StoneFor(string time) => time switch
+    {
+        "Night" => "ITEM_MOON_STONE",
+        "Evening" => "ITEM_DUSK_STONE",
+        _ => "ITEM_SUN_STONE",
+    };
+
+    /// <summary>Every trade / time-of-day evolution in the game that can be edited, with a suggested fix.</summary>
+    public static List<EvolutionFixRow> Find(GameData data, bool trades = true, bool timeOfDay = true)
+    {
+        var hasCord = data.Items.Any(i => i.Key == LinkingCord);
+        var rows = new List<EvolutionFixRow>();
+        foreach (var set in data.Evolutions.Where(s => s.LockedReason is null || s.EntriesReplaceable))
+        {
+            // relaxed versions of the time branches that are kept as "level up": a later one that would clash gets a stone
+            var kept = set.Evolutions.Where(e => !IsTime(e) && e.Method != "EVO_TRADE").Select(Signature).ToHashSet(StringComparer.Ordinal);
+            var timeOrder = set.Evolutions.Select((e, i) => (e, i)).Where(x => timeOfDay && IsTime(x.e))
+                .OrderBy(x => TimeOf(x.e) == "Day" ? 0 : 1).ThenBy(x => x.i).Select(x => x.i).ToList();
+            var timeSuggestion = new Dictionary<int, EvolutionFix>();
+            foreach (var i in timeOrder)
+            {
+                var relaxed = Signature(Relax(set.Evolutions[i]));
+                timeSuggestion[i] = kept.Add(relaxed) ? EvolutionFix.Level : EvolutionFix.Stone;
+            }
+
+            for (var i = 0; i < set.Evolutions.Count; i++)
+            {
+                var e = set.Evolutions[i];
+                if (trades && e.Method == "EVO_TRADE")
+                {
+                    var item = e.Conditions.FirstOrDefault(c => c.Kind == "IF_HOLD_ITEM")?.Value;
+                    var partner = e.Conditions.Any(c => c.Kind == "IF_TRADE_PARTNER_SPECIES");
+                    var problem = item is not null ? EvolutionProblem.TradeWithItem : partner ? EvolutionProblem.TradePartner : EvolutionProblem.Trade;
+                    var choices = new List<EvolutionFix> { EvolutionFix.Leave, EvolutionFix.Level };
+                    if (hasCord)
+                    {
+                        choices.Add(EvolutionFix.Stone);
+                    }
+
+                    if (item is not null || hasCord)
+                    {
+                        choices.Add(EvolutionFix.HoldItem);
+                    }
+
+                    var suggested = item is not null ? EvolutionFix.HoldItem : EvolutionFix.Level;
+                    var reason = problem switch
+                    {
+                        EvolutionProblem.TradeWithItem => $"Needs a trade while holding {Name(data, item!)}; it now evolves on level-up while holding it.",
+                        EvolutionProblem.TradePartner => "Needs a trade for a particular Pokémon; it now evolves at a level.",
+                        _ => "Needs a trade; it now evolves at a level.",
+                    };
+                    rows.Add(new EvolutionFixRow(set.FromSpecies, i, e, problem, suggested, choices, reason));
+                }
+                else if (timeSuggestion.TryGetValue(i, out var fix))
+                {
+                    var time = TimeOf(e);
+                    var choices = new List<EvolutionFix> { EvolutionFix.Leave, EvolutionFix.Level, EvolutionFix.Stone };
+                    if (!e.Conditions.Any(c => c.Kind == "IF_HOLD_ITEM"))
+                    {
+                        choices.Add(EvolutionFix.HoldItem);
+                    }
+
+                    var reason = fix == EvolutionFix.Level
+                        ? $"Only evolves in the {time.ToLowerInvariant()}; it now evolves at any time."
+                        : $"Only evolves in the {time.ToLowerInvariant()}, and at any time it would clash with another evolution; it now uses a {Name(data, StoneFor(time))}.";
+                    rows.Add(new EvolutionFixRow(set.FromSpecies, i, e, EvolutionProblem.TimeOfDay, fix, choices, reason));
+                }
+            }
+        }
+
+        return rows;
+    }
+
+    /// <summary>The evolution after a fix.</summary>
+    public static Evolution Apply(EvolutionFixRow row, EvolutionFix fix, int tradeLevel = DefaultTradeLevel)
+    {
+        var e = row.Original;
+        if (fix == EvolutionFix.Leave)
+        {
+            return e;
+        }
+
+        if (row.Problem == EvolutionProblem.TimeOfDay)
+        {
+            var time = TimeOf(e);
+            var others = e.Conditions.Where(c => !TimeKinds.Contains(c.Kind)).ToList();
+            return fix switch
+            {
+                EvolutionFix.Level => Relax(e, tradeLevel),
+                EvolutionFix.Stone => new Evolution("EVO_ITEM", StoneFor(time), e.TargetSpecies) { Conditions = Plain(others) },
+                _ => new Evolution("EVO_LEVEL", e.Method == "EVO_LEVEL" ? e.Parameter : "0", e.TargetSpecies)
+                {
+                    Conditions = [.. others.Where(c => c.Kind != "IF_HOLD_ITEM"), new EvolutionCondition("IF_HOLD_ITEM", StoneFor(time))],
+                },
+            };
+        }
+
+        var kept = e.Conditions.Where(c => !TradeKinds.Contains(c.Kind)).ToList();
+        var item = e.Conditions.FirstOrDefault(c => c.Kind == "IF_HOLD_ITEM")?.Value ?? LinkingCord;
+        return fix switch
+        {
+            EvolutionFix.Level => new Evolution("EVO_LEVEL", tradeLevel.ToString(System.Globalization.CultureInfo.InvariantCulture), e.TargetSpecies) { Conditions = kept },
+            EvolutionFix.Stone => new Evolution("EVO_ITEM", LinkingCord, e.TargetSpecies) { Conditions = kept },
+            _ => new Evolution("EVO_LEVEL", "0", e.TargetSpecies) { Conditions = [.. kept, new EvolutionCondition("IF_HOLD_ITEM", item)] },
+        };
+    }
+
+    /// <summary>
+    /// One undo step that applies the chosen fixes. Returns the change (null when nothing changes) and warnings about
+    /// branches of one Pokémon that would now trigger the same way.
+    /// </summary>
+    public static (IChange? Change, List<string> Warnings) Build(GameData data, IEnumerable<(EvolutionFixRow Row, EvolutionFix Fix)> choices, int tradeLevel = DefaultTradeLevel)
+    {
+        var parts = new List<IChange>();
+        var warnings = new List<string>();
+        foreach (var group in choices.Where(c => c.Fix != EvolutionFix.Leave).GroupBy(c => c.Row.FromSpecies))
+        {
+            var index = data.Evolutions.FindIndex(s => s.FromSpecies == group.Key);
+            if (index < 0)
+            {
+                continue;
+            }
+
+            var before = data.Evolutions[index];
+            var list = before.Evolutions.ToList();
+            foreach (var (row, fix) in group)
+            {
+                if (row.Index < list.Count && list[row.Index] == row.Original)
+                {
+                    list[row.Index] = Apply(row, fix, tradeLevel);
+                }
+            }
+
+            // the same trigger leading to two different Pokémon: only the first would ever happen
+            foreach (var clash in list.GroupBy(Signature).Where(g => g.Select(e => e.TargetSpecies).Distinct().Count() > 1))
+            {
+                warnings.Add($"{Name(data, group.Key)}: {string.Join(" and ", clash.Select(e => Name(data, e.TargetSpecies)))} now evolve the same way, so only the first can happen.");
+            }
+
+            // exact duplicates (e.g. an item branch the game already had) are dropped
+            // (a list split by game settings keeps its length: entries are only replaced)
+            var unique = before.EntriesReplaceable ? list : list.DistinctBy(e => Signature(e) + "|" + e.TargetSpecies).ToList();
+            var after = before with { Evolutions = unique };
+            var i = index;
+            parts.Add(new ValueChange<EvolutionSet>("Evolutions", group.Key, v => data.Evolutions[i] = v, before, after));
+        }
+
+        return (parts.Count == 0 ? null : new CompositeChange("Evolutions", $"Fixed {parts.Count} Pokémon's evolutions", parts), warnings);
+    }
+
+    /// <summary>A plain description of how an evolution happens.</summary>
+    public static string Describe(GameData data, Evolution e)
+    {
+        var how = e.Method switch
+        {
+            "EVO_LEVEL" when e.Parameter is "0" or "" => "Level up",
+            "EVO_LEVEL" => $"Level {e.Parameter}",
+            "EVO_ITEM" => $"Use {Name(data, e.Parameter)}",
+            "EVO_TRADE" => "Trade",
+            _ => data.Catalog.NameOf(e.Method),
+        };
+        var extra = e.Conditions.Select(c => c.Kind switch
+        {
+            "IF_HOLD_ITEM" => $"holding {Name(data, c.Value)}",
+            "IF_TIME" or "IF_NOT_TIME" => $"in the {TimeOf(new Evolution("", "", "") { Conditions = [c] }).ToLowerInvariant()}",
+            "IF_MIN_FRIENDSHIP" => "with high friendship",
+            "IF_TRADE_PARTNER_SPECIES" => $"for {Name(data, c.Value)}",
+            "IF_REGION" => "in " + GameCatalog.Prettify(c.Value.Replace("REGION_", "", StringComparison.Ordinal)),
+            "IF_NOT_REGION" => "outside " + GameCatalog.Prettify(c.Value.Replace("REGION_", "", StringComparison.Ordinal)),
+            "IF_GENDER" => c.Value.Contains("FEMALE", StringComparison.Ordinal) ? "if female" : "if male",
+            "IF_KNOWS_MOVE" => $"knowing {data.Moves.FirstOrDefault(m => m.Key == c.Value)?.Name ?? c.Value}",
+            _ => data.Catalog.NameOf(c.Kind) + " " + c.Value,
+        });
+        return string.Join(" ", new[] { how }.Concat(extra));
+    }
+
+    private static string Name(GameData data, string key) =>
+        data.Items.FirstOrDefault(i => i.Key == key)?.Name
+        ?? data.Species.FirstOrDefault(s => s.Key == key)?.Name
+        ?? GameCatalog.Prettify(key.Replace("ITEM_", "", StringComparison.Ordinal).Replace("SPECIES_", "", StringComparison.Ordinal));
+
+    /// <summary>Time conditions removed; a bare "level up" with nothing left would evolve at once, so it gets the trade level.</summary>
+    private static Evolution Relax(Evolution e) => Relax(e, DefaultTradeLevel);
+
+    private static Evolution Relax(Evolution e, int fallbackLevel)
+    {
+        var others = e.Conditions.Where(c => !TimeKinds.Contains(c.Kind)).ToList();
+        var parameter = e.Method == "EVO_LEVEL" && e.Parameter == "0" && others.Count == 0
+            ? fallbackLevel.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : e.Parameter;
+        return e with { Parameter = parameter, Conditions = others };
+    }
+
+    /// <summary>A stone evolution keeps only conditions that still make sense for an item (gender, region…).</summary>
+    private static List<EvolutionCondition> Plain(IEnumerable<EvolutionCondition> conditions) =>
+        conditions.Where(c => c.Kind is not ("IF_MIN_FRIENDSHIP" or "IF_HOLD_ITEM")).ToList();
+
+    private static string Signature(Evolution e) =>
+        $"{e.Method}|{e.Parameter}|{string.Join(";", e.Conditions.Select(c => c.Kind + "=" + c.Value).Order(StringComparer.Ordinal))}";
+}

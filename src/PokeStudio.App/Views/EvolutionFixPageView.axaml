@@ -1,0 +1,61 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             x:Class="PokeStudio.App.Views.EvolutionFixPageView"
+             x:DataType="vm:EvolutionFixPageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="32,28" Spacing="16" MaxWidth="1100" HorizontalAlignment="Left">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Fix evolutions" Classes="title" />
+        <TextBlock Text="Some Pokémon only evolve by trading or at a certain time of day. Nobody can trade in a ROM hack played alone, and FireRed has no clock at all. Turn those into evolutions anyone can do."
+                   Classes="muted" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <WrapPanel>
+            <CheckBox IsChecked="{Binding IncludeTrades}" Content="Trade evolutions" Margin="0,0,24,0" />
+            <CheckBox IsChecked="{Binding IncludeTimeOfDay}" Content="Day / night evolutions" Margin="0,0,24,0" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Trades without an item become level" VerticalAlignment="Center" />
+              <NumericUpDown Value="{Binding TradeLevel}" Minimum="1" Maximum="100" Increment="1" FormatString="0" Width="120" AutomationProperties.Name="Level for trade evolutions" />
+            </StackPanel>
+          </WrapPanel>
+          <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding LockedText}" IsVisible="{Binding HasLocked}" Classes="small muted" TextWrapping="Wrap" />
+          <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasRows}">
+            <Button Classes="primary" Content="Apply these fixes" Command="{Binding ApplyCommand}" />
+            <Button Classes="quiet" Content="Back to suggestions" Command="{Binding UseSuggestionsCommand}" />
+          </StackPanel>
+          <TextBlock Text="{Binding Status}" IsVisible="{Binding Status, Converter={x:Static ObjectConverters.IsNotNull}}" Classes="small" />
+          <ItemsControl ItemsSource="{Binding Warnings}" IsVisible="{Binding HasWarnings}">
+            <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" Classes="small" Foreground="{DynamicResource PL.WarningTextBrush}" TextWrapping="Wrap" /></DataTemplate></ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <ItemsControl ItemsSource="{Binding Rows}" IsVisible="{Binding HasRows}">
+        <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="8" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:EvolutionFixRowViewModel">
+            <Border Classes="card">
+              <Grid ColumnDefinitions="*,240" ColumnSpacing="16">
+                <StackPanel Spacing="2">
+                  <TextBlock Text="{Binding Title}" FontWeight="Bold" />
+                  <TextBlock Classes="small" TextWrapping="Wrap">
+                    <Run Text="Now: " /><Run Text="{Binding Before}" /><Run Text="   →   " /><Run Text="{Binding After}" FontWeight="SemiBold" />
+                  </TextBlock>
+                  <TextBlock Text="{Binding Reason}" Classes="small muted" TextWrapping="Wrap" />
+                </StackPanel>
+                <ComboBox Grid.Column="1" ItemsSource="{Binding Options}" SelectedItem="{Binding Choice}" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                          AutomationProperties.Name="{Binding Title}">
+                  <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:EvolutionFixOption"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+                </ComboBox>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

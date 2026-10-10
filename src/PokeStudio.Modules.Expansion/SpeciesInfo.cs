@@ -490,6 +490,31 @@ internal static partial class SpeciesInfo
             return new EvolutionSet { FromSpecies = block.Symbol, LockedReason = "This Pokémon is switched off in your game's settings." };
         }
 
+        if (f.SpansDirectives && !block.IsSettingDependent("evolutions"))
+        {
+            // split by #if: the entries the game uses can be replaced one for one
+            var active = new List<Evolution>();
+            foreach (var (start, end, isActive) in EvolutionEntries(file, f))
+            {
+                if (isActive && TryParseEvolutions("EVOLUTION(" + Resolve(file.Text[start..end], file.Macros, out _) + ")") is [var one])
+                {
+                    active.Add(one);
+                }
+                else if (isActive)
+                {
+                    return new EvolutionSet { FromSpecies = block.Symbol, LockedReason = "The app couldn't read these evolutions; edit them in the source file." };
+                }
+            }
+
+            return new EvolutionSet
+            {
+                FromSpecies = block.Symbol,
+                Evolutions = active,
+                EntriesReplaceable = true,
+                LockedReason = "These evolutions change with game settings (for example cross-generation evolutions), so only Fix evolutions can change them here; add or remove them in the source file.",
+            };
+        }
+
         if (f.SpansDirectives || block.IsSettingDependent("evolutions"))
         {
             return new EvolutionSet { FromSpecies = block.Symbol, Evolutions = TryParseEvolutions(Raw(file, f)) ?? [], LockedReason = "These evolutions change with game settings (for example cross-generation evolutions), so they can only be edited in the source file for now." };
@@ -549,19 +574,57 @@ internal static partial class SpeciesInfo
         }
     }
 
-    public static string FormatEvolutions(IReadOnlyList<Evolution> evolutions, string newline, int alignColumn)
-    {
-        var items = evolutions.Select(e =>
-        {
-            var sb = new StringBuilder("{").Append(e.Method).Append(", ").Append(e.Parameter).Append(", ").Append(e.TargetSpecies);
-            if (e.Conditions.Count > 0)
-            {
-                sb.Append(", CONDITIONS(").Append(string.Join(", ", e.Conditions.Select(c => $"{{{c.Kind}, {c.Value}}}"))).Append(')');
-            }
+    public static string FormatEvolutions(IReadOnlyList<Evolution> evolutions, string newline, int alignColumn) =>
+        "EVOLUTION(" + string.Join("," + newline + new string(' ', alignColumn), evolutions.Select(FormatEntry)) + ")";
 
-            return sb.Append('}').ToString();
-        });
-        return "EVOLUTION(" + string.Join("," + newline + new string(' ', alignColumn), items) + ")";
+    private static string FormatEntry(Evolution e)
+    {
+        var sb = new StringBuilder("{").Append(e.Method).Append(", ").Append(e.Parameter).Append(", ").Append(e.TargetSpecies);
+        if (e.Conditions.Count > 0)
+        {
+            sb.Append(", CONDITIONS(").Append(string.Join(", ", e.Conditions.Select(c => $"{{{c.Kind}, {c.Value}}}"))).Append(')');
+        }
+
+        return sb.Append('}').ToString();
+    }
+
+    /// <summary>The top-level {…} entries of an EVOLUTION(…) value, and whether each is in a branch the game uses.</summary>
+    internal static List<(int Start, int End, bool Active)> EvolutionEntries(SourceFile file, FieldOccurrence f)
+    {
+        var text = file.Text;
+        var result = new List<(int, int, bool)>();
+        var open = text.IndexOf('(', f.ValueStart);
+        if (open < 0 || open >= f.ValueEnd)
+        {
+            return result;
+        }
+
+        var close = CScanner.FindMatching(text, open);
+        for (var i = open + 1; i < close;)
+        {
+            var skipped = CScanner.SkipTrivia(text, i);
+            if (skipped != i)
+            {
+                i = skipped;
+            }
+            else if (text[i] == '#')
+            {
+                var lineEnd = text.IndexOf('\n', i);
+                i = lineEnd < 0 ? close : lineEnd + 1;
+            }
+            else if (text[i] == '{')
+            {
+                var end = CScanner.FindMatching(text, i) + 1;
+                result.Add((i, end, file.Map.IsActive(i)));
+                i = end;
+            }
+            else
+            {
+                i++;
+            }
+        }
+
+        return result;
     }
 
     // ---------- writing ----------
@@ -742,6 +805,30 @@ internal static partial class SpeciesInfo
             }
 
             return [new TextEdit(lineStart, end - lineStart, "")];
+        }
+
+        if (f.SpansDirectives)
+        {
+            // split by #if: replace changed entries one for one, leaving the #if lines alone
+            var entries = EvolutionEntries(file, f).Where(e => e.Active).ToList();
+            if (entries.Count != after.Evolutions.Count)
+            {
+                return [];
+            }
+
+            var edits = new List<TextEdit>();
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var (start, end, _) = entries[i];
+                var formatted = FormatEntry(after.Evolutions[i]);
+                var current = TryParseEvolutions("EVOLUTION(" + Resolve(file.Text[start..end], file.Macros, out _) + ")") is [var one] ? FormatEntry(one) : null;
+                if (current != formatted)
+                {
+                    edits.Add(new TextEdit(start, end - start, formatted));
+                }
+            }
+
+            return edits;
         }
 
         var valueLineStart = file.Text.LastIndexOf('\n', Math.Max(0, f.ValueStart - 1)) + 1;

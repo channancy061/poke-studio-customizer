@@ -178,6 +178,12 @@ public sealed record EvolutionSet
 
     /// <summary>Reason the evolutions can't be edited here, if any.</summary>
     public string? LockedReason { get; init; }
+
+    /// <summary>
+    /// Locked for adding, removing or reordering (the list is split by game settings in the source), but each entry the
+    /// game uses can still be replaced one for one (used by Fix evolutions).
+    /// </summary>
+    public bool EntriesReplaceable { get; init; }
 }
 
 /// <summary>Special categories a species can belong to (from the game's own data).</summary>

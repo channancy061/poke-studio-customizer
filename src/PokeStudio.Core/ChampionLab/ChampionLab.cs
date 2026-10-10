@@ -289,7 +289,7 @@ public static class Scouting
                 .Where(e => e.Methods.SelectMany(m => m.Slots).Any() && e.Methods.SelectMany(m => m.Slots).Max(s => s.MaxLevel) <= cap.Level)
                 .SelectMany(e => e.Methods.SelectMany(m => m.Slots).Select(s => s.Species))
                 .ToHashSet(StringComparer.Ordinal);
-            var owned = caught.Select(s => Progression.Evolution.EvolvedForm(data, s, cap.Level, int.MaxValue)).Concat(caught)
+            var owned = caught.Select(s => Progression.EvolutionPaths.EvolvedForm(data, s, cap.Level, int.MaxValue)).Concat(caught)
                 .Where(k => data.Species.Any(s => s.Key == k && s.IsEnabled))
                 .Distinct().ToList();
             var types = owned.SelectMany(k => data.Species.First(s => s.Key == k).Types).Distinct().Order(StringComparer.Ordinal).ToList();
@@ -452,7 +452,7 @@ public static class LabChecks
                 issues.Add(new ValidationIssue(IssueSeverity.Warning, "Trainer", who, $"doesn't have the {Name(data, expected)} line, {why}.",
                     "Rivals keep their starter from the first fight to the last.") { TargetKey = t.Key });
             }
-            else if (Progression.Evolution.EvolvedForm(data, member.Species, member.Level - EvolutionGrace, int.MaxValue) is var evolved && evolved != member.Species)
+            else if (Progression.EvolutionPaths.EvolvedForm(data, member.Species, member.Level - EvolutionGrace, int.MaxValue) is var evolved && evolved != member.Species)
             {
                 issues.Add(new ValidationIssue(IssueSeverity.Warning, "Trainer", who,
                     $"has a level {member.Level} {Name(data, member.Species)}; by then it would have evolved into {Name(data, evolved)}.") { TargetKey = t.Key });

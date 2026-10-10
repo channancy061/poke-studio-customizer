@@ -69,7 +69,7 @@ public static class LevelCurve
                 var party = t.Party.Select(p => p with { Level = Map2(p.Level) }).ToList();
                 if (options.EvolveTrainers)
                 {
-                    party = party.Select(p => p with { Species = Evolution.EvolvedForm(data, p.Species, p.Level, options.ItemEvolutionLevel) }).ToList();
+                    party = party.Select(p => p with { Species = EvolutionPaths.EvolvedForm(data, p.Species, p.Level, options.ItemEvolutionLevel) }).ToList();
                 }
 
                 if (party.Zip(t.Party).All(x => x.First.Equivalent(x.Second)))
@@ -116,7 +116,7 @@ public static class LevelCurve
     }
 }
 
-public static class Evolution
+public static class EvolutionPaths
 {
     /// <summary>
     /// What <paramref name="species"/> would have evolved into by <paramref name="level"/>: level evolutions when the level is

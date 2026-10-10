@@ -224,7 +224,7 @@ public sealed class ExpansionModule : IGameModule
             }
         }
 
-        foreach (var set in data.Evolutions.Where(e => e.LockedReason is null))
+        foreach (var set in data.Evolutions.Where(e => e.LockedReason is null || e.EntriesReplaceable))
         {
             if (state.Evolutions.TryGetValue(set.FromSpecies, out var before) && !SameEvolutions(before, set) && state.Blocks.TryGetValue(set.FromSpecies, out var block))
             {

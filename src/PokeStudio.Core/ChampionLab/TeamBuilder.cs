@@ -67,7 +67,7 @@ public static class TeamBuilder
         // the rival's starter comes first and stays
         if (group == TrainerGroup.Rival && data.Starters.Count == 3 && RivalStarter(data, lab, trainer) is { } starterLine)
         {
-            var evolved = Progression.Evolution.EvolvedForm(data, starterLine, level, 36);
+            var evolved = Progression.EvolutionPaths.EvolvedForm(data, starterLine, level, 36);
             if (data.Species.FirstOrDefault(s => s.Key == evolved) is { } st)
             {
                 picked.Add(st);
@@ -197,7 +197,7 @@ public static class TeamBuilder
             }
 
             // fully evolved (or not evolving any further by this level)
-            if (Progression.Evolution.EvolvedForm(data, s.Key, level, 36) != s.Key)
+            if (Progression.EvolutionPaths.EvolvedForm(data, s.Key, level, 36) != s.Key)
             {
                 continue;
             }

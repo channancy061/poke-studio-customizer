@@ -15,7 +15,7 @@ namespace PokeStudio.App.ViewModels;
 public enum NavKey
 {
     Overview, Species, Moves, Learnsets, Evolutions, Trainers, TrainerAi, Graphics, Models3d,
-    Encounters, Items, Text, Randomizer, Build, Backups, Settings, About, Modernize, Progression, ChampionLab, GameOptions,
+    Encounters, Items, Text, Randomizer, Build, Backups, Settings, About, Modernize, Progression, ChampionLab, GameOptions, EvolutionFixes,
 }
 
 public sealed class NavItemViewModel(NavKey key, string label, string icon, bool enabled, string? reason, string section)
@@ -196,6 +196,11 @@ public sealed partial class ShellViewModel : ViewModelBase
             NavItems.Add(new NavItemViewModel(NavKey.ChampionLab, "Champion Lab", "Icon.Shield", true, null, "Tools"));
         }
 
+        if (Session.Data.Evolutions.Any(s => s.LockedReason is null && s.Evolutions.Count > 0))
+        {
+            NavItems.Add(new NavItemViewModel(NavKey.EvolutionFixes, "Fix evolutions", "Icon.Sparkle", true, null, "Tools"));
+        }
+
         if (Session.Module.SupportsGameOptions(Session.Data))
         {
             NavItems.Add(new NavItemViewModel(NavKey.GameOptions, "Game options", "Icon.Settings", true, null, "Tools"));
@@ -240,6 +245,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             NavKey.Progression => new ProgressionPageViewModel(this),
             NavKey.ChampionLab => new ChampionLabPageViewModel(this),
             NavKey.GameOptions => new GameOptionsPageViewModel(this),
+            NavKey.EvolutionFixes => new EvolutionFixPageViewModel(this),
             NavKey.Encounters when item is { IsEnabled: true } => new EncountersPageViewModel(this),
             NavKey.Items when item is { IsEnabled: true } => new ItemsPageViewModel(this),
             NavKey.Text when item is { IsEnabled: true } => new TextPageViewModel(this),
