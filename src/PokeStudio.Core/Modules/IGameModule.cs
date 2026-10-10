@@ -93,6 +93,9 @@ public sealed class GameData
 
     /// <summary>New-game options (saved with the Poke Studio project; the module writes them into the game).</summary>
     public GameOptions.GameOptionsSettings? GameOptions { get; set; }
+
+    /// <summary>False for games that can't evolve a Pokémon by levelling up while it holds an item (Gen 3).</summary>
+    public bool HeldItemLevelEvolutions { get; set; } = true;
     public GameCatalog Catalog { get; } = new();
 
     public Learnset? LearnsetFor(Species species) =>

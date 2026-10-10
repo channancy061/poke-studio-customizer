@@ -74,6 +74,8 @@ public static class EvolutionFixer
     public static List<EvolutionFixRow> Find(GameData data, bool trades = true, bool timeOfDay = true)
     {
         var hasCord = data.Items.Any(i => i.Key == LinkingCord);
+        var heldOk = data.HeldItemLevelEvolutions; // Gen 3 can't evolve by levelling up while holding an item
+        bool HasItem(string key) => data.Items.Count == 0 || data.Items.Any(i => i.Key == key);
         var rows = new List<EvolutionFixRow>();
         foreach (var set in data.Evolutions.Where(s => s.LockedReason is null || s.EntriesReplaceable))
         {
@@ -102,15 +104,16 @@ public static class EvolutionFixer
                         choices.Add(EvolutionFix.Stone);
                     }
 
-                    if (item is not null || hasCord)
+                    if (heldOk && (item is not null || hasCord))
                     {
                         choices.Add(EvolutionFix.HoldItem);
                     }
 
-                    var suggested = item is not null ? EvolutionFix.HoldItem : EvolutionFix.Level;
+                    var suggested = item is not null && heldOk ? EvolutionFix.HoldItem : EvolutionFix.Level;
                     var reason = problem switch
                     {
-                        EvolutionProblem.TradeWithItem => $"Needs a trade while holding {Name(data, item!)}; it now evolves on level-up while holding it.",
+                        EvolutionProblem.TradeWithItem when heldOk => $"Needs a trade while holding {Name(data, item!)}; it now evolves on level-up while holding it.",
+                        EvolutionProblem.TradeWithItem => $"Needs a trade while holding {Name(data, item!)}; it now evolves at a level (this game can't evolve by holding an item).",
                         EvolutionProblem.TradePartner => "Needs a trade for a particular Pokémon; it now evolves at a level.",
                         _ => "Needs a trade; it now evolves at a level.",
                     };
@@ -119,10 +122,21 @@ public static class EvolutionFixer
                 else if (timeSuggestion.TryGetValue(i, out var fix))
                 {
                     var time = TimeOf(e);
-                    var choices = new List<EvolutionFix> { EvolutionFix.Leave, EvolutionFix.Level, EvolutionFix.Stone };
-                    if (!e.Conditions.Any(c => c.Kind == "IF_HOLD_ITEM"))
+                    var stone = HasItem(StoneFor(time));
+                    var choices = new List<EvolutionFix> { EvolutionFix.Leave, EvolutionFix.Level };
+                    if (stone)
+                    {
+                        choices.Add(EvolutionFix.Stone);
+                    }
+
+                    if (heldOk && stone && !e.Conditions.Any(c => c.Kind == "IF_HOLD_ITEM"))
                     {
                         choices.Add(EvolutionFix.HoldItem);
+                    }
+
+                    if (fix == EvolutionFix.Stone && !stone)
+                    {
+                        fix = EvolutionFix.Level;
                     }
 
                     var reason = fix == EvolutionFix.Level

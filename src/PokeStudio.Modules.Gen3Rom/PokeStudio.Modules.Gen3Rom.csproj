@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- GBA ROM mode: edits a copy of a Ruby / Sapphire / FireRed / LeafGreen / Emerald ROM the user owns.
+       Finds the game's data tables by their contents; contains no game data. -->
+  <PropertyGroup>
+    <RootNamespace>PokeStudio.Modules.Gen3Rom</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PokeStudio.Core\PokeStudio.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PokeStudio.Core.Tests" />
+  </ItemGroup>
+</Project>

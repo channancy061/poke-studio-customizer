@@ -457,6 +457,10 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
 
     public BuildDefinition? Definition { get; }
     public bool CanBuildGame => Definition is not null;
+
+    /// <summary>A project made from a ROM file: no build step, the edited copy is played directly.</summary>
+    public bool IsRomProject => Definition is null && File.Exists(_shell.Session.Project.WorkingSourcePath)
+        && Path.GetExtension(_shell.Session.Project.WorkingSourcePath) is ".gba" or ".nds" or ".3ds" or ".gbc" or ".gb";
     public bool CannotBuildGame => !CanBuildGame;
     public ToolsPanelViewModel Tools { get; }
     public EmulatorSlotViewModel Emulator { get; }
@@ -468,8 +472,9 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
     public string OutputFolder => BuildService.BuildsDir(_shell.Session.Project.Directory);
     public string WslHelp => WslBuildEnvironment.WslInstructions;
 
-    public string CannotBuildText =>
-        $"{_shell.Session.Module.DisplayName} projects can't be built into a game yet. You can still test any game file you have with your emulator.";
+    public string CannotBuildText => IsRomProject
+        ? $"This project edits a copy of your ROM, so there's nothing to build: save your changes, then \"Test my game\" plays the edited copy. The copy is in {Path.GetDirectoryName(_shell.Session.Project.WorkingSourcePath)} (your original file is never changed)."
+        : $"{_shell.Session.Module.DisplayName} projects can't be built into a game yet. You can still test any game file you have with your emulator.";
 
     public bool IsBuildBlocked => CanBuildGame && Tools.HasChecked && !Tools.AllReady;
 
@@ -626,6 +631,11 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
         if (History.FirstOrDefault() is { } latest)
         {
             Play(latest.Record.FilePath);
+        }
+        else if (IsRomProject)
+        {
+            // ROM projects edit a copy of the game: that copy is the game to play (save first to include changes)
+            Play(_shell.Session.Project.WorkingSourcePath);
         }
         else
         {

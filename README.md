@@ -7,7 +7,7 @@
 A friendly desktop editor (Windows + Linux) for customising games you legally own.
 It ships **no game files or assets**, never modifies your originals, and uses only open-source components (MIT-licensed).
 
-## Status: Phase 9 (Player's Guide) done; Phase 8 game code not yet test-built
+## Status: Phase 10a (GBA ROM mode) done; Phase 8 game code not yet test-built
 - **Phase 1:** solution skeleton, plugin system, projects, undo/redo + change log, backups/restore, settings,
   Avalonia shell with light/dark theming, CI on Windows + Linux, Windows installer and Linux AppImage.
 - **Phase 2:** edit a **pokeemerald-expansion 1.17.1** project (Emerald-based, Gen 1–9 Pokémon):
@@ -134,6 +134,13 @@ It ships **no game files or assets**, never modifies your originals, and uses on
   rules, level caps, every important battle in story order with where it is (from the map scripts), team, "Bring"
   advice and every difficulty version, adaptive slots shown as "?" with their candidates, wild Pokémon per place
   with chances, shops with badge stock, and how special Pokémon evolve.
+- **Phase 10a — GBA ROM mode** (Ruby, Sapphire, FireRed, LeafGreen, Emerald): open a `.gba` you own; the app
+  works on a copy. Tables are found by their contents (Bulbasaur's stats, Pound, "MASTER BALL"…), so any
+  version/revision works, and their places are remembered in the project (`data/gba-tables.json`) because edits
+  change those contents. Edits: Pokémon (stats, types, abilities, items, gender, growth, egg groups, names), moves,
+  level-up moves (longer lists move to the ROM's free space), TM/HM lists, evolutions (Gen 3 methods only — Fix
+  evolutions knows these games can't evolve by holding an item), trainers (teams grow into free space), wild
+  Pokémon, item names and prices. "Test my game" plays the edited copy. Tested on Emerald, FireRed and Ruby ROMs.
 - **FireRed base:** projects made from **pokefirered-expansion** (community port, cawtds/pokefirered-expansion,
   expansion 1.15.x) open with the same editors. Differences handled: the ROM is `pokefirered.gba`, the text
   box is 26 tiles (208 px, read from `src/menu.c`), shops live in `src/data/shops.json` (stages; edited in
