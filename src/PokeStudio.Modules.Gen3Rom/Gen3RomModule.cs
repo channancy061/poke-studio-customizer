@@ -53,7 +53,7 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
         new(ModuleCapabilities.Trainers, SupportLevel.Supported),
         new(ModuleCapabilities.TrainerAi, SupportLevel.Supported),
         new(ModuleCapabilities.Encounters, SupportLevel.Limited, "Pokémon and levels can change; the number of slots is fixed."),
-        new(ModuleCapabilities.ItemsAndMarts, SupportLevel.Limited, "Item names and prices; shops not yet."),
+        new(ModuleCapabilities.ItemsAndMarts, SupportLevel.Limited, "Item names, prices and what each shop sells. Stock that grows with badges needs a project (decomp)."),
         new(ModuleCapabilities.Text, SupportLevel.Limited, "What people, signs and trainers say on the maps. Menus and battle messages aren't included; use a project (decomp) for those."),
         new(ModuleCapabilities.Graphics, SupportLevel.Limited, "Pokémon front and back sprites and their palettes; icons not yet."),
         new(ModuleCapabilities.Models3d, SupportLevel.Never, "GBA games have no 3D models."),
@@ -130,6 +130,7 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
         Gen3Writer.Write(state, data);
         Gen3Sprites.Write(state, data);
         Gen3Dialogue.Save(state, data);
+        Gen3Marts.Save(state, data);
         await context.Writer.WriteAllBytesAsync(context.WorkingSourceDir, state.Rom.Bytes, cancellationToken);
         var (_, fresh) = Gen3Reader.Read(state.Rom, state.Tables);
         fresh.Path = state.Path;
@@ -230,5 +231,7 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
         public List<string> TmMoves { get; } = [];
         public Dictionary<string, Gen3Dialogue.Message> Messages { get; set; } = new(StringComparer.Ordinal);
         public Dictionary<string, TextEntry> Texts { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, Mart> Marts { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, Gen3Marts.Shop> Shops { get; } = new(StringComparer.Ordinal);
     }
 }

@@ -28,9 +28,13 @@ internal static class Gen3Dialogue
     private static readonly int[] FcArguments = [0, 1, 1, 1, 3, 1, 1, 0, 1, 0, 0, 2, 1, 1, 1, 0, 2, 1, 1, 1, 1, 0, 0, 0, 0];
 
     /// <summary>Finds every message the map scripts use (key = the first place that points to it, which never moves).</summary>
-    public static Dictionary<string, Message> Scan(RomImage rom, Gen3Tables t)
+    public static Dictionary<string, Message> Scan(RomImage rom, Gen3Tables t) => Scan(rom, t, out _);
+
+    /// <summary>Also returns the shops: item lists the "pokemart" command shows (list offset → pointers to it, place).</summary>
+    public static Dictionary<string, Message> Scan(RomImage rom, Gen3Tables t, out Dictionary<int, (List<int> Refs, string Place)> marts)
     {
         var found = new Dictionary<int, (List<int> Refs, string Place)>();
+        marts = [];
         if (t.MapGroups < 0)
         {
             return [];
@@ -53,7 +57,7 @@ internal static class Gen3Dialogue
                     continue;
                 }
 
-                ScanScript(rom, start, place, found, queue);
+                ScanScript(rom, t.ItemCount, start, place, found, marts, queue);
             }
         }
 
@@ -169,8 +173,27 @@ internal static class Gen3Dialogue
     }
 
     /// <summary>Looks through a script for the commands that show text (and the ones that jump to more script).</summary>
-    private static void ScanScript(RomImage rom, int start, string place, Dictionary<int, (List<int> Refs, string Place)> found, Queue<int> queue)
+    private static void ScanScript(RomImage rom, int itemCount, int start, string place, Dictionary<int, (List<int> Refs, string Place)> found,
+        Dictionary<int, (List<int> Refs, string Place)> marts, Queue<int> queue)
     {
+        void Mart(int pointerAt)
+        {
+            if (pointerAt + 4 > rom.Length || rom.Offset(pointerAt) is not (var p and >= 0) || p % 2 != 0 || MartLength(rom, p, itemCount) < 0)
+            {
+                return;
+            }
+
+            if (!marts.TryGetValue(p, out var m))
+            {
+                marts[p] = m = ([], place);
+            }
+
+            if (!m.Refs.Contains(pointerAt))
+            {
+                m.Refs.Add(pointerAt);
+            }
+        }
+
         void Text(int pointerAt)
         {
             if (pointerAt + 4 > rom.Length || rom.Offset(pointerAt) is not (var p and >= 0) || !LooksLikeText(rom, p))
@@ -207,6 +230,9 @@ internal static class Gen3Dialogue
                     break;
                 case 0x67: // message
                     Text(at + 1);
+                    break;
+                case 0x86: // pokemart
+                    Mart(at + 1);
                     break;
                 case 0x04 or 0x05: // call / goto
                     Script(at + 1);
@@ -249,6 +275,26 @@ internal static class Gen3Dialogue
                 break;
             }
         }
+    }
+
+    /// <summary>Number of items in a shop list (2-byte item numbers ended by 0), or -1 when it doesn't look like one.</summary>
+    public static int MartLength(RomImage rom, int at, int itemCount)
+    {
+        for (var n = 0; n <= 64 && at + (2 * n) + 2 <= rom.Length; n++)
+        {
+            var item = rom.U16(at + (2 * n));
+            if (item == 0)
+            {
+                return n > 0 ? n : -1;
+            }
+
+            if (item >= itemCount)
+            {
+                return -1;
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>Strict check: known characters and codes only, ended within a sensible length, with some letters in it.</summary>
@@ -444,7 +490,8 @@ internal static class Gen3Dialogue
 
     public static void Load(Gen3RomModule.State state, GameData data)
     {
-        state.Messages = Scan(state.Rom, state.Tables);
+        state.Messages = Scan(state.Rom, state.Tables, out var marts);
+        Gen3Marts.Load(state, data, marts);
         foreach (var (key, m) in state.Messages)
         {
             var text = Read(state.Rom, m.Offset);
