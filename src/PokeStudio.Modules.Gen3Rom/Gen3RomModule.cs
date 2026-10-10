@@ -60,7 +60,7 @@ public sealed class Gen3RomModule : IGameModule
 
     public DetectionResult Detect(GameSource source)
     {
-        if (source.Kind != GameSourceKind.RomFile && !source.Path.EndsWith(".gba", StringComparison.OrdinalIgnoreCase))
+        if (!source.Path.EndsWith(".gba", StringComparison.OrdinalIgnoreCase))
         {
             return DetectionResult.NoMatch;
         }

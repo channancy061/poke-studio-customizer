@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- NDS ROM mode: edits a copy of a Diamond / Pearl / Platinum / HeartGold / SoulSilver / Black / White ROM the
+       user owns, through its own file system and archives. Contains no game data. -->
+  <PropertyGroup>
+    <RootNamespace>PokeStudio.Modules.Nds</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PokeStudio.Core\PokeStudio.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PokeStudio.Core.Tests" />
+  </ItemGroup>
+</Project>

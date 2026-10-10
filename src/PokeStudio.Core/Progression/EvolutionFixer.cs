@@ -123,7 +123,14 @@ public static class EvolutionFixer
                 {
                     var time = TimeOf(e);
                     var stone = HasItem(StoneFor(time));
-                    var choices = new List<EvolutionFix> { EvolutionFix.Leave, EvolutionFix.Level };
+                    // a game without "level up holding an item" can only keep the held item together with the time
+                    var holdsItem = e.Conditions.Any(c => c.Kind == "IF_HOLD_ITEM");
+                    var choices = new List<EvolutionFix> { EvolutionFix.Leave };
+                    if (heldOk || !holdsItem)
+                    {
+                        choices.Add(EvolutionFix.Level);
+                    }
+
                     if (stone)
                     {
                         choices.Add(EvolutionFix.Stone);
@@ -134,12 +141,18 @@ public static class EvolutionFixer
                         choices.Add(EvolutionFix.HoldItem);
                     }
 
-                    if (fix == EvolutionFix.Stone && !stone)
+                    if (!heldOk && holdsItem)
+                    {
+                        fix = stone ? EvolutionFix.Stone : EvolutionFix.Leave;
+                    }
+                    else if (fix == EvolutionFix.Stone && !stone)
                     {
                         fix = EvolutionFix.Level;
                     }
 
-                    var reason = fix == EvolutionFix.Level
+                    var reason = fix == EvolutionFix.Leave
+                        ? $"Only evolves in the {time.ToLowerInvariant()} while holding an item; this game has no other way to keep the held item, so it stays."
+                        : fix == EvolutionFix.Level
                         ? $"Only evolves in the {time.ToLowerInvariant()}; it now evolves at any time."
                         : $"Only evolves in the {time.ToLowerInvariant()}, and at any time it would clash with another evolution; it now uses a {Name(data, StoneFor(time))}.";
                     rows.Add(new EvolutionFixRow(set.FromSpecies, i, e, EvolutionProblem.TimeOfDay, fix, choices, reason));

@@ -7,7 +7,7 @@
 A friendly desktop editor (Windows + Linux) for customising games you legally own.
 It ships **no game files or assets**, never modifies your originals, and uses only open-source components (MIT-licensed).
 
-## Status: Phase 10a (GBA ROM mode) done; Phase 8 game code not yet test-built
+## Status: Phase 10b (DS ROM mode) done; Phase 8 game code not yet test-built
 - **Phase 1:** solution skeleton, plugin system, projects, undo/redo + change log, backups/restore, settings,
   Avalonia shell with light/dark theming, CI on Windows + Linux, Windows installer and Linux AppImage.
 - **Phase 2:** edit a **pokeemerald-expansion 1.17.1** project (Emerald-based, Gen 1–9 Pokémon):
@@ -141,6 +141,12 @@ It ships **no game files or assets**, never modifies your originals, and uses on
   level-up moves (longer lists move to the ROM's free space), TM/HM lists, evolutions (Gen 3 methods only — Fix
   evolutions knows these games can't evolve by holding an item), trainers (teams grow into free space), wild
   Pokémon, item names and prices. "Test my game" plays the edited copy. Tested on Emerald, FireRed and Ruby ROMs.
+- **Phase 10b — DS ROM mode** (Diamond, Pearl, Platinum, HeartGold, SoulSilver, Black, White; Black 2/White 2
+  untested): reads the ROM's own file system and NARC archives, the encrypted Gen 4 / Gen 5 text (including Gen 4's
+  packed trainer names) and the TM list from the main program or its overlays (decompressing them when needed).
+  Edits Pokémon, moves (incl. physical/special), level-up and TM lists, evolutions (all Gen 4/5 methods), trainers,
+  wild Pokémon (numbered areas), item names and prices; changed archives are rebuilt, moved to the end of the ROM
+  when they grow, and the header checksum is recalculated. Tested on Diamond, Platinum, SoulSilver and Black ROMs.
 - **FireRed base:** projects made from **pokefirered-expansion** (community port, cawtds/pokefirered-expansion,
   expansion 1.15.x) open with the same editors. Differences handled: the ROM is `pokefirered.gba`, the text
   box is 26 tiles (208 px, read from `src/menu.c`), shops live in `src/data/shops.json` (stages; edited in

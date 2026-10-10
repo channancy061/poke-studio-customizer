@@ -34,6 +34,7 @@ public static class AppServices
         services.AddSingleton(_ => new ModuleRegistry()
             .Register(new ExpansionModule())
             .Register(new PokeStudio.Modules.Gen3Rom.Gen3RomModule())
+            .Register(new PokeStudio.Modules.Nds.NdsModule())
             .Register(new DemoGameModule()));
         services.AddSingleton(_ => new HttpClient { Timeout = TimeSpan.FromMinutes(30) });
         services.AddSingleton(sp => new ExpansionDownloader(sp.GetRequiredService<HttpClient>()));
