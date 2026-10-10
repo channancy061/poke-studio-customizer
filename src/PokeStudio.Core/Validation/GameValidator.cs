@@ -53,6 +53,16 @@ public static class GameValidator
             CheckMove(move, limits, issues);
         }
 
+        if (data.Trainers.Count > 0)
+        {
+            var species = data.Species.ToDictionary(s => s.Key, StringComparer.Ordinal);
+            var items = new HashSet<string>(data.Catalog.Items.Select(i => i.Key), StringComparer.Ordinal);
+            foreach (var t in data.Trainers.Where(t => t.LockedReason is null))
+            {
+                CheckTrainer(data, t, limits, species, moveKeys, items, issues);
+            }
+        }
+
         issues.AddRange(module.Validate(data));
         return issues;
     }
@@ -239,6 +249,143 @@ public static class GameValidator
         {
             Add(IssueSeverity.Warning, $"description has {lines} lines; the summary screen shows {limits.MoveDescriptionMaxLines}.");
         }
+    }
+
+    private static void CheckTrainer(GameData data, Trainer t, GameLimits limits, Dictionary<string, Species> species,
+        HashSet<string> moveKeys, HashSet<string> items, List<ValidationIssue> issues)
+    {
+        var who = t.Name.Length > 0 ? $"{data.Catalog.NameOf(t.TrainerClass)} {t.Name}" : t.Key;
+        void Add(IssueSeverity sev, string message, string? suggestion = null, Func<GameData, IChange>? fix = null) =>
+            issues.Add(new ValidationIssue(sev, "Trainer", who, message, suggestion) { Fix = fix, TargetKey = t.Key });
+
+        if (t.Key == "TRAINER_NONE")
+        {
+            return;
+        }
+
+        if (t.Name.Length > limits.TrainerNameLength)
+        {
+            Add(IssueSeverity.Error, $"name “{t.Name}” is {t.Name.Length} letters; this game allows {limits.TrainerNameLength}.", null,
+                d => TrainerChange(d, t.Key, "name", x => x with { Name = x.Name[..limits.TrainerNameLength] }));
+        }
+
+        if (t.Party.Count == 0)
+        {
+            Add(IssueSeverity.Error, "has no Pokémon.", "Add at least one Pokémon to the team.");
+        }
+        else if (t.Party.Count > limits.MaxPartySize)
+        {
+            Add(IssueSeverity.Error, $"has {t.Party.Count} Pokémon; a team holds {limits.MaxPartySize}.");
+        }
+
+        if (t.Battle == BattleType.Double && t.Party.Count == 1)
+        {
+            Add(IssueSeverity.Error, "is set to a double battle but has only one Pokémon.", "Add a second Pokémon, or make it a single battle.",
+                d => TrainerChange(d, t.Key, "battle type", x => x with { Battle = BattleType.Single }));
+        }
+
+        if (t.Items.Count > limits.MaxTrainerItems)
+        {
+            Add(IssueSeverity.Error, $"carries {t.Items.Count} items; trainers can carry {limits.MaxTrainerItems}.");
+        }
+
+        foreach (var item in t.Items.Where(i => items.Count > 0 && !items.Contains(i)))
+        {
+            Add(IssueSeverity.Error, $"carries “{item}”, which isn't an item in this game.");
+        }
+
+        for (var i = 0; i < t.Party.Count; i++)
+        {
+            var p = t.Party[i];
+            var slot = i;
+            var name = species.TryGetValue(p.Species, out var sp) ? sp.DisplayName : p.Species;
+            if (sp is null)
+            {
+                Add(IssueSeverity.Error, $"has “{p.Species}”, which isn't a Pokémon in this game.");
+                continue;
+            }
+
+            if (!sp.IsEnabled)
+            {
+                Add(IssueSeverity.Error, $"uses {name}, which is switched off in your game's settings.");
+            }
+
+            if (p.Level < 1 || p.Level > limits.MaxLevel)
+            {
+                var clamped = Math.Clamp(p.Level, 1, limits.MaxLevel);
+                Add(IssueSeverity.Error, $"has {name} at level {p.Level}; levels go from 1 to {limits.MaxLevel}.", $"Set it to {clamped}?",
+                    d => TrainerChange(d, t.Key, "level", x => x with { Party = ReplaceAt(x.Party, slot, x.Party[slot] with { Level = clamped }) }));
+            }
+
+            if (p.Moves.Count > limits.MovesKnown)
+            {
+                Add(IssueSeverity.Error, $"gives {name} {p.Moves.Count} moves; a Pokémon knows {limits.MovesKnown}.");
+            }
+
+            foreach (var m in p.Moves.Where(m => moveKeys.Count > 0 && !moveKeys.Contains(m)))
+            {
+                Add(IssueSeverity.Error, $"gives {name} the move “{m}”, which this game doesn't have.");
+            }
+
+            if (p.HeldItem is { } held && items.Count > 0 && !items.Contains(held))
+            {
+                Add(IssueSeverity.Error, $"gives {name} “{held}” to hold, which isn't an item in this game.");
+            }
+
+            if (p.Ability is { } ability && sp.Abilities.Count > 0 && !sp.Abilities.Contains(ability))
+            {
+                Add(IssueSeverity.Warning, $"gives {name} the ability {data.Catalog.NameOf(ability)}, which it can't normally have.",
+                    "That's allowed, but players may find it surprising.");
+            }
+
+            if (p.Nickname is { Length: > 0 } nick && nick.Length > limits.NicknameLength)
+            {
+                Add(IssueSeverity.Warning, $"nickname “{nick}” is longer than {limits.NicknameLength} letters and will be cut short.");
+            }
+
+            if (p.Ivs is { } iv && new[] { iv.Hp, iv.Attack, iv.Defense, iv.SpAttack, iv.SpDefense, iv.Speed }.Any(v => v is < 0 or > 31))
+            {
+                Add(IssueSeverity.Error, $"gives {name} IVs outside 0–31.");
+            }
+
+            if (p.Evs is { } ev)
+            {
+                var all = new[] { ev.Hp, ev.Attack, ev.Defense, ev.SpAttack, ev.SpDefense, ev.Speed };
+                if (all.Any(v => v is < 0 or > 255))
+                {
+                    Add(IssueSeverity.Error, $"gives {name} EVs outside 0–255.");
+                }
+                else if (all.Sum() > 510)
+                {
+                    Add(IssueSeverity.Warning, $"gives {name} {all.Sum()} EVs in total; a player's Pokémon can have 510.");
+                }
+            }
+
+            if (p.Moves.Count > 0 && data.LearnsetFor(sp) is { } learnset && learnset.LevelUp.Count > 0)
+            {
+                var knows = learnset.LevelUp.Select(x => x.Move).Concat(learnset.EggMoves).Concat(learnset.Teachable).ToHashSet(StringComparer.Ordinal);
+                var odd = p.Moves.Where(m => !knows.Contains(m)).ToList();
+                if (odd.Count > 0 && !learnset.LockedParts.ContainsKey("teachable"))
+                {
+                    Add(IssueSeverity.Warning, $"gives {name} {string.Join(", ", odd.Select(data.Catalog.NameOf))}, which it can't learn normally.",
+                        "Fine for a challenge hack; just make sure it's on purpose.");
+                }
+            }
+        }
+    }
+
+    private static IReadOnlyList<TrainerPokemon> ReplaceAt(IReadOnlyList<TrainerPokemon> list, int index, TrainerPokemon value)
+    {
+        var copy = list.ToList();
+        copy[index] = value;
+        return copy;
+    }
+
+    private static IChange TrainerChange(GameData data, string key, string field, Func<Trainer, Trainer> update)
+    {
+        var index = data.Trainers.FindIndex(t => t.Key == key);
+        var before = data.Trainers[index];
+        return new ValueChange<Trainer>("Trainers", $"{before.Name} · fixed {field}", v => data.Trainers[index] = v, before, update(before));
     }
 
     private static IChange MoveChange(GameData data, string key, string field, Func<Move, Move> update)

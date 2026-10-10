@@ -17,6 +17,13 @@ public sealed class GameCatalog
     public List<CatalogEntry> EvolutionConditions { get; } = [];
     public List<CatalogEntry> MoveEffects { get; } = [];
     public List<CatalogEntry> MoveTargets { get; } = [];
+    public List<CatalogEntry> TrainerClasses { get; } = [];
+    public List<CatalogEntry> TrainerPics { get; } = [];
+    public List<CatalogEntry> TrainerMusic { get; } = [];
+    public List<CatalogEntry> Natures { get; } = [];
+
+    /// <summary>Enemy AI flags with plain-English descriptions; combined presets have Description starting with "Preset:".</summary>
+    public List<CatalogEntry> AiFlags { get; } = [];
 
     /// <summary>Moves taught by TM/HM, in machine order (label like "TM01").</summary>
     public List<(string Label, string Move)> Machines { get; } = [];
@@ -33,6 +40,7 @@ public sealed class GameCatalog
 
         _names ??= Types.Concat(Abilities).Concat(Items).Concat(Moves).Concat(GrowthRates)
             .Concat(EggGroups).Concat(EvolutionMethods).Concat(EvolutionConditions).Concat(MoveEffects).Concat(MoveTargets)
+            .Concat(TrainerClasses).Concat(TrainerPics).Concat(TrainerMusic).Concat(Natures).Concat(AiFlags)
             .GroupBy(e => e.Key, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.First().Name, StringComparer.Ordinal);
         return _names.TryGetValue(key, out var name) ? name : Prettify(key);
@@ -53,7 +61,7 @@ public sealed class GameCatalog
     }
 
     private static readonly string[] KnownPrefixes =
-        ["SPECIES_", "MOVE_", "EFFECT_", "TARGET_", "ITEM_", "ABILITY_", "TYPE_", "GROWTH_", "EGG_GROUP_", "EVO_", "IF_", "TIME_", "MAPSEC_", "NATURE_", "WEATHER_", "REGION_"];
+        ["SPECIES_", "MOVE_", "EFFECT_", "TARGET_", "TRAINER_CLASS_", "TRAINER_PIC_", "TRAINER_ENCOUNTER_MUSIC_", "AI_FLAG_", "NATURE_", "TRAINER_", "ITEM_", "ABILITY_", "TYPE_", "GROWTH_", "EGG_GROUP_", "EVO_", "IF_", "TIME_", "MAPSEC_", "NATURE_", "WEATHER_", "REGION_"];
 
     /// <summary>"MOVE_SOLAR_BEAM" → "Solar Beam".</summary>
     public static string Prettify(string key)

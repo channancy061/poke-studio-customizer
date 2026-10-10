@@ -1,0 +1,25 @@
+// Invented test fixture.
+enum __attribute__((packed)) TrainerPicID
+{
+    TRAINER_PIC_NONE,
+    TRAINER_PIC_HIKER,
+    TRAINER_PIC_LASS,
+    TRAINER_PIC_LEADER_FERN,
+    TRAINER_PIC_TWINS,
+    TRAINER_PIC_BACK_BRENDAN,
+};
+
+enum TrainerClassID
+{
+    TRAINER_CLASS_PKMN_TRAINER_1,
+    TRAINER_CLASS_HIKER,
+    TRAINER_CLASS_LASS,
+    TRAINER_CLASS_LEADER,
+    TRAINER_CLASS_TWINS,
+    TRAINER_CLASS_COUNT,
+};
+
+#define TRAINER_ENCOUNTER_MUSIC_MALE         0 // Used for Youngsters and Hikers
+#define TRAINER_ENCOUNTER_MUSIC_FEMALE       1 // Used for Lasses
+#define TRAINER_ENCOUNTER_MUSIC_GIRL         2
+#define TRAINER_ENCOUNTER_MUSIC_INTENSE      4

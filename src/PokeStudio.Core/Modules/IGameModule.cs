@@ -96,6 +96,10 @@ public sealed record GameLimits
     public int MinMovePriority { get; init; } = -7;
     public int MaxMovePriority { get; init; } = 7;
     public int MoveDescriptionMaxLines { get; init; } = 4;
+    public int TrainerNameLength { get; init; } = 10;
+    public int MaxPartySize { get; init; } = 6;
+    public int MaxTrainerItems { get; init; } = 4;
+    public int NicknameLength { get; init; } = 10;
 }
 
 /// <summary>Context handed to a module when saving: where it may write.</summary>

@@ -1,0 +1,91 @@
+/*
+Invented test fixture.
+=== TRAINER_INSIDE_A_COMMENT ===
+*/
+
+=== TRAINER_NONE ===
+Name:
+Class: Pkmn Trainer 1
+Pic: Hiker
+Gender: Male
+Music: Male
+Double Battle: No
+
+=== TRAINER_RICK_1 ===
+Name: RICK
+Class: Hiker
+Pic: Hiker
+Gender: Male
+Music: Male
+Double Battle: No
+AI: Check Bad Move
+
+Sproutle
+Level: 12
+IVs: 0 HP / 0 Atk / 0 Def / 0 SpA / 0 SpD / 0 Spe
+
+Emberpup
+Level: 13
+IVs: 0 HP / 0 Atk / 0 Def / 0 SpA / 0 SpD / 0 Spe
+
+=== TRAINER_MIA ===
+Name: MIA
+Class: Lass
+Pic: Lass
+Gender: Female
+Music: Female
+Items: Oran Berry
+Double Battle: No
+AI: Basic Trainer
+
+Bud (Sproutle) (F) @ Miracle Seed
+Level: 15
+Ability: Chlorophyll
+Nature: Modest
+EVs: 252 SpA / 4 HP
+- Vine Lash
+- Growl
+
+/*Her second Pokémon changes in the remake.*/
+
+Bloomtle
+Level: 16
+
+=== TRAINER_LEADER_FERN ===
+Name: FERN
+Class: Leader
+Pic: Leader Fern
+Gender: Female
+Music: Intense
+Items: Oran Berry / Oran Berry
+Double Battle: Yes
+AI: Check Bad Move / Try To Faint / Check Viability / Ace Pokemon
+
+Bloomtle @ Oran Berry
+Level: 22
+Shiny: Yes
+Tera Type: Fairy
+- Seed Bomb
+- Charm
+- Growl
+- Sleep Dust
+
+Sproutle (SPECIES_SPROUTLE_FROST)
+Level: 21
+- Vine Lash
+
+=== TRAINER_TWINS_POOL ===
+Name: AMY
+Class: Twins
+Pic: Twins
+Gender: Female
+Music: Girl
+Double Battle: Yes
+Party Size: 2
+Pool Rules: Basic
+
+Emberpup
+Level: 10
+
+Ghostling
+Level: 10

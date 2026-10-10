@@ -31,9 +31,10 @@ public class ExpansionUiTests
         Assert.True(shell.NavItems.Single(n => n.Key == NavKey.Species).IsEnabled);
         Assert.True(shell.NavItems.Single(n => n.Key == NavKey.Learnsets).IsEnabled);
         Assert.True(shell.NavItems.Single(n => n.Key == NavKey.Evolutions).IsEnabled);
-        var trainers = shell.NavItems.Single(n => n.Key == NavKey.Trainers);
-        Assert.True(trainers.IsLocked);
-        Assert.Contains("Phase 5", trainers.Reason, StringComparison.Ordinal);
+        Assert.True(shell.NavItems.Single(n => n.Key == NavKey.Trainers).IsEnabled);
+        var encounters = shell.NavItems.Single(n => n.Key == NavKey.Encounters);
+        Assert.True(encounters.IsLocked);
+        Assert.Contains("Phase 6", encounters.Reason, StringComparison.Ordinal);
 
         var page = Assert.IsType<PokemonPageViewModel>(shell.CurrentPage);
         Assert.Equal(5, page.Items.Count);

@@ -1,0 +1,185 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:m="using:PokeStudio.Core.Models"
+             xmlns:t="using:PokeStudio.Core.Trainers"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.TrainerEditorView"
+             x:DataType="vm:TrainerEditorViewModel">
+  <UserControl.Resources>
+    <DataTemplate x:Key="EntryTemplate" x:DataType="m:CatalogEntry">
+      <TextBlock Text="{Binding Name}" />
+    </DataTemplate>
+  </UserControl.Resources>
+  <StackPanel Spacing="16" MaxWidth="1040" HorizontalAlignment="Stretch">
+    <StackPanel Spacing="2">
+      <TextBlock Text="{Binding Title}" Classes="title" FontSize="30" />
+      <TextBlock Text="{Binding Subtitle}" Classes="mono muted" />
+    </StackPanel>
+
+    <Border Classes="callout warning" IsVisible="{Binding IsLocked}">
+      <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Lock}" /><TextBlock Text="{Binding LockedReason}" TextWrapping="Wrap" /></StackPanel>
+    </Border>
+
+    <!-- Details -->
+    <Border Classes="card" IsEnabled="{Binding IsEditable}">
+      <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="20" RowSpacing="16">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Name" FontWeight="Bold" />
+          <TextBox Text="{Binding NameDraft}" AutomationProperties.Name="Trainer name" />
+          <TextBlock Text="{Binding NameError}" Classes="caption" Foreground="{DynamicResource PL.ErrorTextBrush}" TextWrapping="Wrap"
+                     IsVisible="{Binding NameError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Spacing="6">
+          <TextBlock Text="Class" FontWeight="Bold" />
+          <ComboBox ItemsSource="{Binding ClassOptions}" SelectedItem="{Binding TrainerClass}" ItemTemplate="{StaticResource EntryTemplate}" HorizontalAlignment="Stretch" MaxDropDownHeight="360" AutomationProperties.Name="Trainer class" />
+        </StackPanel>
+        <StackPanel Grid.Column="2" Spacing="6">
+          <TextBlock Text="Picture" FontWeight="Bold" />
+          <ComboBox ItemsSource="{Binding PicOptions}" SelectedItem="{Binding Pic}" ItemTemplate="{StaticResource EntryTemplate}" HorizontalAlignment="Stretch" MaxDropDownHeight="360" AutomationProperties.Name="Trainer picture" />
+        </StackPanel>
+        <StackPanel Grid.Row="1" Spacing="6">
+          <TextBlock Text="Gender" FontWeight="Bold" />
+          <ComboBox ItemsSource="{Binding GenderOptions}" SelectedItem="{Binding Gender}" HorizontalAlignment="Stretch" AutomationProperties.Name="Trainer gender">
+            <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:GenderChoice"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+          </ComboBox>
+        </StackPanel>
+        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6">
+          <TextBlock Text="Battle music" FontWeight="Bold" />
+          <ComboBox ItemsSource="{Binding MusicOptions}" SelectedItem="{Binding Music}" ItemTemplate="{StaticResource EntryTemplate}" HorizontalAlignment="Stretch" AutomationProperties.Name="Battle music" />
+        </StackPanel>
+        <StackPanel Grid.Row="1" Grid.Column="2" Spacing="6">
+          <TextBlock Text="Battle" FontWeight="Bold" />
+          <ToggleSwitch IsChecked="{Binding IsDouble}" OnContent="Double battle" OffContent="Single battle" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Items + AI -->
+    <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+      <Border Classes="card" IsEnabled="{Binding IsEditable}">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Items they use in battle" Classes="heading" />
+          <ItemsControl ItemsSource="{Binding Items}">
+            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:MoveChipViewModel">
+                <Border Classes="chip" Margin="0,0,6,6">
+                  <StackPanel Orientation="Horizontal" Spacing="4">
+                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="13" />
+                    <Button Classes="ghost icon sm" Width="22" Height="22" MinHeight="22" Command="{Binding RemoveCommand}" AutomationProperties.Name="Remove"><c:Icon Data="{StaticResource Icon.Close}" Size="12" /></Button>
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsEnabled="{Binding CanAddItem}">
+            <AutoCompleteBox ItemsSource="{Binding ItemOptions}" SelectedItem="{Binding NewItem}" FilterMode="Contains" MinimumPrefixLength="0"
+                             ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" Watermark="Add an item (up to 4)" AutomationProperties.Name="Add an item" />
+            <Button Grid.Column="1" Classes="quiet" Content="Add" Command="{Binding AddItemCommand}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+      <Border Grid.Column="1" Classes="card" IsEnabled="{Binding IsEditable}">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Enemy AI" Classes="heading" />
+          <ComboBox ItemsSource="{Binding PresetOptions}" SelectedItem="{Binding Preset}" HorizontalAlignment="Stretch" AutomationProperties.Name="AI preset">
+            <ComboBox.ItemTemplate><DataTemplate x:DataType="t:AiPreset"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
+          </ComboBox>
+          <TextBlock Text="{Binding PresetDescription}" Classes="small muted" TextWrapping="Wrap" />
+          <ToggleButton Classes="ghost sm" IsChecked="{Binding ShowAiFlags}" Content="Individual behaviours…" HorizontalAlignment="Left" />
+          <ItemsControl ItemsSource="{Binding AiFlags}" IsVisible="{Binding ShowAiFlags}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:AiFlagRowViewModel">
+                <CheckBox IsChecked="{Binding IsOn}" Margin="0,2" ToolTip.Tip="{Binding Description}">
+                  <StackPanel>
+                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="13" />
+                    <TextBlock Text="{Binding Description}" Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" MaxWidth="380" />
+                  </StackPanel>
+                </CheckBox>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <!-- Team -->
+    <TextBlock Text="{Binding PartyHeader}" Classes="heading" />
+    <Grid ColumnDefinitions="*" >
+      <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding IsEditable}">
+        <AutoCompleteBox ItemsSource="{Binding TrainerOptions}" SelectedItem="{Binding CopyFrom}" FilterMode="Contains" MinimumPrefixLength="1" Width="260"
+                         ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" Watermark="Copy a team from…" AutomationProperties.Name="Copy a team from" />
+        <Button Classes="quiet" Content="Copy team" Command="{Binding CopyTeamCommand}" />
+        <Button Classes="primary" Command="{Binding AddPokemonCommand}" IsEnabled="{Binding CanAddPokemon}">
+          <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Data="{StaticResource Icon.Sparkle}" Size="14" /><TextBlock Text="Add Pokémon" /></StackPanel>
+        </Button>
+      </StackPanel>
+    </Grid>
+    <ItemsControl ItemsSource="{Binding Party}" IsEnabled="{Binding IsEditable}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:TrainerMonViewModel">
+          <Border Classes="card" Margin="0,0,0,10">
+            <StackPanel Spacing="12">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding Header}" Classes="subhead" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+                  <Button Classes="ghost icon sm" Command="{Binding MoveUpCommand}" ToolTip.Tip="Move up" AutomationProperties.Name="Move up"><c:Icon Data="{StaticResource Icon.ChevronUp}" Size="14" /></Button>
+                  <Button Classes="ghost icon sm" Command="{Binding MoveDownCommand}" ToolTip.Tip="Move down" AutomationProperties.Name="Move down"><c:Icon Data="{StaticResource Icon.ChevronDown}" Size="14" /></Button>
+                  <Button Classes="ghost icon sm" Command="{Binding RemoveCommand}" ToolTip.Tip="Remove from team" AutomationProperties.Name="Remove from team"><c:Icon Data="{StaticResource Icon.Close}" Size="14" /></Button>
+                </StackPanel>
+              </Grid>
+              <Grid ColumnDefinitions="*,90,*,*" ColumnSpacing="12" RowDefinitions="Auto,Auto" RowSpacing="10">
+                <StackPanel Spacing="4">
+                  <TextBlock Text="Pokémon" Classes="caption" />
+                  <AutoCompleteBox ItemsSource="{Binding SpeciesOptions}" SelectedItem="{Binding Species}" FilterMode="Contains" MinimumPrefixLength="0"
+                                   ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" AutomationProperties.Name="Pokémon" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="4">
+                  <TextBlock Text="Level" Classes="caption" />
+                  <NumericUpDown Value="{Binding Level}" Minimum="1" Maximum="100" Increment="1" FormatString="0" ShowButtonSpinner="False" AutomationProperties.Name="Level" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="4">
+                  <TextBlock Text="Holds" Classes="caption" />
+                  <AutoCompleteBox ItemsSource="{Binding HeldOptions}" SelectedItem="{Binding Held}" FilterMode="Contains" MinimumPrefixLength="0"
+                                   ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" AutomationProperties.Name="Held item" />
+                </StackPanel>
+                <StackPanel Grid.Column="3" Spacing="4">
+                  <TextBlock Text="Ability" Classes="caption" />
+                  <ComboBox ItemsSource="{Binding AbilityOptions}" SelectedItem="{Binding Ability}" ItemTemplate="{StaticResource EntryTemplate}" HorizontalAlignment="Stretch" AutomationProperties.Name="Ability" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Spacing="4">
+                  <TextBlock Text="Nickname (optional)" Classes="caption" />
+                  <TextBox Text="{Binding Nickname}" AutomationProperties.Name="Nickname" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4" VerticalAlignment="Bottom">
+                  <CheckBox IsChecked="{Binding Shiny}" Content="Shiny" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="2" Spacing="4">
+                  <TextBlock Text="Nature" Classes="caption" />
+                  <ComboBox ItemsSource="{Binding NatureOptions}" SelectedItem="{Binding Nature}" ItemTemplate="{StaticResource EntryTemplate}" HorizontalAlignment="Stretch" MaxDropDownHeight="320" AutomationProperties.Name="Nature" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="3" Spacing="4">
+                  <TextBlock Text="Strength (IVs)" Classes="caption" />
+                  <ComboBox ItemsSource="{Binding IvOptions}" SelectedItem="{Binding Ivs}" HorizontalAlignment="Stretch" AutomationProperties.Name="IVs">
+                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:IvChoice"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+              </Grid>
+              <StackPanel Spacing="4">
+                <TextBlock Text="Moves" Classes="caption" />
+                <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="10">
+                  <AutoCompleteBox ItemsSource="{Binding MoveOptions}" SelectedItem="{Binding Move1}" FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" AutomationProperties.Name="Move 1" />
+                  <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding MoveOptions}" SelectedItem="{Binding Move2}" FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" AutomationProperties.Name="Move 2" />
+                  <AutoCompleteBox Grid.Column="2" ItemsSource="{Binding MoveOptions}" SelectedItem="{Binding Move3}" FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" AutomationProperties.Name="Move 3" />
+                  <AutoCompleteBox Grid.Column="3" ItemsSource="{Binding MoveOptions}" SelectedItem="{Binding Move4}" FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{ReflectionBinding Name}" ItemTemplate="{StaticResource EntryTemplate}" AutomationProperties.Name="Move 4" />
+                </Grid>
+                <TextBlock Text="{Binding AutoMovesNote}" Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </StackPanel>
+</UserControl>

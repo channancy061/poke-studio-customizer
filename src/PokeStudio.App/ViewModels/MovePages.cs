@@ -59,11 +59,13 @@ public sealed partial class MovesPageViewModel : ViewModelBase
 
     partial void OnSearchChanged(string value) => Filter();
 
+    private bool _updatingRow;
+
     partial void OnSelectedItemChanged(MoveListItem? value)
     {
-        if (value is null)
+        if (value is null || _updatingRow)
         {
-            return;
+            return; // a refreshed row for the same move keeps its editor (and the text box being typed in)
         }
 
         _shell.SelectedMoveKey = value.Key;
@@ -119,8 +121,16 @@ public sealed partial class MovesPageViewModel : ViewModelBase
             var i = Items.IndexOf(item);
             if (i >= 0)
             {
-                Items[i] = fresh;
-                SelectedItem = fresh;
+                _updatingRow = true;
+                try
+                {
+                    Items[i] = fresh;
+                    SelectedItem = fresh;
+                }
+                finally
+                {
+                    _updatingRow = false;
+                }
             }
         }
     }

@@ -106,6 +106,9 @@ public sealed partial class ShellViewModel : ViewModelBase
     /// <summary>The move picked on the Moves page.</summary>
     public string? SelectedMoveKey { get; set; }
 
+    /// <summary>The trainer picked on the Trainers page.</summary>
+    public string? SelectedTrainerKey { get; set; }
+
     public GlobalSearchViewModel Search { get; }
 
     /// <summary>Base stats when the project was opened, for the "before" shape on the radar chart.</summary>
@@ -211,6 +214,8 @@ public sealed partial class ShellViewModel : ViewModelBase
             NavKey.Overview => new OverviewPageViewModel(this),
             NavKey.Species => new PokemonPageViewModel(this),
             NavKey.Moves when item is { IsEnabled: true } => new MovesPageViewModel(this),
+            NavKey.Trainers when item is { IsEnabled: true } => new TrainersPageViewModel(this),
+            NavKey.TrainerAi when item is { IsEnabled: true } => new EnemyAiPageViewModel(this),
             NavKey.Modernize => new ModernizePageViewModel(this),
             NavKey.Learnsets when item is { IsEnabled: true } => new LearnsetPageViewModel(this),
             NavKey.Evolutions when item is { IsEnabled: true } => new EvolutionPageViewModel(this),
@@ -250,6 +255,12 @@ public sealed partial class ShellViewModel : ViewModelBase
     {
         SelectedMoveKey = key;
         Select(NavKey.Moves);
+    }
+
+    internal void GoToTrainer(string key)
+    {
+        SelectedTrainerKey = key;
+        Select(NavKey.Trainers);
     }
 
     /// <summary>Top bar "Build": opens Build &amp; test and starts a build when the tools are ready.</summary>
@@ -482,6 +493,12 @@ public sealed partial class ShellViewModel : ViewModelBase
         if (issue.Area == "Move" && key is not null)
         {
             GoToMove(key);
+            return;
+        }
+
+        if (issue.Area == "Trainer" && key is not null)
+        {
+            GoToTrainer(key);
             return;
         }
 

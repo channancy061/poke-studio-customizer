@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using PokeStudio.Core.Build;
 using PokeStudio.Core.Modernize;
 using PokeStudio.Core.Models;
@@ -27,7 +28,8 @@ public sealed class ExpansionModule : IGameModule
     public string DisplayName => "pokeemerald-expansion project";
     public GamePlatform Platform => GamePlatform.Gba;
     public ModuleCapabilities Capabilities =>
-        ModuleCapabilities.Species | ModuleCapabilities.Moves | ModuleCapabilities.Learnsets | ModuleCapabilities.Evolutions | ModuleCapabilities.Build;
+        ModuleCapabilities.Species | ModuleCapabilities.Moves | ModuleCapabilities.Learnsets | ModuleCapabilities.Evolutions | ModuleCapabilities.Build
+        | ModuleCapabilities.Trainers | ModuleCapabilities.TrainerAi;
     public bool WorksInPlace => true;
     public GameLimits Limits => _limits;
 
@@ -49,8 +51,8 @@ public sealed class ExpansionModule : IGameModule
         new(ModuleCapabilities.Evolutions, SupportLevel.Supported),
         new(ModuleCapabilities.Build, SupportLevel.Supported),
         new(ModuleCapabilities.Moves, SupportLevel.Supported),
-        new(ModuleCapabilities.Trainers, SupportLevel.NotYet, "Trainer editing arrives in Phase 5."),
-        new(ModuleCapabilities.TrainerAi, SupportLevel.NotYet, "Enemy AI presets arrive in Phase 5."),
+        new(ModuleCapabilities.Trainers, SupportLevel.Supported),
+        new(ModuleCapabilities.TrainerAi, SupportLevel.Supported),
         new(ModuleCapabilities.Encounters, SupportLevel.NotYet, "Wild encounters arrive in Phase 6."),
         new(ModuleCapabilities.ItemsAndMarts, SupportLevel.NotYet, "Items and marts arrive in Phase 6."),
         new(ModuleCapabilities.Text, SupportLevel.NotYet, "The text editor arrives in Phase 6. Names and Pokédex entries can already be edited."),
@@ -90,7 +92,7 @@ public sealed class ExpansionModule : IGameModule
     public IReadOnlyList<string> ManagedFiles(string workingSourcePath)
     {
         var layout = new ExpansionLayout(workingSourcePath);
-        return [.. layout.SpeciesFiles(), layout.LevelUpFile, ExpansionLayout.EggMovesFile, ExpansionLayout.LearnablesJson, MovesInfo.File];
+        return [.. layout.SpeciesFiles(), layout.LevelUpFile, ExpansionLayout.EggMovesFile, ExpansionLayout.LearnablesJson, MovesInfo.File, TrainerParty.File];
     }
 
     public Task<GameData> LoadDataAsync(string workingSourcePath, string projectDataDir, CancellationToken cancellationToken = default) =>
@@ -132,6 +134,41 @@ public sealed class ExpansionModule : IGameModule
             if (state.Moves.TryGetValue(move.Key, out var before) && !ReferenceEquals(before, move) && state.MoveBlocks.TryGetValue(move.Key, out var block) && block.Active)
             {
                 Add(block.File, MovesInfo.EditsFor(state.Files[block.File], block, before, move));
+            }
+        }
+
+        if (state.TrainersText is not null)
+        {
+            // how to write each species: its name when that converts back to the right constant (directly or through an alias)
+            var speciesNames = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var s in data.Species)
+            {
+                if (TrainerParty.SpeciesConstant(s.Name) == s.Key)
+                {
+                    speciesNames.TryAdd(s.Key, s.Name);
+                }
+            }
+
+            foreach (var (alias, target) in state.SpeciesAliases)
+            {
+                if (data.Species.FirstOrDefault(s => s.Key == target) is { } s && TrainerParty.SpeciesConstant(s.Name) == alias)
+                {
+                    speciesNames.TryAdd(target, s.Name);
+                }
+            }
+
+            var trainerEdits = new List<TextEdit>();
+            foreach (var t in data.Trainers.Where(t => t.LockedReason is null))
+            {
+                if (state.Trainers.TryGetValue(t.Key, out var before) && !ReferenceEquals(before, t) && state.TrainerBlocks.TryGetValue(t.Key, out var tb))
+                {
+                    trainerEdits.AddRange(TrainerParty.EditsFor(state.TrainersText, tb, before, t, data.Catalog, speciesNames));
+                }
+            }
+
+            if (trainerEdits.Count > 0)
+            {
+                await context.Writer.WriteAllTextAsync(state.Layout.Full(TrainerParty.File), TextEdits.Apply(state.TrainersText, trainerEdits), cancellationToken);
             }
         }
 
@@ -316,6 +353,8 @@ public sealed class ExpansionModule : IGameModule
             SpeciesNameLength = layout.NameLength("POKEMON_NAME_LENGTH", 12),
             CategoryNameLength = 12,
             MoveNameLength = layout.NameLength("MOVE_NAME_LENGTH", 16),
+            TrainerNameLength = layout.NameLength("TRAINER_NAME_LENGTH", 10),
+            MaxPartySize = layout.NameLength("PARTY_SIZE", 6),
             MaxMovePower = 511, // u16 power:9
             MinMovePriority = -8, // s32 priority:4
             MaxMovePriority = 7,
@@ -472,6 +511,31 @@ public sealed class ExpansionModule : IGameModule
             }
         }
 
+        if (File.Exists(layout.Full(TrainerParty.File)))
+        {
+            state.TrainersText = File.ReadAllText(layout.Full(TrainerParty.File));
+            // the game resolves aliases such as SPECIES_CASTFORM = SPECIES_CASTFORM_NORMAL; so do we
+            var speciesAliases = Catalogs.Aliases(File.Exists(layout.Full("include/constants/species.h")) ? File.ReadAllText(layout.Full("include/constants/species.h")) : "", "SPECIES_");
+            var moveAliases = Catalogs.Aliases(File.Exists(layout.Full("include/constants/moves.h")) ? File.ReadAllText(layout.Full("include/constants/moves.h")) : "", "MOVE_");
+            state.SpeciesAliases = speciesAliases;
+            foreach (var (block, parsed) in TrainerParty.Parse(state.TrainersText, TrainerParty.SpeciesConstant))
+            {
+                var trainer = parsed with
+                {
+                    Party = parsed.Party.Select(p => p with
+                    {
+                        Species = speciesAliases.GetValueOrDefault(p.Species, p.Species),
+                        Moves = p.Moves.Select(m => moveAliases.GetValueOrDefault(m, m)).ToList(),
+                    }).ToList(),
+                };
+                if (state.TrainerBlocks.TryAdd(block.Key, block))
+                {
+                    state.Trainers[block.Key] = trainer;
+                    data.Trainers.Add(trainer);
+                }
+            }
+        }
+
         FillCatalog(layout, data.Catalog);
         return (data, state);
     }
@@ -491,6 +555,24 @@ public sealed class ExpansionModule : IGameModule
         if (Read("include/constants/battle_move_effects.h") is { } effects)
         {
             c.MoveEffects.AddRange(Catalogs.EnumMembers(effects, "EFFECT_").Select(k => new CatalogEntry(k, GameCatalog.Prettify(k))));
+        }
+
+        if (Read("include/constants/trainers.h") is { } trainers)
+        {
+            c.TrainerClasses.AddRange(Catalogs.EnumMembers(trainers, "TRAINER_CLASS_").Select(k => new CatalogEntry(k, GameCatalog.Prettify(k))));
+            c.TrainerPics.AddRange(Catalogs.EnumMembers(trainers, "TRAINER_PIC_").Where(k => !k.StartsWith("TRAINER_PIC_BACK", StringComparison.Ordinal))
+                .Select(k => new CatalogEntry(k, GameCatalog.Prettify(k))));
+            c.TrainerMusic.AddRange(Catalogs.DefineMembers(trainers, "TRAINER_ENCOUNTER_MUSIC_").Select(d => new CatalogEntry(d.Key, GameCatalog.Prettify(d.Key), d.Comment)));
+        }
+
+        c.Natures.AddRange(Catalogs.DefineMembers(pokemonConstants ?? "", "NATURE_").Where(d => d.Key != "NATURE_COUNT" && d.Key != "NATURE_RANDOM")
+            .Select(d => new CatalogEntry(d.Key, GameCatalog.Prettify(d.Key), d.Comment)));
+        if (Read("include/constants/battle_ai.h") is { } ai)
+        {
+            c.AiFlags.AddRange(Catalogs.DefineMembers(ai, "AI_FLAG_")
+                .Where(d => d.Key is not ("AI_FLAG_COUNT" or "AI_FLAG_DYNAMIC_FUNC" or "AI_FLAG_ROAMING" or "AI_FLAG_SAFARI" or "AI_FLAG_FIRST_BATTLE") && !d.Value.StartsWith("(1", StringComparison.Ordinal))
+                .Select(d => new CatalogEntry(d.Key, GameCatalog.Prettify(d.Key),
+                    d.Value.Contains('|', StringComparison.Ordinal) ? "Preset: " + string.Join(" + ", Regex.Matches(d.Value, @"AI_FLAG_\w+").Select(m => GameCatalog.Prettify(m.Value))) : d.Comment)));
         }
 
         var battle = Read("include/constants/battle.h");
@@ -530,5 +612,9 @@ public sealed class ExpansionModule : IGameModule
         public Dictionary<string, ArrayBlock> LevelUpArrays { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, ArrayBlock> EggArrays { get; } = new(StringComparer.Ordinal);
         public LearnablesFile? Learnables { get; set; }
+        public string? TrainersText { get; set; }
+        public Dictionary<string, string> SpeciesAliases { get; set; } = new(StringComparer.Ordinal);
+        public Dictionary<string, TrainerBlock> TrainerBlocks { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, Trainer> Trainers { get; } = new(StringComparer.Ordinal);
     }
 }

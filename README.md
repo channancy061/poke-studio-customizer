@@ -7,7 +7,7 @@
 A friendly desktop editor (Windows + Linux) for customising games you legally own.
 It ships **no game files or assets**, never modifies your originals, and uses only open-source components (MIT-licensed).
 
-## Status: Phase 4 (Moves & Modernize)
+## Status: Phase 5 (Trainers & Enemy AI)
 - **Phase 1:** solution skeleton, plugin system, projects, undo/redo + change log, backups/restore, settings,
   Avalonia shell with light/dark theming, CI on Windows + Linux, Windows installer and Linux AppImage.
 - **Phase 2:** edit a **pokeemerald-expansion 1.17.1** project (Emerald-based, Gen 1–9 Pokémon):
@@ -44,6 +44,21 @@ It ships **no game files or assets**, never modifies your originals, and uses on
   - **Global search** (Ctrl+K or the search bar): jump to any Pokémon, move or tool.
   - **Drag and drop**: drop a game file or project folder on the hub to open it; drag level-up
     moves by their handle to reorder them.
+- **Phase 5:**
+  - **Trainer editor** (pokeemerald-expansion `src/data/trainers.party`): name, class, picture,
+    gender, music, single/double battle, battle items, and the team: Pokémon, level, held item,
+    ability, nature, IVs, nickname, shiny, four moves (or "learned automatically").
+    Only changed trainers are rewritten, and within them only changed lines and Pokémon; comments stay.
+    Names are written the way the project's trainerproc tool expects ("Aroma Lady", "Skill Swap"),
+    falling back to constants when a name wouldn't convert back (forms, aliases).
+  - **Change levels**: + N levels or a percentage, for one trainer, the filtered list or everyone,
+    as one undo step. **Copy team** from another trainer.
+  - **Enemy AI**: presets (Random, Beginner, Basic, Smart, Expert) built from the project's own
+    AI_FLAG_* names, per trainer or for groups (every trainer / bosses / everyone else); individual
+    behaviours with the descriptions from `battle_ai.h`.
+  - Checks before saving: team size, levels, unknown Pokémon/moves/items, Pokémon switched off in
+    settings, double battle with one Pokémon, EV limits; warnings for unusual abilities and moves
+    a Pokémon can't normally learn. Trainers that pick from a random pool are shown locked.
 - The **Demo** module still edits an invented sample (`samples/Demo Valley.demogame.json`).
 
 ## Layout
@@ -111,6 +126,9 @@ CI builds the AppImage on every `v*` tag (`release.yml`), so you can also downlo
 15. Moves › Thunderbolt › Power 85 → save → only that line changes in `src/data/moves_info.h`.
 16. Modernize › Gen 3 › Show what would change → untick one → Apply → one entry in Changes; Ctrl+Z undoes all.
 17. Ctrl+K, type "char", Enter → that Pokémon opens. Drag a project folder onto the hub → it opens.
+18. Trainers › Hiker Sawyer › level 25 → save → only that line changes in `src/data/trainers.party`.
+19. Trainers › Change levels… › Percent 120 › Every trainer › Apply → one entry in Changes.
+20. Enemy AI › Expert › Gym Leaders… › Apply → bosses use the new AI; Ctrl+Z undoes it.
 
 ## Where data lives
 | | Windows | Linux |

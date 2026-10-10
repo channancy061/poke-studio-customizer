@@ -375,6 +375,23 @@ public class ExpansionTests
         var plan = Modernize.Modernizer.Plan(data, (await module.LoadModernizeReferenceAsync(data, 3))!, moves: true, species: true);
         Assert.True(plan.Count(r => r.ChangesMoves) > 300, $"only {plan.Count(r => r.ChangesMoves)} level-up lists differ from Gen 3");
         Assert.Contains(plan, r => r.ChangesSpecies);
+
+        // Trainers: all read, every team member's species known; one level edit changes one line.
+        Assert.True(data.Trainers.Count > 800, $"only {data.Trainers.Count} trainers read");
+        var speciesKeys = data.Species.Select(s => s.Key).ToHashSet(StringComparer.Ordinal);
+        var unknown = data.Trainers.SelectMany(t => t.Party).Select(p => p.Species).Where(s => !speciesKeys.Contains(s)).Distinct().ToList();
+        Assert.True(unknown.Count == 0, "unknown species: " + string.Join(", ", unknown.Take(10)));
+        var moveKeys = data.Moves.Select(m => m.Key).ToHashSet(StringComparer.Ordinal);
+        var unknownMoves = data.Trainers.SelectMany(t => t.Party).SelectMany(p => p.Moves).Where(m => !moveKeys.Contains(m)).Distinct().ToList();
+        Assert.True(unknownMoves.Count == 0, "unknown moves: " + string.Join(", ", unknownMoves.Take(10)));
+        Assert.True(data.Catalog.AiFlags.Count > 20);
+        var partyText = Read(root, "src/data/trainers.party");
+        var ti = data.Trainers.FindIndex(t => t.Key == "TRAINER_SAWYER_1");
+        var sawyer = data.Trainers[ti];
+        data.Trainers[ti] = sawyer with { Party = [sawyer.Party[0] with { Level = 25 }, .. sawyer.Party.Skip(1)] };
+        await module.SaveDataAsync(data, ctx);
+        var partyChanged = partyText.Split('\n').Zip(Read(root, "src/data/trainers.party").Split('\n')).Where(p => p.First != p.Second).ToList();
+        Assert.Equal("Level: 25", Assert.Single(partyChanged).Second.Trim());
     }
 }
 

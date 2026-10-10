@@ -232,6 +232,35 @@ internal static partial class Catalogs
         return list;
     }
 
+    /// <summary>Enum aliases such as "SPECIES_CASTFORM = SPECIES_CASTFORM_NORMAL," (alias → target).</summary>
+    public static Dictionary<string, string> Aliases(string text, string prefix)
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (Match m in Regex.Matches(text, $@"^\s*({Regex.Escape(prefix)}[A-Z0-9_]+)\s*=\s*({Regex.Escape(prefix)}[A-Z0-9_]+)\s*,", RegexOptions.Multiline))
+        {
+            map.TryAdd(m.Groups[1].Value, m.Groups[2].Value);
+        }
+
+        return map;
+    }
+
+    /// <summary>"#define PREFIX_NAME value // comment" lines, in order (value and comment trimmed).</summary>
+    public static List<(string Key, string Value, string? Comment)> DefineMembers(string text, string prefix)
+    {
+        var list = new List<(string, string, string?)>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (Match m in Regex.Matches(text, $@"^\s*#define\s+({Regex.Escape(prefix)}[A-Z0-9_]+)\s+([^\r\n]*?)\s*(?://\s*([^\r\n]*))?\r?$", RegexOptions.Multiline))
+        {
+            var key = m.Groups[1].Value;
+            if (seen.Add(key))
+            {
+                list.Add((key, m.Groups[2].Value.Trim(), m.Groups[3].Success && m.Groups[3].Value.Trim().Length > 0 ? m.Groups[3].Value.Trim() : null));
+            }
+        }
+
+        return list;
+    }
+
     /// <summary>Display names from a data file, e.g. [MOVE_TACKLE] = { .name = COMPOUND_STRING("Tackle"), … }.</summary>
     public static Dictionary<string, string> DisplayNames(string? text, string prefix)
     {

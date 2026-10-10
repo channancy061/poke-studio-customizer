@@ -91,6 +91,25 @@ public sealed partial class GlobalSearchViewModel(ShellViewModel shell) : ViewMo
                 }
             }
 
+            if (shell.NavItems.Any(n => n.Key == NavKey.Trainers && n.IsEnabled))
+            {
+                foreach (var t in data.Trainers.Where(t => t.Name.Length > 0))
+                {
+                    var title = $"{c.NameOf(t.TrainerClass)} {t.Name}";
+                    var r = Rank(t.Name, q);
+                    if (r < 0 && Rank(title, q) >= 0)
+                    {
+                        r = 1; // matched "Hiker Rick" but not "Rick"
+                    }
+
+                    if (r >= 0)
+                    {
+                        var key = t.Key;
+                        found.Add((r + 1, new SearchResult("Trainer", title, $"{t.Party.Count} Pokémon · {t.Key}", () => shell.GoToTrainer(key))));
+                    }
+                }
+            }
+
             if (shell.NavItems.Any(n => n.Key == NavKey.Moves && n.IsEnabled))
             {
                 foreach (var m in data.Moves)

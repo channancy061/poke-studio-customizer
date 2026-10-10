@@ -30,3 +30,9 @@ enum GrowthRate
 #define MON_MALE       0x00
 #define MON_FEMALE     0xFE
 #define MON_GENDERLESS 0xFF
+
+#define NATURE_HARDY    0 // Neutral
+#define NATURE_ADAMANT  3 // +Atk -SpAtk
+#define NATURE_MODEST  15 // +SpAtk -Atk
+#define NATURE_TIMID   10 // +Speed -Atk
+#define NATURE_COUNT   25

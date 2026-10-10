@@ -174,52 +174,74 @@ public sealed record EvolutionSet
     public string? LockedReason { get; init; }
 }
 
-[Flags]
-public enum AiBehavior
-{
-    None = 0,
-    PrefersStrongMoves = 1 << 0,
-    AvoidsUselessMoves = 1 << 1,
-    SwitchesBadMatchups = 1 << 2,
-    HealsWhenLow = 1 << 3,
-    SetsUpBoosts = 1 << 4,
-    PlaysAroundStatus = 1 << 5,
-    PredictsSwitches = 1 << 6,
-}
-
-public enum AiPreset
-{
-    Beginner, SmartSwitcher, GymLeader, Champion, Custom,
-}
-
-public sealed record AiProfile(AiPreset Preset, AiBehavior Behaviors);
-
 public enum BattleType
 {
     Single, Double, Triple, Rotation,
 }
 
+/// <summary>One Pokémon on a trainer's team. Keys are game constants (SPECIES_…, MOVE_…, ITEM_…); null = the game's default.</summary>
 public sealed record TrainerPokemon
 {
     public required string Species { get; init; }
-    public required int Level { get; init; }
+    public string? Nickname { get; init; }
+
+    /// <summary>"M", "F" or null (random by the species' ratio).</summary>
+    public string? Gender { get; init; }
+
+    public int Level { get; init; } = 100;
+
+    /// <summary>Empty = the last four moves it learns by level-up at its level.</summary>
     public IReadOnlyList<string> Moves { get; init; } = [];
+
     public string? HeldItem { get; init; }
     public string? Ability { get; init; }
     public string? Nature { get; init; }
     public BaseStats? Evs { get; init; }
     public BaseStats? Ivs { get; init; }
+    public string? Ball { get; init; }
+    public int? Happiness { get; init; }
+    public bool Shiny { get; init; }
+    public string? TeraType { get; init; }
+    public int? DynamaxLevel { get; init; }
+    public bool Gigantamax { get; init; }
+
+    /// <summary>Lines the app doesn't edit, kept as they are ("Key", "Value").</summary>
+    public IReadOnlyList<KeyValuePair<string, string>> Extra { get; init; } = [];
+
+    public bool Equivalent(TrainerPokemon other) =>
+        Species == other.Species && Nickname == other.Nickname && Gender == other.Gender && Level == other.Level
+        && Moves.SequenceEqual(other.Moves) && HeldItem == other.HeldItem && Ability == other.Ability && Nature == other.Nature
+        && Evs == other.Evs && Ivs == other.Ivs && Ball == other.Ball && Happiness == other.Happiness && Shiny == other.Shiny
+        && TeraType == other.TeraType && DynamaxLevel == other.DynamaxLevel && Gigantamax == other.Gigantamax
+        && Extra.SequenceEqual(other.Extra);
 }
 
 public sealed record Trainer
 {
     public required int Id { get; init; }
+
+    /// <summary>Code name, e.g. "TRAINER_ROXANNE_1" (plus "@Hard" for difficulty variants).</summary>
+    public string Key { get; init; } = "";
+
     public required string Name { get; init; }
     public string TrainerClass { get; init; } = "";
-    public int PrizeMoney { get; init; }
+    public string Pic { get; init; } = "";
+
+    /// <summary>"Male", "Female" or "" (not set).</summary>
+    public string Gender { get; init; } = "";
+
+    public string Music { get; init; } = "";
+    public IReadOnlyList<string> Items { get; init; } = [];
     public BattleType Battle { get; init; } = BattleType.Single;
+
+    /// <summary>Enemy AI flags, e.g. AI_FLAG_BASIC_TRAINER.</summary>
+    public IReadOnlyList<string> AiFlags { get; init; } = [];
+
     public IReadOnlyList<TrainerPokemon> Party { get; init; } = [];
-    public AiProfile Ai { get; init; } = new(AiPreset.Beginner, AiBehavior.AvoidsUselessMoves);
+    public int PrizeMoney { get; init; }
+
+    /// <summary>Why this trainer can't be edited here, or null.</summary>
+    public string? LockedReason { get; init; }
 }
 
 public enum SpriteKind

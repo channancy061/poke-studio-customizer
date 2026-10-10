@@ -1,0 +1,75 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:m="using:PokeStudio.Core.Models"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.TrainersPageView"
+             x:DataType="vm:TrainersPageViewModel">
+  <Grid ColumnDefinitions="290,*">
+    <Border Classes="panel" BorderThickness="0,0,1,0">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Margin="14,14,14,8" Spacing="8">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="Trainers" Classes="heading" />
+            <TextBlock Grid.Column="1" Text="{Binding CountText}" Classes="caption muted" VerticalAlignment="Center" />
+          </Grid>
+          <TextBox Text="{Binding Search}" Watermark="Search trainers or their Pokémon" AutomationProperties.Name="Search trainers">
+            <TextBox.InnerLeftContent>
+              <c:Icon Data="{StaticResource Icon.Search}" Margin="10,0,0,0" Foreground="{DynamicResource PL.Text3Brush}" />
+            </TextBox.InnerLeftContent>
+          </TextBox>
+          <ComboBox ItemsSource="{Binding ClassFilters}" SelectedItem="{Binding ClassFilter}" HorizontalAlignment="Stretch" AutomationProperties.Name="Filter by class">
+            <ComboBox.ItemTemplate><DataTemplate x:DataType="m:CatalogEntry"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
+          </ComboBox>
+          <Button Classes="quiet sm" HorizontalAlignment="Stretch" Command="{Binding ToggleLevelToolCommand}" ToolTip.Tip="Make trainers stronger or weaker in one go">
+            <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Data="{StaticResource Icon.ChevronUp}" Size="14" /><TextBlock Text="Change levels…" /></StackPanel>
+          </Button>
+        </StackPanel>
+        <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" Background="Transparent" AutomationProperties.Name="Trainer list">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:TrainerListItem">
+              <StackPanel Opacity="{Binding Opacity}" Margin="0,2">
+                <TextBlock Text="{Binding Title}" FontWeight="Bold" />
+                <TextBlock Text="{Binding Subtitle}" Classes="caption muted" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+
+    <ScrollViewer Grid.Column="1">
+      <StackPanel Margin="28,22" Spacing="16">
+        <!-- Change levels -->
+        <Border Classes="card" BorderBrush="{DynamicResource PL.AccentBrush}" IsVisible="{Binding IsLevelToolOpen}" MaxWidth="1040" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Change levels" Classes="heading" />
+            <Grid ColumnDefinitions="*,*,160" ColumnSpacing="16">
+              <StackPanel Spacing="6">
+                <TextBlock Text="Which trainers" FontWeight="Bold" />
+                <ComboBox ItemsSource="{Binding ScopeOptions}" SelectedIndex="{Binding ScopeIndex}" HorizontalAlignment="Stretch" AutomationProperties.Name="Which trainers">
+                  <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ScopeOption"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+                </ComboBox>
+              </StackPanel>
+              <StackPanel Grid.Column="1" Spacing="6">
+                <TextBlock Text="How" FontWeight="Bold" />
+                <ComboBox ItemsSource="{Binding LevelModes}" SelectedIndex="{Binding LevelModeIndex}" HorizontalAlignment="Stretch" AutomationProperties.Name="How to change levels" />
+              </StackPanel>
+              <StackPanel Grid.Column="2" Spacing="6">
+                <TextBlock Text="By" FontWeight="Bold" />
+                <NumericUpDown Value="{Binding Amount}" Minimum="{Binding AmountMin}" Maximum="{Binding AmountMax}" Increment="1" FormatString="0" AutomationProperties.Name="Amount" />
+              </StackPanel>
+            </Grid>
+            <TextBlock Text="{Binding LevelPreview, StringFormat='Example: {0}'}" Classes="small muted" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Classes="primary" Content="Apply" Command="{Binding ApplyLevelsCommand}" />
+              <Button Classes="ghost" Content="Close" Command="{Binding ToggleLevelToolCommand}" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <ContentControl Content="{Binding Editor}" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

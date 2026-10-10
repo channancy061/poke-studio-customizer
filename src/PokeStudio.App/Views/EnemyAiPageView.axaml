@@ -1,0 +1,68 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:m="using:PokeStudio.Core.Models"
+             xmlns:t="using:PokeStudio.Core.Trainers"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.EnemyAiPageView"
+             x:DataType="vm:EnemyAiPageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="32,28" Spacing="16" MaxWidth="960" HorizontalAlignment="Left">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Enemy AI" Classes="title" />
+        <TextBlock Text="How cleverly trainers battle. Pick a setup and give it to many trainers at once; fine-tune single trainers on the Trainers page."
+                   Classes="muted" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <Border Classes="card">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Right now" Classes="heading" />
+          <ItemsControl ItemsSource="{Binding Usage}">
+            <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" Margin="0,2" /></DataTemplate></ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Give trainers a new AI" Classes="heading" />
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+            <StackPanel Spacing="6">
+              <TextBlock Text="Setup" FontWeight="Bold" />
+              <ComboBox ItemsSource="{Binding Presets}" SelectedItem="{Binding Preset}" HorizontalAlignment="Stretch" AutomationProperties.Name="AI setup">
+                <ComboBox.ItemTemplate><DataTemplate x:DataType="t:AiPreset"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Text="{Binding PresetDescription}" Classes="small muted" TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="6">
+              <TextBlock Text="For" FontWeight="Bold" />
+              <ComboBox ItemsSource="{Binding Scopes}" SelectedItem="{Binding Scope}" PlaceholderText="Every trainer" HorizontalAlignment="Stretch" AutomationProperties.Name="Which trainers">
+                <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ScopeOption"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+              </ComboBox>
+            </StackPanel>
+          </Grid>
+          <Button Classes="primary" HorizontalAlignment="Left" Command="{Binding ApplyCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Ai}" /><TextBlock Text="Apply" /></StackPanel>
+          </Button>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="8">
+          <TextBlock Text="What each behaviour does" Classes="heading" />
+          <TextBlock Text="From your project's own battle_ai.h." Classes="caption muted" />
+          <ItemsControl ItemsSource="{Binding Flags}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="m:CatalogEntry">
+                <Grid ColumnDefinitions="220,*" Margin="0,3">
+                  <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="13" />
+                  <TextBlock Grid.Column="1" Text="{Binding Description}" Classes="small muted" TextWrapping="Wrap" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
