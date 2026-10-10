@@ -44,7 +44,7 @@ public sealed class N3dsModule : IGameModule
     [
         new(ModuleCapabilities.Species, SupportLevel.Supported),
         new(ModuleCapabilities.Moves, SupportLevel.Limited, "Descriptions can't change yet."),
-        new(ModuleCapabilities.Learnsets, SupportLevel.Limited, "Level-up moves and TM/HM lists; egg moves and tutors not yet."),
+        new(ModuleCapabilities.Learnsets, SupportLevel.Limited, "Level-up moves, TM/HM lists and egg moves; tutors not yet."),
         new(ModuleCapabilities.Evolutions, SupportLevel.Supported),
         new(ModuleCapabilities.Trainers, SupportLevel.Limited, "Teams, items and AI; single/double battle can't change yet."),
         new(ModuleCapabilities.TrainerAi, SupportLevel.Supported),
@@ -103,6 +103,7 @@ public sealed class N3dsModule : IGameModule
 
             var state = new State { Tables = tables, ProjectDataDir = projectDataDir, TitleId = rom.TitleIdHex, Read = Read };
             var data = N3dsData.Read(state);
+            N3dsEggMoves.Read(state, data);
             N3dsDialogue.Load(state, data);
             _states.AddOrUpdate(data, state);
             return data;
@@ -123,6 +124,7 @@ public sealed class N3dsModule : IGameModule
             }
 
             var changed = N3dsData.Write(state, data);
+            N3dsEggMoves.Write(state, data, changed);
             N3dsDialogue.Save(state, data, changed);
             var citra = CitraModsFolder ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Citra", "load", "mods");
             var mirror = Directory.Exists(Path.GetDirectoryName(citra)) ? Path.Combine(citra, state.TitleId, "romfs") : null;
@@ -148,13 +150,13 @@ public sealed class N3dsModule : IGameModule
                 fresh.Overrides[kv.Key] = kv.Value;
             }
 
-            N3dsData.Read(fresh);
+            N3dsEggMoves.Read(fresh, N3dsData.Read(fresh));
             N3dsDialogue.Load(fresh, new GameData()); // the edited text stays in data
             _states.AddOrUpdate(data, fresh);
         }, cancellationToken);
 
     public IReadOnlyList<ValidationIssue> Validate(GameData data) =>
-        _states.TryGetValue(data, out var s) ? [.. N3dsData.Check(s, data, Limits), .. N3dsDialogue.Check(s, data)] : [];
+        _states.TryGetValue(data, out var s) ? [.. N3dsData.Check(s, data, Limits), .. N3dsEggMoves.Check(s, data), .. N3dsDialogue.Check(s, data)] : [];
 
     private static Tables LoadTables(CtrRom rom, string projectDataDir)
     {
@@ -165,10 +167,11 @@ public sealed class N3dsModule : IGameModule
             {
                 if (JsonSerializer.Deserialize<Tables>(File.ReadAllText(file), JsonStore.Options) is { } saved && saved.TitleId == rom.TitleIdHex)
                 {
-                    if (!saved.StoryTextLocated)
+                    if (!saved.StoryTextLocated || !saved.EggMovesLocated)
                     {
-                        // a project from before dialogue support
-                        saved = Tables.WithStoryText(rom, saved);
+                        // a project from before dialogue or egg move support
+                        saved = saved.StoryTextLocated ? saved : Tables.WithStoryText(rom, saved);
+                        saved = saved.EggMovesLocated ? saved : saved with { EggMoves = N3dsEggMoves.Locate(rom), EggMovesLocated = true };
                         File.WriteAllText(file, JsonSerializer.Serialize(saved, JsonStore.Options));
                     }
 
@@ -204,6 +207,11 @@ public sealed class N3dsModule : IGameModule
         public string? StoryText { get; init; }
 
         public bool StoryTextLocated { get; init; }
+
+        /// <summary>The egg move archive (null when not found or not looked for yet).</summary>
+        public string? EggMoves { get; init; }
+
+        public bool EggMovesLocated { get; init; }
         public required int SpeciesNames { get; init; }
         public required int MoveNames { get; init; }
         public required int ItemNames { get; init; }
@@ -218,11 +226,13 @@ public sealed class N3dsModule : IGameModule
             var garcs = new Dictionary<string, Garc>(StringComparer.Ordinal);
             foreach (var path in rom.Paths.Where(p => p.StartsWith("a/", StringComparison.Ordinal)).Order(StringComparer.Ordinal))
             {
-                var bytes = rom.ReadFile(path);
-                if (bytes.Length < 4 || Encoding.ASCII.GetString(bytes, 0, 4) != "CRAG")
+                var head = rom.Peek(path, 4);
+                if (head.Length < 4 || Encoding.ASCII.GetString(head, 0, 4) != "CRAG")
                 {
                     continue;
                 }
+
+                var bytes = rom.ReadFile(path);
 
                 Garc g;
                 try
@@ -318,6 +328,8 @@ public sealed class N3dsModule : IGameModule
                     Text = path,
                     StoryText = FindStoryText(garcs, path),
                     StoryTextLocated = true,
+                    EggMoves = N3dsEggMoves.Locate(garcs),
+                    EggMovesLocated = true,
                     SpeciesNames = Find("Bulbasaur", 721),
                     MoveNames = moveNames,
                     ItemNames = Find("Master Ball", 600),
@@ -373,15 +385,15 @@ public sealed class N3dsModule : IGameModule
             var garcs = new Dictionary<string, Garc>(StringComparer.Ordinal);
             foreach (var path in rom.Paths.Where(p => p.StartsWith("a/", StringComparison.Ordinal)))
             {
-                var bytes = rom.ReadFile(path);
-                if (bytes.Length < 4 || Encoding.ASCII.GetString(bytes, 0, 4) != "CRAG")
+                var head = rom.Peek(path, 4);
+                if (head.Length < 4 || Encoding.ASCII.GetString(head, 0, 4) != "CRAG")
                 {
                     continue;
                 }
 
                 try
                 {
-                    garcs[path] = new Garc(bytes);
+                    garcs[path] = new Garc(rom.ReadFile(path));
                 }
                 catch (ArgumentOutOfRangeException)
                 {
@@ -434,6 +446,8 @@ public sealed class N3dsModule : IGameModule
         public byte[] File(string path) => Overrides.TryGetValue(path, out var b) ? b : Read(path);
 
         public Dictionary<string, TextEntry> Texts { get; } = new(StringComparer.Ordinal);
+
+        public int MostEggMoves { get; set; }
 
         public Dictionary<string, int> SpeciesIndex { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, int> MoveIndex { get; } = new(StringComparer.Ordinal);

@@ -63,6 +63,13 @@ internal sealed class CtrRom : IDisposable
         return Read(offset, (int)size);
     }
 
+    /// <summary>The first bytes of a file (to check what it is without reading all of it).</summary>
+    public byte[] Peek(string path, int count)
+    {
+        var (offset, size) = _files.TryGetValue(path, out var f) ? f : throw new FileNotFoundException($"The game has no file {path}.");
+        return Read(offset, (int)Math.Min(size, count));
+    }
+
     /// <summary>The program code (ExeFS ".code"), decompressed when stored compressed.</summary>
     public byte[] ReadCode()
     {

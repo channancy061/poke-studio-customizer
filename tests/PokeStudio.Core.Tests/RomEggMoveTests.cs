@@ -1,6 +1,7 @@
 using PokeStudio.Core.Modules;
 using PokeStudio.Core.Safety;
 using PokeStudio.Modules.Gen3Rom;
+using PokeStudio.Modules.N3ds;
 using PokeStudio.Modules.Nds;
 
 namespace PokeStudio.Core.Tests;
@@ -70,4 +71,28 @@ public class RomEggMoveTests
     [Fact]
     public Task Real_black_egg_moves_edit_when_available() =>
         EditEggMoves(new NdsModule(), Environment.GetEnvironmentVariable("POKESTUDIO_BLACK_ROM"), "black.nds");
+
+    [Fact]
+    public async Task Real_omega_ruby_egg_moves_edit_when_available()
+    {
+        var real = Environment.GetEnvironmentVariable("POKESTUDIO_OMEGARUBY_ROM");
+        if (string.IsNullOrEmpty(real) || !File.Exists(real))
+        {
+            return;
+        }
+
+        using var tmp = new TempDir();
+        var module = new N3dsModule { CitraModsFolder = tmp.Combine("citra") };
+        var data = await module.LoadDataAsync(real, tmp.Combine("data"));
+        var bulba = data.Learnsets.Single(l => l.Key == "SPECIES_BULBASAUR");
+        Assert.Contains("MOVE_SKULL_BASH", bulba.EggMoves);
+        var bi = data.Learnsets.IndexOf(bulba);
+        var edited = bulba.EggMoves.Take(3).Append("MOVE_POUND").ToList();
+        data.Learnsets[bi] = bulba with { EggMoves = edited };
+        Assert.Empty(module.Validate(data));
+        await module.SaveDataAsync(data, new ModuleSaveContext(new SafeFileWriter(tmp.Path), tmp.Combine("data"), real));
+        var reloaded = await module.LoadDataAsync(real, tmp.Combine("data"));
+        Assert.Equal(edited, reloaded.Learnsets.Single(l => l.Key == "SPECIES_BULBASAUR").EggMoves);
+        Assert.Equal(data.Learnsets.Single(l => l.Key == "SPECIES_SQUIRTLE").EggMoves, reloaded.Learnsets.Single(l => l.Key == "SPECIES_SQUIRTLE").EggMoves);
+    }
 }
