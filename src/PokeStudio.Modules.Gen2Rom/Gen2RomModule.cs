@@ -55,7 +55,7 @@ public sealed class Gen2RomModule : IGameModule
     [
         new(ModuleCapabilities.Species, SupportLevel.Limited, "No abilities or natures in these games."),
         new(ModuleCapabilities.Moves, SupportLevel.Limited, "A move's type decides physical or special; priority comes from its effect."),
-        new(ModuleCapabilities.Learnsets, SupportLevel.Limited, "Level-up moves and TM/HM lists; egg moves not yet."),
+        new(ModuleCapabilities.Learnsets, SupportLevel.Limited, "Level-up moves, TM/HM lists and egg moves."),
         new(ModuleCapabilities.Evolutions, SupportLevel.Supported),
         new(ModuleCapabilities.Trainers, SupportLevel.Supported),
         new(ModuleCapabilities.Encounters, SupportLevel.Limited, "Areas are numbered; the number of slots is fixed."),
@@ -98,6 +98,7 @@ public sealed class Gen2RomModule : IGameModule
             var rom = new GbRom(File.ReadAllBytes(workingSourcePath));
             var tables = LoadTables(rom, projectDataDir);
             var (data, state) = Read(rom, tables);
+            Gen2EggMoves.Read(state, data);
             Gen2Dialogue.Load(state, data);
             _states.AddOrUpdate(data, state);
             return data;
@@ -117,10 +118,12 @@ public sealed class Gen2RomModule : IGameModule
         }
 
         Write(state, data);
+        Gen2EggMoves.Write(state, data);
         Gen2Dialogue.Save(state, data);
         state.Rom.FixChecksum();
         await context.Writer.WriteAllBytesAsync(context.WorkingSourceDir, state.Rom.Bytes, cancellationToken);
-        var (_, fresh) = Read(state.Rom, state.Tables);
+        var (freshData, fresh) = Read(state.Rom, state.Tables);
+        Gen2EggMoves.Read(fresh, freshData);
         Gen2Dialogue.Load(fresh, new GameData()); // the edited text stays in data
         _states.AddOrUpdate(data, fresh);
     }
@@ -134,6 +137,13 @@ public sealed class Gen2RomModule : IGameModule
             {
                 if (JsonSerializer.Deserialize<Gen2Tables>(File.ReadAllText(file), JsonStore.Options) is { } saved)
                 {
+                    if (!saved.EggMovesLocated)
+                    {
+                        // a project from before egg move support
+                        saved = saved with { EggMoves = Gen2EggMoves.Locate(rom), EggMovesLocated = true };
+                        File.WriteAllText(file, JsonSerializer.Serialize(saved, JsonStore.Options));
+                    }
+
                     return saved;
                 }
             }
@@ -144,6 +154,7 @@ public sealed class Gen2RomModule : IGameModule
         }
 
         var tables = Gen2Tables.Locate(rom, out var problem) ?? throw new InvalidDataException(problem);
+        tables = tables with { EggMoves = Gen2EggMoves.Locate(rom), EggMovesLocated = true };
         Directory.CreateDirectory(projectDataDir);
         File.WriteAllText(file, JsonSerializer.Serialize(tables, JsonStore.Options));
         return tables;
@@ -570,6 +581,7 @@ public sealed class Gen2RomModule : IGameModule
             }
 
             issues.AddRange(Gen2Dialogue.Check(s, data));
+            issues.AddRange(Gen2EggMoves.Check(s, data));
         }
 
         foreach (var t in data.Trainers.Where(t => t.LockedReason is null && (t.Party.Count is 0 or > 6 || t.HasAdaptiveSlot || t.Name.Length > 10)))

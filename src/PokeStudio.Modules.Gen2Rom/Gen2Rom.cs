@@ -190,6 +190,11 @@ internal sealed record Gen2Tables
     public required int ClassNames { get; init; }
     public required int Wild { get; init; }
 
+    /// <summary>The egg move pointer table (-1 = not found).</summary>
+    public int EggMoves { get; init; } = -1;
+
+    public bool EggMovesLocated { get; init; }
+
     public static Gen2Tables? Locate(GbRom rom, out string? problem)
     {
         problem = null;

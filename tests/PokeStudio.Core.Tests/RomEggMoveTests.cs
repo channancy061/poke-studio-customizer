@@ -1,5 +1,6 @@
 using PokeStudio.Core.Modules;
 using PokeStudio.Core.Safety;
+using PokeStudio.Modules.Gen2Rom;
 using PokeStudio.Modules.Gen3Rom;
 using PokeStudio.Modules.N3ds;
 using PokeStudio.Modules.Nds;
@@ -36,7 +37,7 @@ public class RomEggMoveTests
         data.Learnsets[ci] = data.Learnsets[ci] with { EggMoves = [] };
         Assert.DoesNotContain(module.Validate(data), v => v.Severity == Validation.IssueSeverity.Error);
 
-        var tooMany = data.Learnsets[bi] with { EggMoves = [.. data.Moves.Select(m => m.Key).Where(k => k != "MOVE_NONE").Take(20)] };
+        var tooMany = data.Learnsets[bi] with { EggMoves = [.. data.Moves.Select(m => m.Key).Where(k => k != "MOVE_NONE").Take(40)] };
         data.Learnsets[bi] = tooMany;
         Assert.Contains(module.Validate(data), v => v.Area == "Learnsets" && v.Message.Contains("egg moves", StringComparison.Ordinal));
         data.Learnsets[bi] = bulba with { EggMoves = [.. bulba.EggMoves, .. extra] };
@@ -95,4 +96,8 @@ public class RomEggMoveTests
         Assert.Equal(edited, reloaded.Learnsets.Single(l => l.Key == "SPECIES_BULBASAUR").EggMoves);
         Assert.Equal(data.Learnsets.Single(l => l.Key == "SPECIES_SQUIRTLE").EggMoves, reloaded.Learnsets.Single(l => l.Key == "SPECIES_SQUIRTLE").EggMoves);
     }
+
+    [Fact]
+    public Task Real_crystal_egg_moves_edit_when_available() =>
+        EditEggMoves(new Gen2RomModule(), Environment.GetEnvironmentVariable("POKESTUDIO_CRYSTAL_ROM"), "crystal.gbc");
 }
