@@ -38,7 +38,7 @@ public sealed class N3dsModule : IGameModule
     public ModuleCapabilities Capabilities => ModuleCapabilities.Species | ModuleCapabilities.Moves | ModuleCapabilities.Learnsets
         | ModuleCapabilities.Evolutions | ModuleCapabilities.Trainers | ModuleCapabilities.TrainerAi | ModuleCapabilities.ItemsAndMarts;
 
-    public GameLimits Limits => new() { SpeciesNameLength = 12, MoveNameLength = 16, TrainerNameLength = 12, ItemNameLength = 16, MaxEvolutionsPerSpecies = 8, MaxPrice = 655_350 };
+    public GameLimits Limits => new() { SpeciesNameLength = 12, MoveNameLength = 16, TrainerNameLength = 12, ItemNameLength = 16, MaxEvolutionsPerSpecies = 8, MaxPrice = 655_350, GbaTextBreaks = false };
 
     public IReadOnlyList<FeatureSupport> DescribeFeatures() =>
     [

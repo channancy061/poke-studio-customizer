@@ -23,7 +23,7 @@ public sealed class NdsModule : IGameModule
     public GamePlatform Platform => GamePlatform.Nds;
 
     public ModuleCapabilities Capabilities => ModuleCapabilities.Species | ModuleCapabilities.Moves | ModuleCapabilities.Learnsets
-        | ModuleCapabilities.Evolutions | ModuleCapabilities.Trainers | ModuleCapabilities.TrainerAi | ModuleCapabilities.Encounters | ModuleCapabilities.ItemsAndMarts;
+        | ModuleCapabilities.Evolutions | ModuleCapabilities.Trainers | ModuleCapabilities.TrainerAi | ModuleCapabilities.Encounters | ModuleCapabilities.ItemsAndMarts | ModuleCapabilities.Text;
 
     public GameLimits Limits => new()
     {
@@ -34,6 +34,7 @@ public sealed class NdsModule : IGameModule
         MaxEvolutionsPerSpecies = 7,
         MaxPrice = 65_535,
         MaxTrainerItems = 4,
+        GbaTextBreaks = false,
     };
 
     public IReadOnlyList<FeatureSupport> DescribeFeatures() =>
@@ -46,7 +47,7 @@ public sealed class NdsModule : IGameModule
         new(ModuleCapabilities.TrainerAi, SupportLevel.Supported),
         new(ModuleCapabilities.Encounters, SupportLevel.Limited, "Areas are numbered (their names live in the game's program). The number of slots is fixed."),
         new(ModuleCapabilities.ItemsAndMarts, SupportLevel.Limited, "Item names and prices; shops not yet."),
-        new(ModuleCapabilities.Text, SupportLevel.NotYet, "Dialogue editing in DS ROM mode comes later."),
+        new(ModuleCapabilities.Text, SupportLevel.Limited, "Every message file (Black/White: the story text). Places show as file numbers; {CMD …} codes insert names and numbers and must stay."),
         new(ModuleCapabilities.Graphics, SupportLevel.NotYet, "The graphics studio comes in a later phase."),
         new(ModuleCapabilities.Models3d, SupportLevel.Never, "These games use sprites, not 3D models."),
     ];
@@ -99,6 +100,7 @@ public sealed class NdsModule : IGameModule
             var game = NdsGame.For(rom.GameCode) ?? throw new InvalidDataException("This DS game isn't supported.");
             var tables = LoadTables(rom, game, projectDataDir);
             var (data, state) = NdsReader.Read(rom, game, tables);
+            NdsDialogue.Load(state, data);
             _states.AddOrUpdate(data, state);
             return data;
         }, cancellationToken);
@@ -117,13 +119,15 @@ public sealed class NdsModule : IGameModule
         }
 
         NdsWriter.Write(state, data);
+        NdsDialogue.Save(state, data);
         await context.Writer.WriteAllBytesAsync(context.WorkingSourceDir, state.Rom.Bytes, cancellationToken);
         var (_, fresh) = NdsReader.Read(state.Rom, state.Game, state.Tables);
+        NdsDialogue.Load(fresh, new GameData()); // the edited text stays in data
         _states.AddOrUpdate(data, fresh);
     }
 
     public IReadOnlyList<ValidationIssue> Validate(GameData data) =>
-        _states.TryGetValue(data, out var state) ? NdsWriter.Check(state, data, Limits) : [];
+        _states.TryGetValue(data, out var state) ? [.. NdsWriter.Check(state, data, Limits), .. NdsDialogue.Check(state, data)] : [];
 
     /// <summary>Which text files hold which names (found by content once, then remembered: renames would hide them).</summary>
     private static NdsTables LoadTables(NdsRom rom, NdsGame game, string projectDataDir)
@@ -255,4 +259,5 @@ internal sealed class NdsState
     public Dictionary<string, (EncounterTable Table, int Index)> Encounters { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, Item> Items { get; } = new(StringComparer.Ordinal);
     public List<string> TmMoves { get; } = [];
+    public Dictionary<string, TextEntry> Texts { get; } = new(StringComparer.Ordinal);
 }

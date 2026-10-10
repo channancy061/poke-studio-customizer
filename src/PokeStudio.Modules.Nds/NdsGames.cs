@@ -15,6 +15,9 @@ internal sealed record NdsGame
     public required string TrainerParties { get; init; }
     public required string Items { get; init; }
     public required string Text { get; init; }
+
+    /// <summary>Where the story dialogue is when it isn't with the other text (Black/White keep it in a second archive).</summary>
+    public string? StoryText { get; init; }
     public required string Encounters { get; init; }
 
     /// <summary>"dppt" (424-byte areas), "hgss" (196) or "bw" (232 per season).</summary>
@@ -48,7 +51,7 @@ internal sealed record NdsGame
     private static readonly NdsGame Bw = new()
     {
         Title = "Pokémon Black", Generation = 5, Personal = "a/0/1/6", Learnsets = "a/0/1/8", Evolutions = "a/0/1/9", Moves = "a/0/2/1",
-        TrainerData = "a/0/9/2", TrainerParties = "a/0/9/3", Items = "a/0/2/4", Text = "a/0/0/2", Encounters = "a/1/2/6", EncounterFormat = "bw",
+        TrainerData = "a/0/9/2", TrainerParties = "a/0/9/3", Items = "a/0/2/4", Text = "a/0/0/2", StoryText = "a/0/0/3", Encounters = "a/1/2/6", EncounterFormat = "bw",
     };
 
     public static NdsGame? For(string gameCode) => gameCode[..3] switch

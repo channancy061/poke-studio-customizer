@@ -131,6 +131,12 @@ public sealed record GameLimits
     /// <summary>Width of a dialogue line in pixels (null = not checked).</summary>
     public int? TextLineWidth { get; init; }
     public int TextLinesPerBox { get; init; } = 2;
+
+    /// <summary>
+    /// True for the GBA spelling of breaks (\n first line, \l next lines, \p new box), which the editor turns into real
+    /// line breaks and blank lines. False: only \n becomes a line break; other codes (\r, \f…) stay visible as typed.
+    /// </summary>
+    public bool GbaTextBreaks { get; init; } = true;
 }
 
 /// <summary>Context handed to a module when saving: where it may write.</summary>

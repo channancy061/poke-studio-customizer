@@ -19,6 +19,7 @@ internal static class Gen4Text
         {
             [0x1DE] = " ", [0x188] = "é", [0x1AB] = "!", [0x1AC] = "?", [0x1AD] = ",", [0x1AE] = ".", [0x1B3] = "’", [0x1B4] = "“", [0x1B5] = "”",
             [0x1BB] = "♂", [0x1BC] = "♀", [0x1BE] = "-", [0x1C2] = "&", [0x1C4] = ":", [0xE000] = "\n",
+            [0x1AF] = "…", [0x1B1] = "/", [0x1B2] = "‘", [0x1B9] = "(", [0x1BA] = ")", [0x1BD] = "+", [0x1C1] = "=", [0x1C3] = "~", [0x1C5] = ";",
         };
         for (var i = 0; i < 10; i++)
         {
@@ -115,11 +116,18 @@ internal static class Gen4Text
         }
 
         var sb = new StringBuilder();
-        foreach (var c in codes)
+        for (var i = 0; i < codes.Count; i++)
         {
+            var c = codes[i];
             if (c == 0xFFFF)
             {
                 break;
+            }
+
+            if (c == Command && TextCommands.Read(codes, i, sb) is var used and > 0)
+            {
+                i += used - 1;
+                continue;
             }
 
             sb.Append(Decode.TryGetValue(c, out var s) ? s : "{" + c.ToString("X4", CultureInfo.InvariantCulture) + "}");
@@ -128,11 +136,22 @@ internal static class Gen4Text
         return sb.ToString();
     }
 
+    private const int Command = 0xFFFE;
+
     public static IEnumerable<int> ToCodes(string text)
     {
         for (var i = 0; i < text.Length; i++)
         {
-            if (text[i] == '{' && i + 5 < text.Length && text[i + 5] == '}' && int.TryParse(text.AsSpan(i + 1, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var raw))
+            if (TextCommands.Parse(text, i, Command) is { } cmd)
+            {
+                foreach (var code in cmd.Codes)
+                {
+                    yield return code;
+                }
+
+                i += cmd.Length - 1;
+            }
+            else if (text[i] == '{' && i + 5 < text.Length && text[i + 5] == '}' && int.TryParse(text.AsSpan(i + 1, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var raw))
             {
                 yield return raw;
                 i += 5;
@@ -183,14 +202,19 @@ internal static class Gen5Text
             }
 
             var sb = new StringBuilder();
-            foreach (var c in codes)
+            for (var j = 0; j < codes.Length; j++)
             {
+                var c = codes[j];
                 if (c == 0xFFFF)
                 {
                     break;
                 }
 
-                if (c == 0xFFFE)
+                if (c == 0xF000 && TextCommands.Read([.. codes.Select(x => (int)x)], j, sb) is var used and > 0)
+                {
+                    j += used - 1;
+                }
+                else if (c == 0xFFFE)
                 {
                     sb.Append('\n');
                 }
@@ -247,7 +271,12 @@ internal static class Gen5Text
         var list = new List<ushort>();
         for (var i = 0; i < text.Length; i++)
         {
-            if (text[i] == '{' && i + 5 < text.Length && text[i + 5] == '}' && ushort.TryParse(text.AsSpan(i + 1, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var raw))
+            if (TextCommands.Parse(text, i, 0xF000) is { } cmd)
+            {
+                list.AddRange(cmd.Codes.Select(c => (ushort)c));
+                i += cmd.Length - 1;
+            }
+            else if (text[i] == '{' && i + 5 < text.Length && text[i + 5] == '}' && ushort.TryParse(text.AsSpan(i + 1, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var raw))
             {
                 list.Add(raw);
                 i += 5;
@@ -260,5 +289,52 @@ internal static class Gen5Text
 
         list.Add(0xFFFF);
         return [.. list];
+    }
+}
+
+/// <summary>
+/// In-text commands (insert a name or number, change colour, wait…): a marker code, the command, the number of
+/// arguments, then the arguments. Shown as "{CMD 0100 0000}" (command, then its arguments) and written back exactly.
+/// </summary>
+internal static class TextCommands
+{
+    /// <summary>Appends the command at <paramref name="at"/> and returns how many codes it used (0 when it isn't one).</summary>
+    public static int Read(List<int> codes, int at, StringBuilder sb)
+    {
+        if (at + 2 >= codes.Count || codes[at + 2] > 8 || at + 3 + codes[at + 2] > codes.Count)
+        {
+            return 0;
+        }
+
+        var argc = codes[at + 2];
+        sb.Append("{CMD ").Append(codes[at + 1].ToString("X4", CultureInfo.InvariantCulture));
+        for (var k = 0; k < argc; k++)
+        {
+            sb.Append(' ').Append(codes[at + 3 + k].ToString("X4", CultureInfo.InvariantCulture));
+        }
+
+        sb.Append('}');
+        return 3 + argc;
+    }
+
+    public static (List<int> Codes, int Length)? Parse(string text, int at, int marker)
+    {
+        if (!text.AsSpan(at).StartsWith("{CMD ", StringComparison.Ordinal) || text.IndexOf('}', at) is not (var close and > 0))
+        {
+            return null;
+        }
+
+        var values = new List<int>();
+        foreach (var part in text[(at + 5)..close].Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (part.Length > 4 || !int.TryParse(part, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var v))
+            {
+                return null;
+            }
+
+            values.Add(v);
+        }
+
+        return values.Count == 0 ? null : ([marker, values[0], values.Count - 1, .. values.Skip(1)], close - at + 1);
     }
 }

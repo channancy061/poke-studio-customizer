@@ -702,7 +702,10 @@ public sealed partial class MartEditorViewModel : ViewModelBase
 
 // ---------------- text ----------------
 
-public sealed record TextLineViewModel(string Text, int Width, bool TooWide, bool NewBox);
+public sealed record TextLineViewModel(string Text, int Width, bool TooWide, bool NewBox, bool Measured = true)
+{
+    public bool ShowWidth => Measured && !TooWide;
+}
 
 public sealed partial class TextPageViewModel : ViewModelBase
 {
@@ -749,9 +752,16 @@ public sealed partial class TextPageViewModel : ViewModelBase
         Items.Clear();
         var matches = Data.Texts.Where(t => q.Length == 0 || t.Text.Contains(q, StringComparison.OrdinalIgnoreCase)
             || t.Place.Contains(q, StringComparison.OrdinalIgnoreCase) || t.Key.Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
-        foreach (var t in matches.Take(MaxListed))
+        var listed = matches.Take(MaxListed).ToList();
+        if (_shell.SelectedTextKey is { } wanted && !listed.Any(t => t.Key == wanted) && matches.FirstOrDefault(t => t.Key == wanted) is { } selected)
         {
-            var preview = t.Text.Replace("\\n", " ", StringComparison.Ordinal).Replace("\\l", " ", StringComparison.Ordinal).Replace("\\p", " ", StringComparison.Ordinal);
+            listed.Insert(0, selected); // the message being looked at stays in the list
+        }
+
+        foreach (var t in listed)
+        {
+            var preview = t.Text.Replace("\\n", " ", StringComparison.Ordinal).Replace("\\l", " ", StringComparison.Ordinal).Replace("\\p", " ", StringComparison.Ordinal)
+                .Replace("\\r", " ", StringComparison.Ordinal).Replace("\\f", " ", StringComparison.Ordinal);
             Items.Add(new PlaceItem(t.Key, preview.Length > 48 ? preview[..47] + "…" : preview, t.Place));
         }
 
@@ -769,7 +779,8 @@ public sealed partial class TextEditorViewModel : ViewModelBase
     {
         _shell = shell;
         _index = index;
-        _draft = ToEditable(Model.Text);
+        _gba = shell.Session.Module.Limits.GbaTextBreaks;
+        _draft = _gba ? ToEditable(Model.Text) : Model.Text.Replace("\\n", "\n", StringComparison.Ordinal);
         BuildPreview();
     }
 
@@ -777,10 +788,17 @@ public sealed partial class TextEditorViewModel : ViewModelBase
     public string Title => Model.Place;
     public string Subtitle => Model.Key;
     public int? Width => _shell.Session.Module.Limits.TextLineWidth;
+    public bool CanMeasure => Width is not null && _shell.Session.Module.MeasureText("A") is not null;
+    public bool CannotMeasure => !CanMeasure;
     public ObservableCollection<TextLineViewModel> Preview { get; } = [];
     public bool HasTooWide => Preview.Any(l => l.TooWide);
 
+    private readonly bool _gba;
     private string _draft;
+
+    public string BreaksHelp => _gba
+        ? "Each line is one line in the game. Leave an empty line to start a new text box. Codes like {PLAYER} are filled in by the game."
+        : "Each line here is a line in the game. \\r scrolls to the next line and \\f starts a new box; keep {CMD …} codes as they are.";
 
     /// <summary>Real line breaks; a blank line starts a new text box.</summary>
     public string Draft
@@ -789,7 +807,7 @@ public sealed partial class TextEditorViewModel : ViewModelBase
         set
         {
             _draft = value;
-            var raw = FromEditable(value);
+            var raw = _gba ? FromEditable(value) : value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\n", "\\n", StringComparison.Ordinal);
             var before = Model;
             if (raw != before.Text)
             {
@@ -806,14 +824,14 @@ public sealed partial class TextEditorViewModel : ViewModelBase
     private void BuildPreview()
     {
         Preview.Clear();
-        var boxes = Model.Text.Split("\\p");
+        var boxes = Model.Text.Replace("\\f", "\\p", StringComparison.Ordinal).Split("\\p");
         foreach (var box in boxes)
         {
             var first = true;
-            foreach (var line in box.Replace("\\l", "\\n", StringComparison.Ordinal).Split("\\n"))
+            foreach (var line in box.Replace("\\l", "\\n", StringComparison.Ordinal).Replace("\\r", "\\n", StringComparison.Ordinal).Split("\\n"))
             {
                 var px = _shell.Session.Module.MeasureText(line) ?? 0;
-                Preview.Add(new TextLineViewModel(line, px, Width is { } w && px > w, first && Preview.Count > 0));
+                Preview.Add(new TextLineViewModel(line, px, CanMeasure && Width is { } w && px > w, first && Preview.Count > 0, CanMeasure));
                 first = false;
             }
         }

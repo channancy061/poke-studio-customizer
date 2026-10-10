@@ -12,7 +12,7 @@
       <StackPanel Spacing="8">
         <TextBlock Text="What the game says" FontWeight="Bold" />
         <TextBox Text="{Binding Draft}" AcceptsReturn="True" MinHeight="140" TextWrapping="NoWrap" FontFamily="{StaticResource PL.FontMono}" AutomationProperties.Name="Text" />
-        <TextBlock Text="Each line is one line in the game. Leave an empty line to start a new text box. Codes like {PLAYER} are filled in by the game." Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+        <TextBlock Text="{Binding BreaksHelp}" Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
       </StackPanel>
     </Border>
     <Border Classes="card">
@@ -28,14 +28,16 @@
                 <Separator IsVisible="{Binding NewBox}" Margin="0,6" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                   <TextBlock Text="{Binding Text}" Classes="mono" TextWrapping="NoWrap" />
-                  <TextBlock Grid.Column="1" Classes="caption" Text="{Binding Width, StringFormat='{}{0} px'}" Foreground="{DynamicResource PL.Text3Brush}" IsVisible="{Binding !TooWide}" />
+                  <TextBlock Grid.Column="1" Classes="caption" Text="{Binding Width, StringFormat='{}{0} px'}" Foreground="{DynamicResource PL.Text3Brush}" IsVisible="{Binding ShowWidth}" />
                   <TextBlock Grid.Column="1" Classes="caption" Text="{Binding Width, StringFormat='{}{0} px — too wide'}" Foreground="{DynamicResource PL.ErrorTextBrush}" IsVisible="{Binding TooWide}" />
                 </Grid>
               </StackPanel>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
-        <TextBlock Text="{Binding Width, StringFormat='The text box is {0} pixels wide.'}" Classes="caption muted" />
+        <TextBlock Text="{Binding Width, StringFormat='The text box is {0} pixels wide.'}" Classes="caption muted" IsVisible="{Binding CanMeasure}" />
+        <TextBlock Text="Line widths can't be measured for this game yet. Keep lines about as long as the game's own, and check long ones in an emulator."
+                   Classes="caption muted" TextWrapping="Wrap" IsVisible="{Binding CannotMeasure}" />
       </StackPanel>
     </Border>
   </StackPanel>
