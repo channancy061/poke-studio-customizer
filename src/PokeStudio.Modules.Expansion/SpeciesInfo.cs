@@ -322,11 +322,9 @@ internal static partial class SpeciesInfo
         return SnakifyRegex().Replace(core, "_$1").ToUpperInvariant();
     }
 
-    /// <summary>Builds the storage-independent Species for one block.</summary>
-    /// <summary>NATIONAL_DEX_* → number, from include/constants/pokedex.h (set by the module before parsing).</summary>
-    internal static IReadOnlyDictionary<string, int> NationalDexNumbers { get; set; } = new Dictionary<string, int>();
-
-    public static Species ToSpecies(SourceFile file, SpeciesBlock block, int index, out string? levelUp, out string? teachable, out string? egg, out string? teachingType)
+    /// <summary>Builds the storage-independent Species for one block (<paramref name="nationalDex"/>: NATIONAL_DEX_* → number from include/constants/pokedex.h).</summary>
+    public static Species ToSpecies(SourceFile file, SpeciesBlock block, int index, out string? levelUp, out string? teachable, out string? egg, out string? teachingType,
+        IReadOnlyDictionary<string, int>? nationalDex = null)
     {
         var locked = new Dictionary<string, string>();
         var dependent = new Dictionary<string, string>();
@@ -451,7 +449,7 @@ internal static partial class SpeciesInfo
             DexEntry = description,
             IsEnabled = block.Active,
             Tags = tags,
-            NationalDex = Value("natDexNum", "NationalDex") is { } dex && NationalDexNumbers.TryGetValue(dex.Trim(), out var dexNumber) && dexNumber > 0 ? dexNumber : null,
+            NationalDex = Value("natDexNum", "NationalDex") is { } dex && nationalDex is not null && nationalDex.TryGetValue(dex.Trim(), out var dexNumber) && dexNumber > 0 ? dexNumber : null,
             LearnsetKey = $"{levelUp}|{teachable}|{egg}",
             LockedFields = locked,
             SettingDependentFields = dependent,

@@ -48,7 +48,8 @@ public sealed class ProjectSession : IDisposable
         var module = registry.Find(project.Manifest.ModuleId)
             ?? throw new ProjectFormatException($"This project needs the \"{project.Manifest.ModuleId}\" module, which isn't installed.");
         var data = await module.LoadDataAsync(project.WorkingSourcePath, project.DataDir, cancellationToken);
-        data.Lab = await LoadLabAsync(project, cancellationToken);
+        data.Lab = await LoadJsonAsync<ChampionLab.LabSettings>(project, LabFileName, cancellationToken);
+        data.GameOptions = await LoadJsonAsync<GameOptions.GameOptionsSettings>(project, GameOptionsFileName, cancellationToken);
         var session = new ProjectSession(project, module, data, projects, backups, clock ?? TimeProvider.System);
         var all = await backups.ListAsync(project.Manifest.Id, cancellationToken);
         var latest = all.Count > 0 ? all[0] : null;
@@ -57,23 +58,25 @@ public sealed class ProjectSession : IDisposable
     }
 
     public const string LabFileName = "champion-lab.json";
+    public const string GameOptionsFileName = "game-options.json";
 
-    /// <summary>Champion Lab settings from the project's data folder, or the defaults.</summary>
-    private static async Task<ChampionLab.LabSettings> LoadLabAsync(Project project, CancellationToken cancellationToken)
+    /// <summary>Settings kept in the project's data folder, or the defaults.</summary>
+    private static async Task<T> LoadJsonAsync<T>(Project project, string fileName, CancellationToken cancellationToken)
+        where T : class, new()
     {
-        var path = Path.Combine(project.DataDir, LabFileName);
+        var path = Path.Combine(project.DataDir, fileName);
         if (!File.Exists(path))
         {
-            return new ChampionLab.LabSettings();
+            return new T();
         }
 
         try
         {
-            return await Storage.JsonStore.ReadAsync<ChampionLab.LabSettings>(path, cancellationToken) ?? new ChampionLab.LabSettings();
+            return await Storage.JsonStore.ReadAsync<T>(path, cancellationToken) ?? new T();
         }
         catch (System.Text.Json.JsonException)
         {
-            return new ChampionLab.LabSettings(); // a damaged file never stops the project from opening
+            return new T(); // a damaged file never stops the project from opening
         }
     }
 
@@ -103,6 +106,12 @@ public sealed class ProjectSession : IDisposable
         {
             Directory.CreateDirectory(Project.DataDir);
             await Storage.JsonStore.WriteAsync(Path.Combine(Project.DataDir, LabFileName), lab, cancellationToken);
+        }
+
+        if (Data.GameOptions is { } options)
+        {
+            Directory.CreateDirectory(Project.DataDir);
+            await Storage.JsonStore.WriteAsync(Path.Combine(Project.DataDir, GameOptionsFileName), options, cancellationToken);
         }
 
         await _projects.SaveManifestAsync(Project, cancellationToken);

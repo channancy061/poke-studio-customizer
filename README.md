@@ -7,7 +7,7 @@
 A friendly desktop editor (Windows + Linux) for customising games you legally own.
 It ships **no game files or assets**, never modifies your originals, and uses only open-source components (MIT-licensed).
 
-## Status: Phase 7 (Champion Lab) done
+## Status: Phase 8a (new-game options) done, not yet test-built
 - **Phase 1:** solution skeleton, plugin system, projects, undo/redo + change log, backups/restore, settings,
   Avalonia shell with light/dark theming, CI on Windows + Linux, Windows installer and Linux AppImage.
 - **Phase 2:** edit a **pokeemerald-expansion 1.17.1** project (Emerald-based, Gen 1–9 Pokémon):
@@ -107,6 +107,14 @@ It ships **no game files or assets**, never modifies your originals, and uses on
     Normal team (never smaller than the original); `DIFFICULTY_EXTRA_HARD` is added to
     `include/constants/difficulty.h` when needed. The in-game menu to pick it comes in Phase 8.
   - **Enemy AI:** Champion and Double Ace presets; AI tuning sliders for `include/config/ai.h` (game-wide).
+- **Phase 8a — Game options** (Tools): a menu shown once when a new game starts. Per option the creator picks
+  "not added / player chooses / always on (or off)": difficulty (Easy–Extra Hard, with a starting choice),
+  EVs & IVs off (perfect IVs, no EVs), hard level cap (Rare Candies stop at it too), no items in battle
+  (trainer or all battles), and a reusable Infinite Candy. Saving writes `data/scripts/poke_studio_options.inc`,
+  `include/constants/poke_studio.h` (flags/variables picked from ones the project doesn't use), and small
+  lines marked "Poke Studio" in the start map, configs, `caps.c`, `pokemon.c`, `party_menu.c` and the item
+  lists; each is added once. Settings live in the project's `data/game-options.json`. Not compile-tested yet
+  (needs WSL).
 - **FireRed base:** projects made from **pokefirered-expansion** (community port, cawtds/pokefirered-expansion,
   expansion 1.15.x) open with the same editors. Differences handled: the ROM is `pokefirered.gba`, the text
   box is 26 tiles (208 px, read from `src/menu.c`), shops live in `src/data/shops.json` (stages; edited in

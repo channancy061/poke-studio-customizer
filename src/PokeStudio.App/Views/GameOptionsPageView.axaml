@@ -1,0 +1,71 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             x:Class="PokeStudio.App.Views.GameOptionsPageView"
+             x:DataType="vm:GameOptionsPageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="32,28" Spacing="16" MaxWidth="960" HorizontalAlignment="Left">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Game options" Classes="title" />
+        <TextBlock Text="A short menu at the start of a new game. For each option, choose whether the player picks it or you decide it for them."
+                   Classes="muted" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <ItemsControl ItemsSource="{Binding Rows}">
+        <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="12" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:GameOptionRowViewModel">
+            <Border Classes="card">
+              <Grid ColumnDefinitions="*,220" ColumnSpacing="16">
+                <StackPanel Spacing="4">
+                  <TextBlock Text="{Binding Title}" Classes="heading" />
+                  <TextBlock Text="{Binding Explanation}" Classes="small muted" TextWrapping="Wrap" />
+                </StackPanel>
+                <ComboBox Grid.Column="1" ItemsSource="{Binding Modes}" SelectedItem="{Binding Mode}" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                          AutomationProperties.Name="{Binding Title}">
+                  <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ModeOption"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+                </ComboBox>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <Border Classes="card" IsVisible="{Binding AsksDifficulty}">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Difficulty menu" Classes="heading" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Starts on" VerticalAlignment="Center" />
+            <ComboBox ItemsSource="{Binding DifficultyChoices}" SelectedItem="{Binding DefaultDifficulty}" MinWidth="160" AutomationProperties.Name="Difficulty the menu starts on">
+              <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:DifficultyChoiceOption"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox>
+          </StackPanel>
+          <CheckBox IsChecked="{Binding OfferExtraHard}" Content="Offer Extra Hard" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card" IsVisible="{Binding FixedDifficultyShown}">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock Text="The difficulty is always" VerticalAlignment="Center" />
+          <ComboBox ItemsSource="{Binding DifficultyChoices}" SelectedItem="{Binding FixedDifficulty}" MinWidth="160" AutomationProperties.Name="Fixed difficulty">
+            <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:DifficultyChoiceOption"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+          </ComboBox>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card" IsVisible="{Binding NoItemsShown}">
+        <CheckBox IsChecked="{Binding NoItemsAlsoWild}" Content="No items in wild battles either" />
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="8">
+          <TextBlock Text="What the player sees" Classes="heading" />
+          <ItemsControl ItemsSource="{Binding Preview}">
+            <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" Margin="0,2" TextWrapping="Wrap" /></DataTemplate></ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="{Binding WhereText}" Classes="small muted" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

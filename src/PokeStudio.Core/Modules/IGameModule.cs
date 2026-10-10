@@ -90,6 +90,9 @@ public sealed class GameData
 
     /// <summary>Champion Lab settings (saved with the Poke Studio project, not in the game files).</summary>
     public ChampionLab.LabSettings? Lab { get; set; }
+
+    /// <summary>New-game options (saved with the Poke Studio project; the module writes them into the game).</summary>
+    public GameOptions.GameOptionsSettings? GameOptions { get; set; }
     public GameCatalog Catalog { get; } = new();
 
     public Learnset? LearnsetFor(Species species) =>
@@ -149,6 +152,9 @@ public interface IGameModule
 
     /// <summary>Generations whose movesets this game can switch to (empty = Modernize isn't available).</summary>
     IReadOnlyList<Modernize.GenerationChoice> ModernizeGenerations(GameData data) => [];
+
+    /// <summary>Whether this game can get the new-game options menu (written on save from <see cref="GameData.GameOptions"/>).</summary>
+    bool SupportsGameOptions(GameData data) => false;
 
     /// <summary>Learnsets (and optionally stats, types, abilities) as they are in <paramref name="generation"/>'s games.</summary>
     Task<Modernize.ModernizeReference?> LoadModernizeReferenceAsync(GameData data, int generation, CancellationToken cancellationToken = default) =>

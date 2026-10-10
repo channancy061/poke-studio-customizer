@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using PokeStudio.Core.Build;
 using PokeStudio.Core.Modernize;
 using PokeStudio.Core.Models;
+using PokeStudio.Core.GameOptions;
 using PokeStudio.Core.Modules;
 using PokeStudio.Core.SourceCode;
 using PokeStudio.Core.Validation;
@@ -104,7 +105,8 @@ public sealed class ExpansionModule : IGameModule
     {
         var layout = new ExpansionLayout(workingSourcePath);
         return [.. layout.SpeciesFiles(), layout.LevelUpFile, ExpansionLayout.EggMovesFile, ExpansionLayout.LearnablesJson, MovesInfo.File, TrainerParty.File,
-            EncountersFile.File, ItemsInfo.File, CapsFiles.Source, CapsFiles.Config, BattleConfig, ShopsJson.File, ShopsJson.ShopC, DifficultyFile, AiConfig, .. ScriptFiles(layout.Root)];
+            EncountersFile.File, ItemsInfo.File, CapsFiles.Source, CapsFiles.Config, BattleConfig, ShopsJson.File, ShopsJson.ShopC, DifficultyFile, AiConfig,
+            .. GameOptionsWriter.Files(layout).Where(f => !f.StartsWith("data/maps/", StringComparison.Ordinal)), .. ScriptFiles(layout.Root)];
     }
 
     public Task<GameData> LoadDataAsync(string workingSourcePath, string projectDataDir, CancellationToken cancellationToken = default) =>
@@ -205,15 +207,20 @@ public sealed class ExpansionModule : IGameModule
                 await context.Writer.WriteAllTextAsync(state.Layout.Full(TrainerParty.File), TextEdits.Apply(state.TrainersText, trainerEdits), cancellationToken);
             }
 
-            if (data.Trainers.Any(t => t.Key.EndsWith("@Extra Hard", StringComparison.Ordinal)) && File.Exists(state.Layout.Full(DifficultyFile)))
+        }
+
+        // Extra Hard: needed by difficulty versions and by an options menu that offers it
+        var options = data.GameOptions;
+        var optionsExtraHard = options is not null && (options.Difficulty == OptionMode.PlayerChooses && options.OfferExtraHard
+            || options.Difficulty == OptionMode.AlwaysOn && options.FixedDifficulty == DifficultyChoice.ExtraHard);
+        if ((optionsExtraHard || data.Trainers.Any(t => t.Key.EndsWith("@Extra Hard", StringComparison.Ordinal))) && File.Exists(state.Layout.Full(DifficultyFile)))
+        {
+            var diff = await File.ReadAllTextAsync(state.Layout.Full(DifficultyFile), cancellationToken);
+            if (!diff.Contains("DIFFICULTY_EXTRA_HARD", StringComparison.Ordinal)
+                && Regex.Match(diff, @"^([ \t]*)DIFFICULTY_HARD,[^\n]*\n", RegexOptions.Multiline) is { Success: true } m)
             {
-                var diff = await File.ReadAllTextAsync(state.Layout.Full(DifficultyFile), cancellationToken);
-                if (!diff.Contains("DIFFICULTY_EXTRA_HARD", StringComparison.Ordinal)
-                    && Regex.Match(diff, @"^([ \t]*)DIFFICULTY_HARD,[^\n]*\n", RegexOptions.Multiline) is { Success: true } m)
-                {
-                    var added = $"{m.Groups[1].Value}DIFFICULTY_EXTRA_HARD, // added by Poke Studio{CScanner.LineEnding(diff)}";
-                    await context.Writer.WriteAllTextAsync(state.Layout.Full(DifficultyFile), TextEdits.Apply(diff, [new TextEdit(m.Index + m.Length, 0, added)]), cancellationToken);
-                }
+                var added = $"{m.Groups[1].Value}DIFFICULTY_EXTRA_HARD, // added by Poke Studio{CScanner.LineEnding(diff)}";
+                await context.Writer.WriteAllTextAsync(state.Layout.Full(DifficultyFile), TextEdits.Apply(diff, [new TextEdit(m.Index + m.Length, 0, added)]), cancellationToken);
             }
         }
 
@@ -275,6 +282,15 @@ public sealed class ExpansionModule : IGameModule
             await context.Writer.WriteAllTextAsync(state.Layout.Full(ExpansionLayout.LearnablesJson), state.Learnables.Serialize(), cancellationToken);
         }
 
+        // new-game options last: they read the files as the steps above left them
+        if (options is { AnyUsed: true })
+        {
+            foreach (var (file, text) in GameOptionsWriter.PlanFor(state.Layout, options))
+            {
+                await context.Writer.WriteAllTextAsync(state.Layout.Full(file), text, cancellationToken);
+            }
+        }
+
         // Positions changed: read the files again so the next save starts from what's on disk now.
         var (_, fresh) = Parse(state.Layout.Root, cancellationToken);
         _states.AddOrUpdate(data, fresh);
@@ -286,6 +302,10 @@ public sealed class ExpansionModule : IGameModule
         "Diamond, Pearl, Platinum, HeartGold & SoulSilver", "Black, White, Black 2 & White 2", "X, Y, Omega Ruby & Alpha Sapphire",
         "Sun, Moon, Ultra Sun & Ultra Moon", "Sword & Shield", "Scarlet & Violet",
     ];
+
+    public bool SupportsGameOptions(GameData data) =>
+        _states.TryGetValue(data, out var state) && File.Exists(state.Layout.Full(GameOptionsWriter.StartMapScripts(state.Layout)))
+        && File.Exists(state.Layout.Full(GameOptionsWriter.EventScripts)) && File.Exists(state.Layout.Full(GameOptionsWriter.FlagsFile));
 
     /// <summary>One choice per level_up_learnsets/gen_N.h the project ships.</summary>
     public IReadOnlyList<GenerationChoice> ModernizeGenerations(GameData data)
@@ -487,7 +507,7 @@ public sealed class ExpansionModule : IGameModule
         };
 
         var state = new LoadedState { Layout = layout };
-        SpeciesInfo.NationalDexNumbers = File.Exists(layout.Full("include/constants/pokedex.h"))
+        var nationalDex = File.Exists(layout.Full("include/constants/pokedex.h"))
             ? Catalogs.EnumMembers(File.ReadAllText(layout.Full("include/constants/pokedex.h")), "NATIONAL_DEX_")
                 .Select((k, i) => (k, i)).ToDictionary(x => x.k, x => x.i, StringComparer.Ordinal)
             : new Dictionary<string, int>();
@@ -539,7 +559,7 @@ public sealed class ExpansionModule : IGameModule
                     continue;
                 }
 
-                var species = SpeciesInfo.ToSpecies(file, block, index++, out var lv, out var teach, out var egg, out var teachingType);
+                var species = SpeciesInfo.ToSpecies(file, block, index++, out var lv, out var teach, out var egg, out var teachingType, nationalDex);
                 state.Blocks[block.Symbol] = block;
                 state.Species[block.Symbol] = species;
                 data.Species.Add(species);
