@@ -2,6 +2,7 @@ using PokeStudio.Core.Models;
 using PokeStudio.Core.Modules;
 using PokeStudio.Core.Safety;
 using PokeStudio.Modules.Gen3Rom;
+using PokeStudio.Modules.N3ds;
 using PokeStudio.Modules.Nds;
 
 namespace PokeStudio.Core.Tests;
@@ -83,4 +84,36 @@ public class RomTextTests
     [Fact]
     public Task Real_black_dialogue_edits_when_available() =>
         EditAndReload(new NdsModule(), Environment.GetEnvironmentVariable("POKESTUDIO_BLACK_ROM"), "black.nds", 5000, "{CMD", "\\fPoke Studio was here!\\nThis line is new.");
+
+    [Fact]
+    public async Task Real_omega_ruby_dialogue_edits_when_available()
+    {
+        var real = Environment.GetEnvironmentVariable("POKESTUDIO_OMEGARUBY_ROM");
+        if (string.IsNullOrEmpty(real) || !File.Exists(real))
+        {
+            return;
+        }
+
+        // 3DS games are read in place and saved as a mod in the project, so no copy of the game is needed
+        using var tmp = new TempDir();
+        var module = new N3dsModule { CitraModsFolder = tmp.Combine("citra") };
+        var data = await module.LoadDataAsync(real, tmp.Combine("data"));
+        Assert.True(data.Texts.Count > 5000, $"only {data.Texts.Count} messages");
+        Assert.Contains(data.Texts, t => t.Text.Contains("Birch", StringComparison.Ordinal) && t.Text.Contains("\\n", StringComparison.Ordinal));
+        var outDir = Path.Combine(AppContext.BaseDirectory, "TestResults", "text");
+        Directory.CreateDirectory(outDir);
+        await File.WriteAllLinesAsync(Path.Combine(outDir, "omega-ruby.txt"),
+            [$"{data.Texts.Count} messages", .. data.Texts.Where((_, n) => n % Math.Max(1, data.Texts.Count / 300) == 0).Select(t => $"[{t.Place}] {t.Text}")]);
+
+        var i = data.Texts.FindIndex(t => t.Text.Contains("Birch", StringComparison.Ordinal) && !t.Text.Contains("{CMD", StringComparison.Ordinal));
+        var key = data.Texts[i].Key;
+        var edited = data.Texts[i].Text + "\\fPoke Studio was here!\\nThis line is new.";
+        data.Texts[i] = data.Texts[i] with { Text = edited };
+        Assert.Empty(module.Validate(data));
+        await module.SaveDataAsync(data, new ModuleSaveContext(new SafeFileWriter(tmp.Path), tmp.Combine("data"), real));
+        Assert.True(Directory.EnumerateFiles(tmp.Combine("data", "romfs"), "*", SearchOption.AllDirectories).Any());
+
+        var reloaded = await module.LoadDataAsync(real, tmp.Combine("data"));
+        Assert.Equal(edited, reloaded.Texts.Single(t => t.Key == key).Text);
+    }
 }

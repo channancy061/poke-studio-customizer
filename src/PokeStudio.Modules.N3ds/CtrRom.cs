@@ -322,14 +322,35 @@ internal static class Gen6Text
             var offset = (int)BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(section + 4 + (8 * i)));
             var length = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(section + 8 + (8 * i)));
             var key = (ushort)(0x7C89 + (i * 0x2983));
+            var codes = new ushort[length];
+            for (var j = 0; j < length; j++)
+            {
+                codes[j] = (ushort)(BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(section + offset + (2 * j))) ^ key);
+                key = (ushort)((key << 3) | (key >> 13));
+            }
+
             var sb = new StringBuilder();
             for (var j = 0; j < length; j++)
             {
-                var c = (ushort)(BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(section + offset + (2 * j))) ^ key);
-                key = (ushort)((key << 3) | (key >> 13));
+                var c = codes[j];
                 if (c == 0)
                 {
                     break;
+                }
+
+                // a command: 0x10, how many codes follow, the command, its arguments
+                if (c == Command && j + 2 < length && codes[j + 1] is > 0 and <= 8 && j + 1 + codes[j + 1] < length)
+                {
+                    var n = codes[j + 1];
+                    sb.Append("{CMD");
+                    for (var k = 0; k < n; k++)
+                    {
+                        sb.Append(' ').Append(codes[j + 2 + k].ToString("X4", CultureInfo.InvariantCulture));
+                    }
+
+                    sb.Append('}');
+                    j += 1 + n;
+                    continue;
                 }
 
                 if (c < 0x20 || c >= 0xE000 || c is '{' or '}')
@@ -380,12 +401,23 @@ internal static class Gen6Text
         return data;
     }
 
+    private const ushort Command = 0x10;
+
     private static ushort[] Codes(string text)
     {
         var list = new List<ushort>();
         for (var i = 0; i < text.Length; i++)
         {
-            if (text[i] == '{' && i + 5 < text.Length && text[i + 5] == '}' && ushort.TryParse(text.AsSpan(i + 1, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var raw))
+            if (text.AsSpan(i).StartsWith("{CMD ", StringComparison.Ordinal) && text.IndexOf('}', i) is var close and > 0
+                && text[(i + 5)..close].Split(' ', StringSplitOptions.RemoveEmptyEntries) is { Length: > 0 and <= 8 } parts
+                && parts.All(x => x.Length <= 4 && ushort.TryParse(x, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out _)))
+            {
+                list.Add(Command);
+                list.Add((ushort)parts.Length);
+                list.AddRange(parts.Select(x => ushort.Parse(x, NumberStyles.HexNumber, CultureInfo.InvariantCulture)));
+                i = close;
+            }
+            else if (text[i] == '{' && i + 5 < text.Length && text[i + 5] == '}' && ushort.TryParse(text.AsSpan(i + 1, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var raw))
             {
                 list.Add(raw);
                 i += 5;

@@ -36,7 +36,7 @@ public sealed class N3dsModule : IGameModule
     public bool WorksInPlace => true;
 
     public ModuleCapabilities Capabilities => ModuleCapabilities.Species | ModuleCapabilities.Moves | ModuleCapabilities.Learnsets
-        | ModuleCapabilities.Evolutions | ModuleCapabilities.Trainers | ModuleCapabilities.TrainerAi | ModuleCapabilities.ItemsAndMarts;
+        | ModuleCapabilities.Evolutions | ModuleCapabilities.Trainers | ModuleCapabilities.TrainerAi | ModuleCapabilities.ItemsAndMarts | ModuleCapabilities.Text;
 
     public GameLimits Limits => new() { SpeciesNameLength = 12, MoveNameLength = 16, TrainerNameLength = 12, ItemNameLength = 16, MaxEvolutionsPerSpecies = 8, MaxPrice = 655_350, GbaTextBreaks = false };
 
@@ -50,7 +50,7 @@ public sealed class N3dsModule : IGameModule
         new(ModuleCapabilities.TrainerAi, SupportLevel.Supported),
         new(ModuleCapabilities.ItemsAndMarts, SupportLevel.Limited, "Item names and prices; shops not yet."),
         new(ModuleCapabilities.Encounters, SupportLevel.NotYet, "Wild Pokémon in 3DS games come in a later update."),
-        new(ModuleCapabilities.Text, SupportLevel.NotYet, "Dialogue editing for 3DS games comes later."),
+        new(ModuleCapabilities.Text, SupportLevel.Limited, "The English story text. Places show as file numbers; {CMD …} codes insert names and numbers and must stay."),
         new(ModuleCapabilities.Models3d, SupportLevel.NotYet, "3D models come with the graphics studio."),
     ];
 
@@ -103,6 +103,7 @@ public sealed class N3dsModule : IGameModule
 
             var state = new State { Tables = tables, ProjectDataDir = projectDataDir, TitleId = rom.TitleIdHex, Read = Read };
             var data = N3dsData.Read(state);
+            N3dsDialogue.Load(state, data);
             _states.AddOrUpdate(data, state);
             return data;
         }, cancellationToken);
@@ -122,6 +123,7 @@ public sealed class N3dsModule : IGameModule
             }
 
             var changed = N3dsData.Write(state, data);
+            N3dsDialogue.Save(state, data, changed);
             var citra = CitraModsFolder ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Citra", "load", "mods");
             var mirror = Directory.Exists(Path.GetDirectoryName(citra)) ? Path.Combine(citra, state.TitleId, "romfs") : null;
             foreach (var (path, bytes) in changed)
@@ -147,10 +149,12 @@ public sealed class N3dsModule : IGameModule
             }
 
             N3dsData.Read(fresh);
+            N3dsDialogue.Load(fresh, new GameData()); // the edited text stays in data
             _states.AddOrUpdate(data, fresh);
         }, cancellationToken);
 
-    public IReadOnlyList<ValidationIssue> Validate(GameData data) => _states.TryGetValue(data, out var s) ? N3dsData.Check(s, data, Limits) : [];
+    public IReadOnlyList<ValidationIssue> Validate(GameData data) =>
+        _states.TryGetValue(data, out var s) ? [.. N3dsData.Check(s, data, Limits), .. N3dsDialogue.Check(s, data)] : [];
 
     private static Tables LoadTables(CtrRom rom, string projectDataDir)
     {
@@ -161,6 +165,13 @@ public sealed class N3dsModule : IGameModule
             {
                 if (JsonSerializer.Deserialize<Tables>(File.ReadAllText(file), JsonStore.Options) is { } saved && saved.TitleId == rom.TitleIdHex)
                 {
+                    if (!saved.StoryTextLocated)
+                    {
+                        // a project from before dialogue support
+                        saved = Tables.WithStoryText(rom, saved);
+                        File.WriteAllText(file, JsonSerializer.Serialize(saved, JsonStore.Options));
+                    }
+
                     return saved;
                 }
             }
@@ -188,6 +199,11 @@ public sealed class N3dsModule : IGameModule
         public required string TrainerData { get; init; }
         public required string TrainerParties { get; init; }
         public required string Text { get; init; }
+
+        /// <summary>The English story dialogue (another archive per language); null when not found or not looked for yet.</summary>
+        public string? StoryText { get; init; }
+
+        public bool StoryTextLocated { get; init; }
         public required int SpeciesNames { get; init; }
         public required int MoveNames { get; init; }
         public required int ItemNames { get; init; }
@@ -300,6 +316,8 @@ public sealed class N3dsModule : IGameModule
                     TitleId = rom.TitleIdHex,
                     Personal = personal, Evolutions = evo, Learnsets = learn, Moves = moves, Items = items ?? "", TrainerData = trData ?? "", TrainerParties = trPoke ?? "",
                     Text = path,
+                    StoryText = FindStoryText(garcs, path),
+                    StoryTextLocated = true,
                     SpeciesNames = Find("Bulbasaur", 721),
                     MoveNames = moveNames,
                     ItemNames = Find("Master Ball", 600),
@@ -312,6 +330,66 @@ public sealed class N3dsModule : IGameModule
             }
 
             throw new InvalidDataException("Couldn't find this game's English text.");
+        }
+
+        /// <summary>The story archive: of the text archives, the one with the most English sentences (each language has its own copy).</summary>
+        public static string? FindStoryText(IReadOnlyDictionary<string, Garc> garcs, string systemText)
+        {
+            string? best = null;
+            var bestScore = 500;
+            foreach (var (path, g) in garcs)
+            {
+                if (path == systemText || g.Count < 100)
+                {
+                    continue;
+                }
+
+                var score = 0;
+                foreach (var (_, files) in g.Entries)
+                {
+                    try
+                    {
+                        score += Gen6Text.Read(files[0]).Count(l => l.Contains(" the ", StringComparison.Ordinal) || l.Contains(" you", StringComparison.Ordinal));
+                    }
+                    catch (Exception ex) when (ex is ArgumentOutOfRangeException or IndexOutOfRangeException)
+                    {
+                        score = -1;
+                        break;
+                    }
+                }
+
+                if (score > bestScore)
+                {
+                    (best, bestScore) = (path, score);
+                }
+            }
+
+            return best;
+        }
+
+        /// <summary>Finds the story text for a project saved before dialogue support.</summary>
+        public static Tables WithStoryText(CtrRom rom, Tables t)
+        {
+            var garcs = new Dictionary<string, Garc>(StringComparer.Ordinal);
+            foreach (var path in rom.Paths.Where(p => p.StartsWith("a/", StringComparison.Ordinal)))
+            {
+                var bytes = rom.ReadFile(path);
+                if (bytes.Length < 4 || Encoding.ASCII.GetString(bytes, 0, 4) != "CRAG")
+                {
+                    continue;
+                }
+
+                try
+                {
+                    garcs[path] = new Garc(bytes);
+                }
+                catch (ArgumentOutOfRangeException)
+                {
+                    // not an archive this app reads
+                }
+            }
+
+            return t with { StoryText = FindStoryText(garcs, t.Text), StoryTextLocated = true };
         }
 
         /// <summary>Hone Claws, Dragon Claw, Psyshock, Calm Mind… then put in TM1–100, HM1–7 order (the code lists the HMs after TM92).</summary>
@@ -354,6 +432,8 @@ public sealed class N3dsModule : IGameModule
         public Dictionary<string, byte[]> Overrides { get; } = new(StringComparer.Ordinal);
 
         public byte[] File(string path) => Overrides.TryGetValue(path, out var b) ? b : Read(path);
+
+        public Dictionary<string, TextEntry> Texts { get; } = new(StringComparer.Ordinal);
 
         public Dictionary<string, int> SpeciesIndex { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, int> MoveIndex { get; } = new(StringComparer.Ordinal);
