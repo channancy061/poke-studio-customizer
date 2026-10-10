@@ -7,7 +7,7 @@
 A friendly desktop editor (Windows + Linux) for customising games you legally own.
 It ships **no game files or assets**, never modifies your originals, and uses only open-source components (MIT-licensed).
 
-## Status: Phase 10b (DS ROM mode) done; Phase 8 game code not yet test-built
+## Status: Phase 10c (3DS mode) done; Phase 8 game code not yet test-built
 - **Phase 1:** solution skeleton, plugin system, projects, undo/redo + change log, backups/restore, settings,
   Avalonia shell with light/dark theming, CI on Windows + Linux, Windows installer and Linux AppImage.
 - **Phase 2:** edit a **pokeemerald-expansion 1.17.1** project (Emerald-based, Gen 1–9 Pokémon):
@@ -147,6 +147,11 @@ It ships **no game files or assets**, never modifies your originals, and uses on
   Edits Pokémon, moves (incl. physical/special), level-up and TM lists, evolutions (all Gen 4/5 methods), trainers,
   wild Pokémon (numbered areas), item names and prices; changed archives are rebuilt, moved to the end of the ROM
   when they grow, and the header checksum is recalculated. Tested on Diamond, Platinum, SoulSilver and Black ROMs.
+- **Phase 10c — 3DS mode** (X, Y, Omega Ruby, Alpha Sapphire; decrypted .3ds): reads the game in place (NCSD →
+  NCCH → RomFS, GARC archives, Gen 6 text, the TM list from the decompressed program code) and saves every change as
+  a LayeredFS mod: the project's `data/romfs` folder and, when Citra is installed, `%APPDATA%/Citra/load/mods/<TitleID>/romfs`
+  so "Test my game" in Citra uses it. Edits Pokémon (incl. Fairy type, hidden abilities), moves, level-up and TM/HM
+  lists, evolutions (all Gen 6 methods), trainers, item prices and Pokémon names. Tested on Omega Ruby.
 - **FireRed base:** projects made from **pokefirered-expansion** (community port, cawtds/pokefirered-expansion,
   expansion 1.15.x) open with the same editors. Differences handled: the ROM is `pokefirered.gba`, the text
   box is 26 tiles (208 px, read from `src/menu.c`), shops live in `src/data/shops.json` (stages; edited in

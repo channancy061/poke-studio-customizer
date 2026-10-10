@@ -38,6 +38,7 @@
     <ProjectReference Include="..\PokeStudio.Modules.Expansion\PokeStudio.Modules.Expansion.csproj" />
     <ProjectReference Include="..\PokeStudio.Modules.Gen3Rom\PokeStudio.Modules.Gen3Rom.csproj" />
     <ProjectReference Include="..\PokeStudio.Modules.Nds\PokeStudio.Modules.Nds.csproj" />
+    <ProjectReference Include="..\PokeStudio.Modules.N3ds\PokeStudio.Modules.N3ds.csproj" />
   </ItemGroup>
 
   <ItemGroup>

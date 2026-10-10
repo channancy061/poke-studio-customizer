@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 3DS mode: reads a decrypted X / Y / Omega Ruby / Alpha Sapphire ROM the user owns and writes changes as a
+       LayeredFS mod (Citra's load/mods folder). Contains no game data. -->
+  <PropertyGroup>
+    <RootNamespace>PokeStudio.Modules.N3ds</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PokeStudio.Core\PokeStudio.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PokeStudio.Core.Tests" />
+  </ItemGroup>
+</Project>

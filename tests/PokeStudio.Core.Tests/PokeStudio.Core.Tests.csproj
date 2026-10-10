@@ -14,6 +14,7 @@
     <ProjectReference Include="..\..\src\PokeStudio.Modules.Expansion\PokeStudio.Modules.Expansion.csproj" />
     <ProjectReference Include="..\..\src\PokeStudio.Modules.Gen3Rom\PokeStudio.Modules.Gen3Rom.csproj" />
     <ProjectReference Include="..\..\src\PokeStudio.Modules.Nds\PokeStudio.Modules.Nds.csproj" />
+    <ProjectReference Include="..\..\src\PokeStudio.Modules.N3ds\PokeStudio.Modules.N3ds.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

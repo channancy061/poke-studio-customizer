@@ -108,7 +108,8 @@ public sealed class ProjectService(TimeProvider? clock = null)
         System.IO.Directory.CreateDirectory(Path.Combine(dir, Project.DataFolderName));
 
         var workingName = Path.GetFileName(Path.TrimEndingDirectorySeparator(sourceFull));
-        var inPlace = module.WorksInPlace && !isFile;
+        // in place: decomp folders, and game files a module only reads (3DS games write a mod beside them, never into them)
+        var inPlace = module.WorksInPlace;
         if (!inPlace)
         {
             var workingPath = Path.Combine(dir, Project.SourceFolderName, workingName);
