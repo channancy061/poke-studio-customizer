@@ -145,7 +145,7 @@ public sealed partial class SettingsPageViewModel : ViewModelBase
     public SettingsPageViewModel(MainWindowViewModel main)
     {
         _main = main;
-        Emulators = [new(main, GamePlatform.Gba), new(main, GamePlatform.Nds), new(main, GamePlatform.N3ds)];
+        Emulators = [new(main, GamePlatform.Gba), new(main, GamePlatform.Nds), new(main, GamePlatform.N3ds), new(main, GamePlatform.Gb)];
     }
 
     public IReadOnlyList<EmulatorSlotViewModel> Emulators { get; }

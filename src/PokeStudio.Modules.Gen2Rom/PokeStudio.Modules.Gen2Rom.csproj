@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Game Boy Color ROM mode: edits a copy of a Gold / Silver / Crystal ROM the user owns. Tables are found by their
+       contents; contains no game data. -->
+  <PropertyGroup>
+    <RootNamespace>PokeStudio.Modules.Gen2Rom</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PokeStudio.Core\PokeStudio.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PokeStudio.Core.Tests" />
+  </ItemGroup>
+</Project>

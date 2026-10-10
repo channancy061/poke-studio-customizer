@@ -13,6 +13,9 @@ public enum GamePlatform
     Nds,
     N3ds,
     Demo,
+
+    /// <summary>Game Boy / Game Boy Color.</summary>
+    Gb,
 }
 
 public enum ElementType

@@ -275,7 +275,7 @@ public sealed partial class SetupWizardViewModel : ViewModelBase
     public SetupWizardViewModel(MainWindowViewModel main, bool searchNow = true)
     {
         _main = main;
-        Slots = [new(main, GamePlatform.Gba), new(main, GamePlatform.Nds), new(main, GamePlatform.N3ds)];
+        Slots = [new(main, GamePlatform.Gba), new(main, GamePlatform.Nds), new(main, GamePlatform.N3ds), new(main, GamePlatform.Gb)];
         Tools = new ToolsPanelViewModel(main, main.ToolsBuildDefinition);
         if (searchNow)
         {
@@ -646,7 +646,7 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private async Task TestFileAsync()
     {
-        var ext = _shell.Session.Module.Platform switch { GamePlatform.Nds => "*.nds", GamePlatform.N3ds => "*.3ds", _ => "*.gba" };
+        var ext = _shell.Session.Module.Platform switch { GamePlatform.Nds => "*.nds", GamePlatform.N3ds => "*.3ds", GamePlatform.Gb => "*.gbc", _ => "*.gba" };
         var file = await _shell.Main.Dialogs.PickFileAsync("Pick a game file to test", [("Game files", [ext])]);
         if (file is not null)
         {

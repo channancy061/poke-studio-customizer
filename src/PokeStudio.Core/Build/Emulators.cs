@@ -23,12 +23,12 @@ public static class Emulators
 {
     public static readonly IReadOnlyList<EmulatorKind> Known =
     [
-        new("mgba", "mGBA", [GamePlatform.Gba], ["mgba.exe", "mgba-qt.exe", "mgba-qt", "mgba", "io.mgba.mGBA"],
+        new("mgba", "mGBA", [GamePlatform.Gba, GamePlatform.Gb], ["mgba.exe", "mgba-qt.exe", "mgba-qt", "mgba", "io.mgba.mGBA"],
             "https://mgba.io", Suggested: true,
             Note: "Accurate and actively maintained. The best choice for testing GBA hacks."),
-        new("vbam", "VisualBoyAdvance-M", [GamePlatform.Gba], ["visualboyadvance-m.exe", "visualboyadvance-m", "vbam.exe"],
+        new("vbam", "VisualBoyAdvance-M", [GamePlatform.Gba, GamePlatform.Gb], ["visualboyadvance-m.exe", "visualboyadvance-m", "vbam.exe"],
             "https://visualboyadvance-m.org", Note: "Works well. mGBA is a little more accurate."),
-        new("vba", "VisualBoyAdvance 1.8", [GamePlatform.Gba], ["visualboyadvance.exe", "vba.exe"],
+        new("vba", "VisualBoyAdvance 1.8", [GamePlatform.Gba, GamePlatform.Gb], ["visualboyadvance.exe", "vba.exe"],
             "https://mgba.io",
             Note: "This is a very old emulator (2005). Modern hacks can freeze, glitch or lose saves in it even when the game itself is fine. We suggest mGBA for testing.",
             NoteIsWarning: true),
@@ -105,6 +105,7 @@ public static class Emulators
         GamePlatform.Gba => "GBA",
         GamePlatform.Nds => "DS",
         GamePlatform.N3ds => "3DS",
+        GamePlatform.Gb => "Game Boy",
         _ => platform.ToString(),
     };
 
