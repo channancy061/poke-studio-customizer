@@ -28,7 +28,7 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
 
     public ModuleCapabilities Capabilities => ModuleCapabilities.Species | ModuleCapabilities.Moves | ModuleCapabilities.Learnsets
         | ModuleCapabilities.Evolutions | ModuleCapabilities.Trainers | ModuleCapabilities.TrainerAi | ModuleCapabilities.Encounters | ModuleCapabilities.ItemsAndMarts
-        | ModuleCapabilities.Graphics;
+        | ModuleCapabilities.Graphics | ModuleCapabilities.Text;
 
     public GameLimits Limits => new()
     {
@@ -54,7 +54,7 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
         new(ModuleCapabilities.TrainerAi, SupportLevel.Supported),
         new(ModuleCapabilities.Encounters, SupportLevel.Limited, "Pokémon and levels can change; the number of slots is fixed."),
         new(ModuleCapabilities.ItemsAndMarts, SupportLevel.Limited, "Item names and prices; shops not yet."),
-        new(ModuleCapabilities.Text, SupportLevel.NotYet, "Dialogue editing in ROM mode comes later. Use a project (decomp) for full text editing."),
+        new(ModuleCapabilities.Text, SupportLevel.Limited, "What people, signs and trainers say on the maps. Menus and battle messages aren't included; use a project (decomp) for those."),
         new(ModuleCapabilities.Graphics, SupportLevel.Limited, "Pokémon front and back sprites and their palettes; icons not yet."),
         new(ModuleCapabilities.Models3d, SupportLevel.Never, "GBA games have no 3D models."),
     ];
@@ -109,6 +109,7 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
             var tables = LoadTables(rom, projectDataDir);
             var (data, state) = Gen3Reader.Read(rom, tables);
             state.Path = workingSourcePath;
+            Gen3Dialogue.Load(state, data);
             _states.AddOrUpdate(data, state);
             return data;
         }, cancellationToken);
@@ -128,13 +129,33 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
 
         Gen3Writer.Write(state, data);
         Gen3Sprites.Write(state, data);
+        Gen3Dialogue.Save(state, data);
         await context.Writer.WriteAllBytesAsync(context.WorkingSourceDir, state.Rom.Bytes, cancellationToken);
         var (_, fresh) = Gen3Reader.Read(state.Rom, state.Tables);
         fresh.Path = state.Path;
+        Gen3Dialogue.Load(fresh, new GameData()); // positions only: the edited text stays in data
         _states.AddOrUpdate(data, fresh);
     }
 
-    public IReadOnlyList<ValidationIssue> Validate(GameData data) => Gen3Writer.Check(data, Limits);
+    public IReadOnlyList<ValidationIssue> Validate(GameData data)
+    {
+        var issues = Gen3Writer.Check(data, Limits).ToList();
+        _states.TryGetValue(data, out var state);
+        foreach (var t in data.Texts)
+        {
+            if (state is not null && state.Texts.TryGetValue(t.Key, out var before) && before.Text == t.Text)
+            {
+                continue;
+            }
+
+            foreach (var problem in Gen3Dialogue.Check(t.Text))
+            {
+                issues.Add(new ValidationIssue(IssueSeverity.Error, "Text", t.Place, problem) { TargetKey = t.Key });
+            }
+        }
+
+        return issues;
+    }
 
     public PokeStudio.Core.Graphics.SpriteRules? Rules(GameData data, string species, PokeStudio.Core.Graphics.SpriteKind kind) =>
         _states.TryGetValue(data, out var s) ? Gen3Sprites.Rules(s, kind) : null;
@@ -207,5 +228,7 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
         public Dictionary<string, (EncounterTable Table, int Header)> Encounters { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, Item> Items { get; } = new(StringComparer.Ordinal);
         public List<string> TmMoves { get; } = [];
+        public Dictionary<string, Gen3Dialogue.Message> Messages { get; set; } = new(StringComparer.Ordinal);
+        public Dictionary<string, TextEntry> Texts { get; } = new(StringComparer.Ordinal);
     }
 }

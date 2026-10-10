@@ -492,7 +492,7 @@ internal static class Gen3Reader
     }
 
     /// <summary>Map group/number → header → region map section → name.</summary>
-    private static string? PlaceName(RomImage rom, Gen3Tables t, int group, int number)
+    internal static string? PlaceName(RomImage rom, Gen3Tables t, int group, int number)
     {
         if (t.MapGroups < 0 || t.MapNames < 0)
         {

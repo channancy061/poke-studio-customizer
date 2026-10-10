@@ -49,6 +49,9 @@ internal static class Gen3Text
         return sb.ToString();
     }
 
+    /// <summary>True when the byte is a printable character of the font.</summary>
+    public static bool IsCharacter(byte b) => Decode.ContainsKey(b) && b != 0xFE;
+
     /// <summary>True when every character can be written in this game's font.</summary>
     public static bool CanWrite(string text) => Tokens(text).All(t => t is not null);
 
