@@ -18,6 +18,9 @@ internal sealed record NdsGame
 
     /// <summary>Where the story dialogue is when it isn't with the other text (Black/White keep it in a second archive).</summary>
     public string? StoryText { get; init; }
+
+    /// <summary>The Pokémon sprite archive (null where this app can't edit sprites yet).</summary>
+    public string? Sprites { get; init; }
     public required string Encounters { get; init; }
 
     /// <summary>"dppt" (424-byte areas), "hgss" (196) or "bw" (232 per season).</summary>
@@ -40,12 +43,14 @@ internal sealed record NdsGame
         Evolutions = "poketool/personal/evo.narc", Moves = "poketool/waza/waza_tbl.narc", TrainerData = "poketool/trainer/trdata.narc",
         TrainerParties = "poketool/trainer/trpoke.narc", Items = "itemtool/itemdata/item_data.narc", Text = "msgdata/msg.narc",
         Encounters = "fielddata/encountdata/d_enc_data.narc", EncounterFormat = "dppt", TrainerMonExtra = false,
+        Sprites = "poketool/pokegra/pokegra.narc",
     };
 
     private static readonly NdsGame Hgss = new()
     {
         Title = "Pokémon HeartGold", Generation = 4, Personal = "a/0/0/2", Learnsets = "a/0/3/3", Evolutions = "a/0/3/4", Moves = "a/0/1/1",
         TrainerData = "a/0/5/5", TrainerParties = "a/0/5/6", Items = "a/0/1/7", Text = "a/0/2/7", Encounters = "a/0/3/7", EncounterFormat = "hgss",
+        Sprites = "a/0/0/4",
     };
 
     private static readonly NdsGame Bw = new()
@@ -63,6 +68,7 @@ internal sealed record NdsGame
             TrainerMonExtra = true,
             Title = "Pokémon Platinum", Personal = "poketool/personal/pl_personal.narc", Moves = "poketool/waza/pl_waza_tbl.narc",
             Items = "itemtool/itemdata/pl_item_data.narc", Text = "msgdata/pl_msg.narc", Encounters = "fielddata/encountdata/pl_enc_data.narc",
+            Sprites = "poketool/pokegra/pl_pokegra.narc",
         },
         "IPK" => Hgss,
         "IPG" => Hgss with { Title = "Pokémon SoulSilver" },

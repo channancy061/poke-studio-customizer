@@ -4,6 +4,7 @@ using PokeStudio.Core.Projects;
 using PokeStudio.Core.Safety;
 using PokeStudio.Modules.Expansion;
 using PokeStudio.Modules.Gen3Rom;
+using PokeStudio.Modules.Nds;
 
 namespace PokeStudio.Core.Tests;
 
@@ -160,4 +161,61 @@ public class GraphicsTests
         Assert.Equal(fitted.Palette.Take(16).Select(c => c.ToGba()), module.LoadPalette(reloaded, Bulbasaur, false)!.Select(c => c.ToGba()).Take(fitted.Palette.Count));
         Assert.Equal(icon.Pixels, module.Load(reloaded, Bulbasaur, SpriteKind.Icon)!.Pixels);
     }
+
+    private static async Task DsSprites(string? real, string file)
+    {
+        if (string.IsNullOrEmpty(real) || !File.Exists(real))
+        {
+            return;
+        }
+
+        using var tmp = new TempDir();
+        var rom = tmp.Combine(file);
+        File.Copy(real, rom);
+        var module = new NdsModule();
+        Assert.True(module.Capabilities.HasFlag(ModuleCapabilities.Graphics));
+        var data = await module.LoadDataAsync(rom, tmp.Combine("data"));
+        const string Bulbasaur = "SPECIES_BULBASAUR";
+        var front = module.Load(data, Bulbasaur, SpriteKind.Front)!;
+        Assert.Equal((80, 160), (front.Width, front.Height));
+        Assert.InRange(front.Pixels.Count(p => p == 0), 3000, 12000); // a real picture: mostly see-through around the Pokémon
+        var back = module.Load(data, Bulbasaur, SpriteKind.Back)!;
+        var outDir = Path.Combine(AppContext.BaseDirectory, "TestResults", "ds-sprites");
+        Directory.CreateDirectory(outDir);
+        File.WriteAllBytes(Path.Combine(outDir, Path.ChangeExtension(file, null) + "-bulbasaur-front.png"), Png.Write(front, 4));
+        File.WriteAllBytes(Path.Combine(outDir, Path.ChangeExtension(file, null) + "-bulbasaur-back.png"), Png.Write(back, 4));
+
+        var mirrored = new byte[front.Pixels.Length];
+        for (var y = 0; y < front.Height; y++)
+        {
+            for (var x = 0; x < front.Width; x++)
+            {
+                mirrored[(y * front.Width) + x] = front[front.Width - 1 - x, y];
+            }
+        }
+
+        foreach (var at in new[] { 0, 1, 2, 3, (159 * 80) + 76, (159 * 80) + 77, (159 * 80) + 78, (159 * 80) + 79 })
+        {
+            mirrored[at] = 0; // the scrambling's starting word is always see-through
+        }
+
+        var colors = Colors.Select(c => c.ToGba()).ToList();
+        SpriteEditing.Replace(data, Bulbasaur, SpriteKind.Front, new IndexedImage(80, 160, mirrored, colors)).Apply();
+        await module.SaveDataAsync(data, new ModuleSaveContext(new SafeFileWriter(tmp.Path), tmp.Combine("data"), rom));
+
+        var reloaded = await module.LoadDataAsync(rom, tmp.Combine("data"));
+        Assert.Equal(mirrored, module.Load(reloaded, Bulbasaur, SpriteKind.Front)!.Pixels);
+        Assert.Equal(colors, module.LoadPalette(reloaded, Bulbasaur, false));
+        Assert.Equal(back.Pixels, module.Load(reloaded, Bulbasaur, SpriteKind.Back)!.Pixels);
+        Assert.NotEqual(mirrored, module.Load(reloaded, "SPECIES_IVYSAUR", SpriteKind.Front)!.Pixels); // other Pokémon untouched
+    }
+
+    [Fact]
+    public Task Real_platinum_sprites_edit_when_available() => DsSprites(Environment.GetEnvironmentVariable("POKESTUDIO_PLATINUM_ROM"), "platinum.nds");
+
+    [Fact]
+    public Task Real_diamond_sprites_edit_when_available() => DsSprites(Environment.GetEnvironmentVariable("POKESTUDIO_DIAMOND_ROM"), "diamond.nds");
+
+    [Fact]
+    public Task Real_soulsilver_sprites_edit_when_available() => DsSprites(Environment.GetEnvironmentVariable("POKESTUDIO_SOULSILVER_ROM"), "soulsilver.nds");
 }

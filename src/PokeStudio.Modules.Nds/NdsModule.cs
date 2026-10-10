@@ -11,7 +11,7 @@ namespace PokeStudio.Modules.Nds;
 /// NDS ROM mode for Diamond, Pearl, Platinum, HeartGold, SoulSilver, Black and White (Black 2 / White 2 untested):
 /// reads and writes the game's own archives inside a copy of the user's ROM.
 /// </summary>
-public sealed class NdsModule : IGameModule
+public sealed class NdsModule : IGameModule, PokeStudio.Core.Graphics.ISpriteSource
 {
     public const string ModuleId = "nds.gen45.rom";
     public const string TablesFileName = "nds-tables.json";
@@ -23,7 +23,7 @@ public sealed class NdsModule : IGameModule
     public GamePlatform Platform => GamePlatform.Nds;
 
     public ModuleCapabilities Capabilities => ModuleCapabilities.Species | ModuleCapabilities.Moves | ModuleCapabilities.Learnsets
-        | ModuleCapabilities.Evolutions | ModuleCapabilities.Trainers | ModuleCapabilities.TrainerAi | ModuleCapabilities.Encounters | ModuleCapabilities.ItemsAndMarts | ModuleCapabilities.Text;
+        | ModuleCapabilities.Evolutions | ModuleCapabilities.Trainers | ModuleCapabilities.TrainerAi | ModuleCapabilities.Encounters | ModuleCapabilities.ItemsAndMarts | ModuleCapabilities.Text | ModuleCapabilities.Graphics;
 
     public GameLimits Limits => new()
     {
@@ -48,7 +48,7 @@ public sealed class NdsModule : IGameModule
         new(ModuleCapabilities.Encounters, SupportLevel.Limited, "Areas are numbered (their names live in the game's program). The number of slots is fixed."),
         new(ModuleCapabilities.ItemsAndMarts, SupportLevel.Limited, "Item names and prices; shops not yet."),
         new(ModuleCapabilities.Text, SupportLevel.Limited, "Every message file (Black/White: the story text). Places show as file numbers; {CMD …} codes insert names and numbers and must stay."),
-        new(ModuleCapabilities.Graphics, SupportLevel.NotYet, "The graphics studio comes in a later phase."),
+        new(ModuleCapabilities.Graphics, SupportLevel.Limited, "Front and back sprites with their colours (Diamond, Pearl, Platinum, HeartGold, SoulSilver). Black/White sprites and icons not yet."),
         new(ModuleCapabilities.Models3d, SupportLevel.Never, "These games use sprites, not 3D models."),
     ];
 
@@ -120,6 +120,7 @@ public sealed class NdsModule : IGameModule
         }
 
         NdsWriter.Write(state, data);
+        NdsSprites.Write(state, data);
         NdsEggMoves.Write(state, data);
         NdsDialogue.Save(state, data);
         await context.Writer.WriteAllBytesAsync(context.WorkingSourceDir, state.Rom.Bytes, cancellationToken);
@@ -128,6 +129,15 @@ public sealed class NdsModule : IGameModule
         NdsDialogue.Load(fresh, new GameData()); // the edited text stays in data
         _states.AddOrUpdate(data, fresh);
     }
+
+    public PokeStudio.Core.Graphics.SpriteRules? Rules(GameData data, string species, PokeStudio.Core.Graphics.SpriteKind kind) =>
+        _states.TryGetValue(data, out var s) ? NdsSprites.Rules(s, species, kind) : null;
+
+    public PokeStudio.Core.Graphics.IndexedImage? Load(GameData data, string species, PokeStudio.Core.Graphics.SpriteKind kind) =>
+        _states.TryGetValue(data, out var s) ? NdsSprites.Load(s, species, kind) : null;
+
+    public IReadOnlyList<PokeStudio.Core.Graphics.Rgb>? LoadPalette(GameData data, string species, bool shiny) =>
+        _states.TryGetValue(data, out var s) ? NdsSprites.Palette(s, species, shiny) : null;
 
     public IReadOnlyList<ValidationIssue> Validate(GameData data) =>
         _states.TryGetValue(data, out var state) ? [.. NdsWriter.Check(state, data, Limits), .. NdsEggMoves.Check(state, data), .. NdsDialogue.Check(state, data)] : [];
@@ -291,4 +301,5 @@ internal sealed class NdsState
     public List<string> TmMoves { get; } = [];
     public Dictionary<string, TextEntry> Texts { get; } = new(StringComparer.Ordinal);
     public bool EggMovesFound { get; set; }
+    public bool? SpriteForward { get; set; }
 }
