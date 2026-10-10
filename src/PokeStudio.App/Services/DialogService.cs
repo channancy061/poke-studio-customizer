@@ -8,6 +8,9 @@ public interface IDialogService
 {
     Task<string?> PickGameFileAsync();
     Task<string?> PickFolderAsync(string title);
+
+    /// <summary>Any single file; each filter is (name, patterns such as "*.exe").</summary>
+    Task<string?> PickFileAsync(string title, IReadOnlyList<(string Name, string[] Patterns)> filters);
     Task<bool> ConfirmAsync(string title, string message, string confirmText, bool destructive = false);
 }
 
@@ -32,6 +35,22 @@ public sealed class DialogService : IDialogService
                 new FilePickerFileType("Supported games") { Patterns = ["*.gba", "*.nds", "*.demogame.json"] },
                 new FilePickerFileType("All files") { Patterns = ["*"] },
             ],
+        });
+        return files.Count > 0 ? files[0].TryGetLocalPath() : null;
+    }
+
+    public async Task<string?> PickFileAsync(string title, IReadOnlyList<(string Name, string[] Patterns)> filters)
+    {
+        if (Owner is null)
+        {
+            return null;
+        }
+
+        var files = await Owner.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = title,
+            AllowMultiple = false,
+            FileTypeFilter = [.. filters.Select(f => new FilePickerFileType(f.Name) { Patterns = f.Patterns }), new FilePickerFileType("All files") { Patterns = ["*"] }],
         });
         return files.Count > 0 ? files[0].TryGetLocalPath() : null;
     }

@@ -8,7 +8,9 @@ using PokeStudio.App;
 using PokeStudio.App.Services;
 using PokeStudio.App.ViewModels;
 using PokeStudio.App.Views;
+using PokeStudio.Core.Build;
 using PokeStudio.Core.Platform;
+using PokeStudio.Core.Tests;
 
 [assembly: AvaloniaTestApplication(typeof(PokeStudio.App.Tests.TestAppBuilder))]
 
@@ -25,14 +27,27 @@ public static class TestAppBuilder
 /// <summary>Isolated app-data and projects folders per test.</summary>
 public sealed class TestEnvironment : IDisposable
 {
-    public TestEnvironment()
+    /// <param name="firstRun">Keep the first-run state (setup wizard not done, tour not seen).</param>
+    public TestEnvironment(FakeProcessRunner? runner = null, bool firstRun = false)
     {
         Root = Path.Combine(Path.GetTempPath(), "pokestudio-ui-tests", Guid.NewGuid().ToString("N"));
         var paths = new AppPaths(HostOs.Linux, _ => null, Path.Combine(Root, "home"), Path.Combine(Root, "docs"));
         paths.EnsureCreated();
-        Services = AppServices.Build(paths);
+        Runner = runner ?? new FakeProcessRunner();
+        Services = AppServices.Build(paths, s =>
+        {
+            s.AddSingleton<IProcessRunner>(Runner);
+            s.AddSingleton<IBuildEnvironment>(new WslBuildEnvironment(Runner)); // same on every OS, so tests match
+        });
         Main = Services.GetRequiredService<MainWindowViewModel>();
+        if (!firstRun)
+        {
+            // off the UI thread: blocking on it here would deadlock the headless dispatcher
+            Task.Run(() => Main.Settings.UpdateAsync(s => s with { FirstRunCompleted = true, TourCompleted = true })).GetAwaiter().GetResult();
+        }
     }
+
+    public FakeProcessRunner Runner { get; }
 
     public string Root { get; }
     public ServiceProvider Services { get; }

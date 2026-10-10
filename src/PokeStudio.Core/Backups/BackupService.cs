@@ -49,7 +49,10 @@ public sealed class BackupService(string backupsRoot, TimeProvider? clock = null
 {
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
 
-    public string ProjectBackupsDir(string projectId) => Path.Combine(backupsRoot, projectId);
+    /// <summary>Where new backups go (Settings › Backups folder). Existing backups stay where they were made.</summary>
+    public string Root { get; set; } = backupsRoot;
+
+    public string ProjectBackupsDir(string projectId) => Path.Combine(Root, projectId);
 
     public async Task<BackupManifest> CreateAsync(Project project, BackupReason reason, string? label = null, ExternalFiles? external = null, CancellationToken cancellationToken = default)
     {

@@ -3,6 +3,7 @@ using Avalonia.Styling;
 using Microsoft.Extensions.DependencyInjection;
 using PokeStudio.App.ViewModels;
 using PokeStudio.Core.Backups;
+using PokeStudio.Core.Build;
 using PokeStudio.Core.Modules;
 using PokeStudio.Core.Platform;
 using PokeStudio.Core.Projects;
@@ -22,7 +23,8 @@ public static class AppServices
     }
 
     /// <summary>Composition root. Register new game modules here.</summary>
-    public static ServiceProvider Build(IAppPaths paths)
+    /// <param name="overrides">Lets tests swap services (later registrations win).</param>
+    public static ServiceProvider Build(IAppPaths paths, Action<IServiceCollection>? overrides = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton(paths);
@@ -35,11 +37,17 @@ public static class AppServices
         services.AddSingleton(_ => new HttpClient { Timeout = TimeSpan.FromMinutes(30) });
         services.AddSingleton(sp => new ExpansionDownloader(sp.GetRequiredService<HttpClient>()));
         services.AddSingleton<ProjectService>();
+        services.AddSingleton<IProcessRunner, SystemProcessRunner>();
+        services.AddSingleton<IBuildEnvironment>(sp => OperatingSystem.IsWindows()
+            ? new WslBuildEnvironment(sp.GetRequiredService<IProcessRunner>())
+            : new NativeBuildEnvironment(sp.GetRequiredService<IProcessRunner>()));
+        services.AddSingleton(sp => new BuildService(sp.GetRequiredService<IProcessRunner>(), sp.GetRequiredService<IBuildEnvironment>(), sp.GetRequiredService<TimeProvider>()));
         services.AddSingleton(sp => new BackupService(paths.BackupsDir, sp.GetRequiredService<TimeProvider>()));
         services.AddSingleton<ThemeService>();
         services.AddSingleton<DialogService>();
         services.AddSingleton<IDialogService>(sp => sp.GetRequiredService<DialogService>());
         services.AddSingleton<MainWindowViewModel>();
+        overrides?.Invoke(services);
         return services.BuildServiceProvider();
     }
 }

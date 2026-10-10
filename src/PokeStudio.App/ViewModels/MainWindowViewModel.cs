@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using PokeStudio.App.Services;
 using PokeStudio.Core.Backups;
+using PokeStudio.Core.Build;
+using PokeStudio.Core.Models;
 using PokeStudio.Core.Modules;
 using PokeStudio.Core.Platform;
 using PokeStudio.Core.Projects;
@@ -30,8 +32,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         IDialogService dialogs,
         IAppPaths paths,
         TimeProvider clock,
-        ExpansionDownloader downloader)
+        ExpansionDownloader downloader,
+        BuildService builds,
+        IProcessRunner runner)
     {
+        Builds = builds;
+        Runner = runner;
         Downloader = downloader;
         _modules = modules;
         _projects = projects;
@@ -43,8 +49,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         Dialogs = dialogs;
         Hub = new HubViewModel(this);
         CurrentView = Hub;
-        Settings.Changed += (_, _) => TextScale = Settings.Current.TextScale;
-        TextScale = Settings.Current.TextScale;
+        Settings.Changed += (_, _) => ApplySettings();
+        ApplySettings();
     }
 
     public SettingsStore Settings { get; }
@@ -53,6 +59,78 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public HubViewModel Hub { get; }
     public ModuleRegistry Modules => _modules;
     public ExpansionDownloader Downloader { get; }
+    public BuildService Builds { get; }
+    public IProcessRunner Runner { get; }
+
+    /// <summary>The setup wizard, shown over everything while open.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSetupOpen))]
+    public partial SetupWizardViewModel? SetupWizard { get; set; }
+
+    public bool IsSetupOpen => SetupWizard is not null;
+
+    /// <summary>The build the setup wizard checks tools for (the first module that can build).</summary>
+    public BuildDefinition? ToolsBuildDefinition => _modules.Modules.Select(m => m.Build).FirstOrDefault(b => b is not null);
+
+    public string BackupsFolder => Settings.Current.BackupsFolder ?? _paths.BackupsDir;
+
+    public void ShowSetup(bool searchNow = true) => SetupWizard = new SetupWizardViewModel(this, searchNow);
+
+    private void ApplySettings()
+    {
+        TextScale = Settings.Current.TextScale;
+        _backups.Root = BackupsFolder;
+    }
+
+    /// <summary>Opens <paramref name="gameFile"/> in the emulator set for <paramref name="platform"/>.</summary>
+    /// <returns>Whether it started, and a plain-English message.</returns>
+    public (bool Ok, string Message) LaunchGame(GamePlatform platform, string gameFile)
+    {
+        var path = Settings.Current.EmulatorPaths.GetValueOrDefault(platform);
+        var check = Emulators.Check(path, platform);
+        if (path is null || check.State == ToolState.Missing)
+        {
+            return (false, $"Set up a {Emulators.Label(platform)} emulator first. {check.Message}");
+        }
+
+        if (!File.Exists(gameFile))
+        {
+            return (false, "That game file doesn't exist any more.");
+        }
+
+        try
+        {
+            Runner.Launch(Emulators.LaunchSpec(path, gameFile));
+        }
+        catch (ProgramNotFoundException)
+        {
+            return (false, "The emulator couldn't be started. Pick it again in Settings › Emulators.");
+        }
+
+        var name = check.Kind?.Name ?? Path.GetFileNameWithoutExtension(path);
+        return (true, check.Kind is { NoteIsWarning: true } k
+            ? $"Opening {Path.GetFileName(gameFile)} in {name}. Note: {k.Note}"
+            : $"Opening {Path.GetFileName(gameFile)} in {name}.");
+    }
+
+    public void ShowInFolder(string path)
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                Runner.Launch(File.Exists(path) ? new ProcessSpec("explorer.exe", ["/select," + path]) : new ProcessSpec("explorer.exe", [path]));
+            }
+            else
+            {
+                Runner.Launch(new ProcessSpec("xdg-open", [File.Exists(path) ? Path.GetDirectoryName(path)! : path]));
+            }
+        }
+        catch (ProgramNotFoundException)
+        {
+            // no file manager: nothing to do
+        }
+    }
 
     [ObservableProperty]
     public partial ViewModelBase CurrentView { get; set; }

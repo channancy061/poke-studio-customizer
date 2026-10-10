@@ -1,0 +1,43 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:b="using:PokeStudio.Core.Build"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.EmulatorSlotView"
+             x:DataType="vm:EmulatorSlotViewModel">
+  <Border Classes="well">
+    <StackPanel Spacing="8">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding Label}" Classes="subhead" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+          <Border Classes="chip success" IsVisible="{Binding IsReady}"><TextBlock Text="Ready" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" /></Border>
+          <Border Classes="chip warning" IsVisible="{Binding IsWarning}"><TextBlock Text="Check" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" /></Border>
+          <Border Classes="chip error" IsVisible="{Binding IsMissing}"><TextBlock Text="Problem" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" /></Border>
+        </StackPanel>
+      </Grid>
+      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+        <TextBox Text="{Binding Path}" Watermark="No emulator chosen" AutomationProperties.Name="{Binding Label}" />
+        <Button Grid.Column="1" Classes="quiet" Content="Browse…" Command="{Binding BrowseCommand}" />
+        <Button Grid.Column="2" Classes="secondary" Content="Test" Command="{Binding TestCommand}" IsEnabled="{Binding HasPath}"
+                ToolTip.Tip="Check the file and open the emulator" />
+      </Grid>
+      <TextBlock Text="{Binding Status}" Classes="small" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding Suggestion}" Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+      <StackPanel Spacing="4" IsVisible="{Binding HasFound}">
+        <TextBlock Text="Found on this computer" Classes="caption" />
+        <ItemsControl ItemsSource="{Binding Found}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="b:EmulatorCandidate">
+              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="0,2">
+                <TextBlock Text="{Binding Kind.Name}" FontWeight="Bold" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding Path}" Classes="mono muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Path}" />
+                <Button Grid.Column="2" Classes="ghost sm" Content="Use this"
+                        Command="{Binding $parent[ItemsControl].((vm:EmulatorSlotViewModel)DataContext).UseCommand}" CommandParameter="{Binding}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</UserControl>

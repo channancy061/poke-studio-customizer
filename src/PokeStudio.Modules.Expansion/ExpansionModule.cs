@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using PokeStudio.Core.Build;
 using PokeStudio.Core.Models;
 using PokeStudio.Core.Modules;
 using PokeStudio.Core.SourceCode;
@@ -24,23 +25,35 @@ public sealed class ExpansionModule : IGameModule
     public string Id => ModuleId;
     public string DisplayName => "pokeemerald-expansion project";
     public GamePlatform Platform => GamePlatform.Gba;
-    public ModuleCapabilities Capabilities => ModuleCapabilities.Species | ModuleCapabilities.Learnsets | ModuleCapabilities.Evolutions;
+    public ModuleCapabilities Capabilities =>
+        ModuleCapabilities.Species | ModuleCapabilities.Learnsets | ModuleCapabilities.Evolutions | ModuleCapabilities.Build;
     public bool WorksInPlace => true;
     public GameLimits Limits => _limits;
+
+    /// <summary>The project's own Makefile builds pokeemerald.gba (needs WSL on Windows, native tools on Linux).</summary>
+    public BuildDefinition Build { get; } = new(
+        "make -j\"$(nproc)\"",
+        "pokeemerald.gba",
+        ["make", "gcc", "arm-none-eabi-gcc", "python3"],
+        ["/usr/include/png.h"])
+    {
+        ToolsDescription = "GBA build tools",
+        EstimatedSteps = 1800,
+    };
 
     public IReadOnlyList<FeatureSupport> DescribeFeatures() =>
     [
         new(ModuleCapabilities.Species, SupportLevel.Supported),
         new(ModuleCapabilities.Learnsets, SupportLevel.Supported),
         new(ModuleCapabilities.Evolutions, SupportLevel.Supported),
-        new(ModuleCapabilities.Moves, SupportLevel.NotYet, "The move editor arrives in a later update."),
-        new(ModuleCapabilities.Trainers, SupportLevel.NotYet, "Trainer editing arrives in Phase 3."),
-        new(ModuleCapabilities.TrainerAi, SupportLevel.NotYet, "Enemy AI presets arrive in Phase 3."),
-        new(ModuleCapabilities.Graphics, SupportLevel.NotYet, "The graphics studio arrives in Phase 4."),
-        new(ModuleCapabilities.Build, SupportLevel.NotYet, "Building and testing your game arrives in Phase 4."),
-        new(ModuleCapabilities.Encounters, SupportLevel.NotYet, "Wild encounters arrive in Phase 8."),
-        new(ModuleCapabilities.ItemsAndMarts, SupportLevel.NotYet, "Items and marts arrive in Phase 8."),
-        new(ModuleCapabilities.Text, SupportLevel.NotYet, "The text editor arrives in Phase 8. Names and Pokédex entries can already be edited."),
+        new(ModuleCapabilities.Build, SupportLevel.Supported),
+        new(ModuleCapabilities.Moves, SupportLevel.NotYet, "The move editor and “Modernize learnsets” arrive in Phase 4."),
+        new(ModuleCapabilities.Trainers, SupportLevel.NotYet, "Trainer editing arrives in Phase 5."),
+        new(ModuleCapabilities.TrainerAi, SupportLevel.NotYet, "Enemy AI presets arrive in Phase 5."),
+        new(ModuleCapabilities.Encounters, SupportLevel.NotYet, "Wild encounters arrive in Phase 6."),
+        new(ModuleCapabilities.ItemsAndMarts, SupportLevel.NotYet, "Items and marts arrive in Phase 6."),
+        new(ModuleCapabilities.Text, SupportLevel.NotYet, "The text editor arrives in Phase 6. Names and Pokédex entries can already be edited."),
+        new(ModuleCapabilities.Graphics, SupportLevel.NotYet, "The graphics studio arrives in Phase 11."),
         new(ModuleCapabilities.Models3d, SupportLevel.Never, "GBA games have no 3D models."),
     ];
 

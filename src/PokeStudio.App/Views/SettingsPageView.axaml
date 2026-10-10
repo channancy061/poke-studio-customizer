@@ -39,8 +39,39 @@
             <NumericUpDown Value="{Binding BackupKeepCount}" Minimum="1" Maximum="500" Increment="1" Width="160" HorizontalAlignment="Left" FormatString="0" AutomationProperties.Name="Backups to keep" />
             <TextBlock Text="Older ones are removed automatically. Pinned backups are always kept." Classes="caption muted" />
           </StackPanel>
+          <StackPanel Spacing="6">
+            <TextBlock Text="Backups go in" FontWeight="Bold" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox Text="{Binding BackupsFolder, Mode=OneWay}" IsReadOnly="True" AutomationProperties.Name="Backups folder" />
+              <Button Grid.Column="1" Classes="quiet" Content="Change…" Margin="8,0,0,0" Command="{Binding ChangeBackupsFolderCommand}" />
+            </Grid>
+          </StackPanel>
           <ToggleSwitch IsChecked="{Binding BackupBeforeBuild}" Content="Back up before every build" />
+          <StackPanel Spacing="6">
+            <TextBlock Text="Keep this many finished builds per project" FontWeight="Bold" />
+            <NumericUpDown Value="{Binding BuildsKeepCount}" Minimum="1" Maximum="50" Increment="1" Width="160" HorizontalAlignment="Left" FormatString="0" AutomationProperties.Name="Builds to keep" />
+          </StackPanel>
           <TextBlock Text="{Binding SettingsFile}" Classes="caption muted" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="2">
+              <TextBlock Text="Emulators" Classes="heading" />
+              <TextBlock Text="Used by “Test my game”. Pick whichever you like." Classes="small muted" />
+            </StackPanel>
+            <Button Grid.Column="1" Classes="quiet sm" Content="Run setup again…" Command="{Binding RunSetupCommand}" VerticalAlignment="Top"
+                    ToolTip.Tip="Search for emulators and check the build tools" />
+          </Grid>
+          <ItemsControl ItemsSource="{Binding Emulators}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:EmulatorSlotViewModel">
+                <ContentControl Content="{Binding}" Margin="0,0,0,10" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
         </StackPanel>
       </Border>
 

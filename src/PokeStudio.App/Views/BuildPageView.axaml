@@ -1,0 +1,157 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.BuildPageView"
+             x:DataType="vm:BuildPageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="32,28" Spacing="16" MaxWidth="900" HorizontalAlignment="Left">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Build &amp; test" Classes="title" />
+        <TextBlock Text="Turn your project into a game file, then play it in your emulator." Classes="muted" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <!-- Build my game -->
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <StackPanel Spacing="2">
+              <TextBlock Text="Build my game" Classes="heading" />
+              <TextBlock Text="{Binding KeepText}" Classes="small muted" TextWrapping="Wrap" IsVisible="{Binding CanBuildGame}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top" IsVisible="{Binding CanBuildGame}">
+              <Button Classes="ghost" Content="Stop" Command="{Binding CancelCommand}" IsVisible="{Binding IsBuilding}" />
+              <Button Classes="primary" Command="{Binding BuildCommand}" ToolTip.Tip="Save, back up and build your game">
+                <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Build}" /><TextBlock Text="Build my game" /></StackPanel>
+              </Button>
+            </StackPanel>
+          </Grid>
+
+          <Border Classes="callout info" IsVisible="{Binding CannotBuildGame}">
+            <TextBlock Text="{Binding CannotBuildText}" TextWrapping="Wrap" />
+          </Border>
+
+          <Border Classes="callout warning" IsVisible="{Binding IsBuildBlocked}">
+            <StackPanel Spacing="4">
+              <TextBlock Text="Not ready to build yet" FontWeight="Bold" />
+              <TextBlock Text="{Binding BuildBlockedReason}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+
+          <StackPanel Spacing="6" IsVisible="{Binding IsBuilding}">
+            <ProgressBar Value="{Binding Progress}" Maximum="100" />
+            <TextBlock Text="{Binding Step}" Classes="small muted" TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+
+          <Border Classes="callout success" IsVisible="{Binding ResultIsSuccess}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <c:Icon Data="{StaticResource Icon.Ok}" Size="18" />
+              <TextBlock Text="{Binding Result}" FontWeight="Bold" TextWrapping="Wrap" VerticalAlignment="Center" />
+            </StackPanel>
+          </Border>
+          <Border Classes="callout error" IsVisible="{Binding HasResultError}">
+            <TextBlock Text="{Binding Result}" FontWeight="Bold" TextWrapping="Wrap" />
+          </Border>
+
+          <ItemsControl ItemsSource="{Binding Problems}" IsVisible="{Binding HasProblems}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ProblemRowViewModel">
+                <Border Classes="well" Margin="0,0,0,6">
+                  <StackPanel Spacing="4">
+                    <TextBlock Text="{Binding Title}" FontWeight="Bold" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Explanation}" Classes="small" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Location, StringFormat='In {0}'}" Classes="caption muted" IsVisible="{Binding HasLocation}" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <StackPanel Spacing="6" IsVisible="{Binding CanBuildGame}">
+            <Button Classes="ghost sm" HorizontalAlignment="Left" Command="{Binding ToggleLogCommand}" Content="Show or hide the build log" />
+            <Border Classes="well" IsVisible="{Binding ShowLog}" MaxHeight="260">
+              <ScrollViewer>
+                <SelectableTextBlock Text="{Binding Log}" Classes="mono" TextWrapping="Wrap" />
+              </ScrollViewer>
+            </Border>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- Build tools -->
+      <Border Classes="card" IsVisible="{Binding CanBuildGame}">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Build tools" Classes="heading" />
+          <ContentControl Content="{Binding Tools}" />
+        </StackPanel>
+      </Border>
+
+      <!-- Test my game -->
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <StackPanel Spacing="2">
+              <TextBlock Text="Test my game" Classes="heading" />
+              <TextBlock Text="Opens a game file in the emulator you choose. Emulators aren't included — use one you already have." Classes="small muted" TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+              <Button Classes="quiet" Content="Test another file…" Command="{Binding TestFileCommand}" />
+              <Button Classes="primary" Command="{Binding TestLatestCommand}" IsEnabled="{Binding HasHistory}" ToolTip.Tip="Play your newest build">
+                <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Play}" /><TextBlock Text="Test latest build" /></StackPanel>
+              </Button>
+            </StackPanel>
+          </Grid>
+          <Border Classes="callout warning" IsVisible="{Binding PlayMessageIsWarning}">
+            <TextBlock Text="{Binding PlayMessage}" TextWrapping="Wrap" />
+          </Border>
+          <Border Classes="callout success">
+            <Border.IsVisible>
+              <MultiBinding Converter="{x:Static BoolConverters.And}">
+                <Binding Path="!PlayMessageIsWarning" />
+                <Binding Path="PlayMessage" Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
+              </MultiBinding>
+            </Border.IsVisible>
+            <TextBlock Text="{Binding PlayMessage}" TextWrapping="Wrap" />
+          </Border>
+          <ContentControl Content="{Binding Emulator}" />
+        </StackPanel>
+      </Border>
+
+      <!-- History -->
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="Recent builds" Classes="heading" />
+            <Button Grid.Column="1" Classes="ghost sm" Command="{Binding OpenBuildsFolderCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Data="{StaticResource Icon.Folder}" Size="14" /><TextBlock Text="Open folder" /></StackPanel>
+            </Button>
+          </Grid>
+          <TextBlock Text="No builds yet." Classes="muted" IsVisible="{Binding !HasHistory}" />
+          <ItemsControl ItemsSource="{Binding History}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:BuildRowViewModel">
+                <Border Classes="well" Margin="0,0,0,6" Padding="12,8">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <StackPanel Spacing="2">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="{Binding Name}" FontWeight="Bold" />
+                        <Border Classes="chip info" Height="20" IsVisible="{Binding IsLatest}"><TextBlock Text="Latest" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" /></Border>
+                      </StackPanel>
+                      <TextBlock Classes="caption muted">
+                        <Run Text="{Binding When}" /><Run Text=" · " /><Run Text="{Binding Size}" />
+                      </TextBlock>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                      <Button Classes="ghost sm" Content="Show in folder" Command="{Binding ShowInFolderCommand}" />
+                      <Button Classes="secondary sm" Content="Test" Command="{Binding TestCommand}" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

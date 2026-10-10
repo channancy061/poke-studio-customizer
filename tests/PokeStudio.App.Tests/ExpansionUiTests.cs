@@ -33,7 +33,7 @@ public class ExpansionUiTests
         Assert.True(shell.NavItems.Single(n => n.Key == NavKey.Evolutions).IsEnabled);
         var trainers = shell.NavItems.Single(n => n.Key == NavKey.Trainers);
         Assert.True(trainers.IsLocked);
-        Assert.Contains("Phase 3", trainers.Reason, StringComparison.Ordinal);
+        Assert.Contains("Phase 5", trainers.Reason, StringComparison.Ordinal);
 
         var page = Assert.IsType<PokemonPageViewModel>(shell.CurrentPage);
         Assert.Equal(5, page.Items.Count);

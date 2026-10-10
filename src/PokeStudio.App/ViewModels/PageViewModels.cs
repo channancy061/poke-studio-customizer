@@ -142,7 +142,34 @@ public sealed partial class SettingsPageViewModel : ViewModelBase
 {
     private readonly MainWindowViewModel _main;
 
-    public SettingsPageViewModel(MainWindowViewModel main) => _main = main;
+    public SettingsPageViewModel(MainWindowViewModel main)
+    {
+        _main = main;
+        Emulators = [new(main, GamePlatform.Gba), new(main, GamePlatform.Nds), new(main, GamePlatform.N3ds)];
+    }
+
+    public IReadOnlyList<EmulatorSlotViewModel> Emulators { get; }
+
+    public string BackupsFolder => _main.BackupsFolder;
+
+    public decimal BuildsKeepCount
+    {
+        get => S.BuildsKeepCount;
+        set => Update(s => s with { BuildsKeepCount = (int)Math.Clamp(value, 1, 50) });
+    }
+
+    [RelayCommand]
+    private void RunSetup() => _main.ShowSetup();
+
+    [RelayCommand]
+    private async Task ChangeBackupsFolderAsync()
+    {
+        var folder = await _main.Dialogs.PickFolderAsync("Where should backups go?");
+        if (folder is not null)
+        {
+            Update(s => s with { BackupsFolder = folder });
+        }
+    }
 
     private AppSettings S => _main.Settings.Current;
 
@@ -197,8 +224,13 @@ public sealed partial class SettingsPageViewModel : ViewModelBase
 
 public sealed record LicenseRow(string Name, string License, string Use);
 
-public sealed class AboutPageViewModel : ViewModelBase
+public sealed partial class AboutPageViewModel(Action? replayTour = null) : ViewModelBase
 {
+    public bool CanReplayTour => replayTour is not null;
+
+    [RelayCommand]
+    private void ReplayTour() => replayTour?.Invoke();
+
     public string Name => AppInfo.DisplayName;
     public string Version => "Version " + AppInfo.Version + " · Windows & Linux";
 

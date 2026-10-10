@@ -12,6 +12,9 @@
     <LayoutTransformControl.LayoutTransform>
       <ScaleTransform ScaleX="{Binding TextScale}" ScaleY="{Binding TextScale}" />
     </LayoutTransformControl.LayoutTransform>
-    <ContentControl Content="{Binding CurrentView}" />
+    <Panel>
+      <ContentControl Content="{Binding CurrentView}" />
+      <ContentControl Content="{Binding SetupWizard}" IsVisible="{Binding IsSetupOpen}" />
+    </Panel>
   </LayoutTransformControl>
 </Window>

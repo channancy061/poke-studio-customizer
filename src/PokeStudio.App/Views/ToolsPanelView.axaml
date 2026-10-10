@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.ToolsPanelView"
+             x:DataType="vm:ToolsPanelViewModel">
+  <StackPanel Spacing="10">
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2">
+        <TextBlock Text="{Binding Summary}" FontWeight="Bold" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding EnvironmentName, StringFormat='Builds run in: {0}'}" Classes="caption muted" />
+      </StackPanel>
+      <Button Grid.Column="1" Classes="quiet sm" Command="{Binding CheckCommand}" IsEnabled="{Binding !IsChecking}" VerticalAlignment="Top">
+        <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Data="{StaticResource Icon.Refresh}" Size="14" /><TextBlock Text="Check again" /></StackPanel>
+      </Button>
+    </Grid>
+    <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsChecking}" />
+    <ItemsControl ItemsSource="{Binding Rows}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:ToolRowViewModel">
+          <Border Classes="well" Margin="0,0,0,6">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+              <Panel VerticalAlignment="Top" Margin="0,2,0,0">
+                <c:Icon Data="{StaticResource Icon.Ok}" Size="18" Foreground="{DynamicResource PL.SuccessTextBrush}" IsVisible="{Binding IsReady}" />
+                <c:Icon Data="{StaticResource Icon.Warning}" Size="18" Foreground="{DynamicResource PL.WarningTextBrush}" IsVisible="{Binding IsWarning}" />
+                <c:Icon Data="{StaticResource Icon.Error}" Size="18" Foreground="{DynamicResource PL.ErrorTextBrush}" IsVisible="{Binding IsMissing}" />
+              </Panel>
+              <StackPanel Grid.Column="1" Spacing="6">
+                <TextBlock Text="{Binding Name}" FontWeight="Bold" />
+                <TextBlock Text="{Binding Detail}" Classes="small muted" TextWrapping="Wrap" />
+                <Border Classes="callout info" IsVisible="{Binding HasHowToFix}">
+                  <StackPanel Spacing="4">
+                    <TextBlock Text="How do I fix this?" FontWeight="Bold" />
+                    <SelectableTextBlock Text="{Binding HowToFix}" TextWrapping="Wrap" FontSize="13" />
+                  </StackPanel>
+                </Border>
+                <Button Classes="primary sm" HorizontalAlignment="Left" IsVisible="{Binding CanAutoFix}"
+                        Command="{Binding $parent[ItemsControl].((vm:ToolsPanelViewModel)DataContext).InstallCommand}" CommandParameter="{Binding}"
+                        Content="Install the build tools" />
+              </StackPanel>
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsInstalling}" />
+    <SelectableTextBlock Text="{Binding InstallLog}" Classes="mono" TextWrapping="Wrap" IsVisible="{Binding InstallLog, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+  </StackPanel>
+</UserControl>

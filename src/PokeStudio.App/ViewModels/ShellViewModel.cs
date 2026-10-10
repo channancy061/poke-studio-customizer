@@ -88,6 +88,10 @@ public sealed partial class ShellViewModel : ViewModelBase
         session.DataReloaded += (_, _) => { RefreshChanges(); Navigate(SelectedNav?.Key ?? NavKey.Overview); };
         RefreshChanges();
         SelectedNav = NavItems.FirstOrDefault(n => n.Key == NavKey.Species && n.IsEnabled) ?? NavItems[0];
+        if (!main.Settings.Current.TourCompleted)
+        {
+            StartTour();
+        }
     }
 
     public ProjectSession Session { get; }
@@ -173,6 +177,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         }
 
         HiddenCount = hidden;
+        NavItems.Add(new NavItemViewModel(NavKey.Build, "Build & test", "Icon.Build", true, null, "Tools"));
         NavItems.Add(new NavItemViewModel(NavKey.Backups, "Backups", "Icon.Archive", true, null, "Tools"));
         NavItems.Add(new NavItemViewModel(NavKey.Settings, "Settings", "Icon.Settings", true, null, "App"));
         NavItems.Add(new NavItemViewModel(NavKey.About, "Help & about", "Icon.Help", true, null, "App"));
@@ -196,15 +201,160 @@ public sealed partial class ShellViewModel : ViewModelBase
             NavKey.Species => new PokemonPageViewModel(this),
             NavKey.Learnsets when item is { IsEnabled: true } => new LearnsetPageViewModel(this),
             NavKey.Evolutions when item is { IsEnabled: true } => new EvolutionPageViewModel(this),
+            NavKey.Build => new BuildPageViewModel(this),
             NavKey.Backups => new BackupsPageViewModel(this),
             NavKey.Settings => new SettingsPageViewModel(_main),
-            NavKey.About => new AboutPageViewModel(),
+            NavKey.About => new AboutPageViewModel(StartTour),
             _ when item is { IsLocked: true } => new PlaceholderPageViewModel(item.Label, item.Reason ?? "", locked: true),
             _ => new PlaceholderPageViewModel(item?.Label ?? key.ToString(), "This editor arrives in a later phase.", locked: false),
         };
     }
 
     internal void Execute(IChange change) => Session.Undo.Execute(change);
+
+    private void Select(NavKey key) => SelectedNav = NavItems.First(n => n.Key == key);
+
+    /// <summary>Top bar "Build": opens Build &amp; test and starts a build when the tools are ready.</summary>
+    [RelayCommand]
+    private async Task BuildGameAsync()
+    {
+        Select(NavKey.Build);
+        if (CurrentPage is BuildPageViewModel page && page.CanBuildGame)
+        {
+            if (!page.Tools.HasChecked)
+            {
+                await page.Tools.CheckAsync();
+            }
+
+            if (page.BuildCommand.CanExecute(null))
+            {
+                await page.BuildCommand.ExecuteAsync(null);
+            }
+        }
+    }
+
+    /// <summary>Top bar "Test my game": plays the latest build, or explains what's needed.</summary>
+    [RelayCommand]
+    private void TestGame()
+    {
+        var latest = Core.Build.BuildService.History(Session.Project.Directory).FirstOrDefault();
+        var platform = Session.Module.Platform == GamePlatform.Demo ? GamePlatform.Gba : Session.Module.Platform;
+        if (latest is null)
+        {
+            Select(NavKey.Build);
+            Toast = "Build your game first, or pick a game file to test on this page.";
+            return;
+        }
+
+        var (ok, message) = _main.LaunchGame(platform, latest.FilePath);
+        if (!ok)
+        {
+            Select(NavKey.Build);
+        }
+
+        Toast = message;
+    }
+
+    /// <summary>Validates and saves before a build. False when something blocks saving (the check panel opens).</summary>
+    internal async Task<bool> SaveForBuildAsync()
+    {
+        if (!RunValidation() && HasErrors)
+        {
+            IsValidationOpen = true;
+            return false;
+        }
+
+        await SaveNowAsync();
+        return !IsDirty;
+    }
+
+    // ---- Guided tour (first launch, replayable from Help & about) ----
+
+    private static readonly (string Title, string Text)[] TourSteps =
+    [
+        ("Pick what to edit", "This menu lists everything you can change in this game. Locked items say why; tools a game can never support are hidden and counted at the bottom."),
+        ("Make your changes here", "Pick a Pokémon and change anything: stats, types, moves, evolutions. Problems are explained in plain words as you go."),
+        ("Every change is listed", "Each edit appears here. Undo any one of them on its own, or press Ctrl+Z. Nothing touches your files until you save, and a backup is made first."),
+        ("Build and play", "“Build” turns your project into a game file. “Test my game” opens it in your emulator. Set them up any time under Build & test."),
+    ];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsTourOpen), nameof(IsTourNav), nameof(IsTourPage), nameof(IsTourChanges), nameof(IsTourActions),
+        nameof(TourTitle), nameof(TourText), nameof(TourStepText), nameof(TourIsLast), nameof(TourIsFirst), nameof(TourNextText),
+        nameof(TourHorizontal), nameof(TourVertical), nameof(TourMargin))]
+    public partial int TourStep { get; set; } = -1;
+
+    public bool IsTourOpen => TourStep >= 0;
+    public bool IsTourNav => TourStep == 0;
+    public bool IsTourPage => TourStep == 1;
+    public bool IsTourChanges => TourStep == 2;
+    public bool IsTourActions => TourStep == 3;
+    public bool TourIsFirst => TourStep <= 0;
+    public bool TourIsLast => TourStep == TourSteps.Length - 1;
+    public string TourNextText => TourIsLast ? "Got it" : "Next";
+    public string TourTitle => IsTourOpen ? TourSteps[TourStep].Title : "";
+    public string TourText => IsTourOpen ? TourSteps[TourStep].Text : "";
+    public string TourStepText => IsTourOpen ? $"{TourStep + 1} of {TourSteps.Length}" : "";
+
+    public Avalonia.Layout.HorizontalAlignment TourHorizontal => TourStep switch
+    {
+        0 => Avalonia.Layout.HorizontalAlignment.Left,
+        2 or 3 => Avalonia.Layout.HorizontalAlignment.Right,
+        _ => Avalonia.Layout.HorizontalAlignment.Center,
+    };
+
+    public Avalonia.Layout.VerticalAlignment TourVertical => TourStep == 3 ? Avalonia.Layout.VerticalAlignment.Top : Avalonia.Layout.VerticalAlignment.Center;
+
+    public Thickness TourMargin => TourStep switch
+    {
+        0 => new Thickness(250, 0, 0, 0),
+        2 => new Thickness(0, 0, 340, 0),
+        3 => new Thickness(0, 72, 16, 0),
+        _ => new Thickness(0),
+    };
+
+    public void StartTour()
+    {
+        var first = NavItems.Any(n => n.Key == NavKey.Species && n.IsEnabled) ? NavKey.Species : NavKey.Overview;
+        if (SelectedNav?.Key != first)
+        {
+            Select(first);
+        }
+
+        TourStep = 0;
+    }
+
+    [RelayCommand]
+    private async Task TourNextAsync()
+    {
+        if (TourIsLast)
+        {
+            await EndTourAsync();
+            return;
+        }
+
+        TourStep++;
+        if (IsTourChanges)
+        {
+            IsChangesOpen = true;
+        }
+    }
+
+    [RelayCommand]
+    private void TourBack()
+    {
+        if (TourStep > 0)
+        {
+            TourStep--;
+        }
+    }
+
+    [RelayCommand]
+    private async Task EndTourAsync()
+    {
+        TourStep = -1;
+        await _main.Settings.UpdateAsync(s => s with { TourCompleted = true });
+    }
 
     internal void UndoSingle(IChange change) => Session.Undo.UndoSingle(change);
 

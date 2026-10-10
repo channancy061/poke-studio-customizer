@@ -23,7 +23,13 @@ public partial class App : Application
             settings.LoadAsync().GetAwaiter().GetResult();
             Services.GetRequiredService<ThemeService>().Apply(settings.Current.Theme);
 
-            var window = new MainWindow { DataContext = Services.GetRequiredService<MainWindowViewModel>() };
+            var main = Services.GetRequiredService<MainWindowViewModel>();
+            var window = new MainWindow { DataContext = main };
+            if (!settings.Current.FirstRunCompleted)
+            {
+                main.ShowSetup();
+            }
+
             Services.GetRequiredService<DialogService>().Owner = window;
             desktop.MainWindow = window;
             desktop.ShutdownRequested += (_, _) => (window.DataContext as MainWindowViewModel)?.Dispose();

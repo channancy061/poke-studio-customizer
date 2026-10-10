@@ -28,6 +28,14 @@
     <Setter Property="Background" Value="{DynamicResource PL.Surface1Brush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource PL.BorderBrush}" />
   </Style>
+  <!-- Guided tour: outlines the area the current step talks about -->
+  <Style Selector="Border.tour-ring">
+    <Setter Property="BorderBrush" Value="{DynamicResource PL.AccentBrush}" />
+    <Setter Property="BorderThickness" Value="3" />
+    <Setter Property="CornerRadius" Value="{StaticResource PL.RadiusMd}" />
+    <Setter Property="IsHitTestVisible" Value="False" />
+  </Style>
+
   <Style Selector="Border.well">
     <Setter Property="Background" Value="{DynamicResource PL.Surface2Brush}" />
     <Setter Property="CornerRadius" Value="{StaticResource PL.RadiusLg}" />

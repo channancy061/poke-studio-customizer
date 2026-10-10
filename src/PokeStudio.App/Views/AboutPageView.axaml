@@ -10,6 +10,7 @@
         <StackPanel VerticalAlignment="Center" Spacing="4">
           <TextBlock Text="{Binding Name}" Classes="display" FontSize="32" />
           <TextBlock Text="{Binding Version}" Classes="muted" />
+          <Button Classes="secondary sm" Content="Replay the guided tour" Command="{Binding ReplayTourCommand}" IsVisible="{Binding CanReplayTour}" HorizontalAlignment="Left" Margin="0,6,0,0" />
         </StackPanel>
       </StackPanel>
 

@@ -1,0 +1,118 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.SetupWizardView"
+             x:DataType="vm:SetupWizardViewModel">
+  <Border Background="{DynamicResource PL.ScrimBrush}">
+    <Border Classes="card raised" Width="820" Height="680" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="0">
+      <DockPanel>
+        <!-- Header with step dots -->
+        <Border DockPanel.Dock="Top" Padding="28,22,28,14" BorderBrush="{DynamicResource PL.BorderBrush}" BorderThickness="0,0,0,1">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="2">
+              <TextBlock Text="{Binding StepText}" Classes="overline" />
+              <TextBlock Text="{Binding StepTitle}" Classes="title" />
+            </StackPanel>
+            <Button Grid.Column="1" Classes="ghost sm" Content="Skip setup" Command="{Binding FinishCommand}" VerticalAlignment="Top"
+                    ToolTip.Tip="You can run setup again any time from Settings" />
+          </Grid>
+        </Border>
+
+        <!-- Footer -->
+        <Border DockPanel.Dock="Bottom" Padding="28,14" BorderBrush="{DynamicResource PL.BorderBrush}" BorderThickness="0,1,0,0">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="Everything here can be changed later in Settings." Classes="small muted" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+              <Button Classes="quiet" Content="Back" Command="{Binding BackCommand}" IsVisible="{Binding !IsFirst}" />
+              <Button Classes="primary" Content="Next" Command="{Binding NextCommand}" IsVisible="{Binding !IsLast}" />
+              <Button Classes="primary" Command="{Binding FinishCommand}" IsVisible="{Binding IsLast}">
+                <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Check}" /><TextBlock Text="Finish" /></StackPanel>
+              </Button>
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <ScrollViewer>
+          <Panel Margin="28,20">
+            <!-- 1. Welcome -->
+            <StackPanel Spacing="16" IsVisible="{Binding IsWelcome}">
+              <StackPanel Orientation="Horizontal" Spacing="16">
+                <Image Source="avares://PokeStudio/Assets/app-icon-256.png" Width="72" Height="72" Classes="pixel" />
+                <StackPanel VerticalAlignment="Center" Spacing="4">
+                  <TextBlock Text="Let's get you set up" Classes="heading" />
+                  <TextBlock Text="Four quick steps: how the app looks, your emulators, the build tools and your backups." Classes="muted" TextWrapping="Wrap" MaxWidth="560" />
+                </StackPanel>
+              </StackPanel>
+              <Border Classes="well">
+                <StackPanel Spacing="10">
+                  <TextBlock Text="How should the app look?" FontWeight="Bold" />
+                  <StackPanel Orientation="Horizontal" Spacing="16">
+                    <RadioButton GroupName="wizard-theme" Content="Dark" IsChecked="{Binding IsDark}" />
+                    <RadioButton GroupName="wizard-theme" Content="Light" IsChecked="{Binding IsLight}" />
+                    <RadioButton GroupName="wizard-theme" Content="Match my computer" IsChecked="{Binding IsSystem}" />
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+              <Border Classes="callout info">
+                <TextBlock TextWrapping="Wrap" Text="Your games stay yours: the app never includes or downloads game files, and it never changes your originals. Every save is backed up first." />
+              </Border>
+            </StackPanel>
+
+            <!-- 2. Emulators -->
+            <StackPanel Spacing="12" IsVisible="{Binding IsEmulators}">
+              <TextBlock TextWrapping="Wrap" Classes="muted"
+                         Text="An emulator plays your game on this computer so you can test your changes. Pick the one you like — we suggest one per system, but any of the listed emulators works." />
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                  <ProgressBar IsIndeterminate="True" Width="80" IsVisible="{Binding IsSearching}" />
+                  <TextBlock Text="{Binding SearchStatus}" Classes="small" TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="540" />
+                </StackPanel>
+                <Button Grid.Column="1" Classes="quiet sm" Command="{Binding SearchCommand}" IsEnabled="{Binding !IsSearching}">
+                  <StackPanel Orientation="Horizontal" Spacing="6"><c:Icon Data="{StaticResource Icon.Search}" Size="14" /><TextBlock Text="Search again" /></StackPanel>
+                </Button>
+              </Grid>
+              <ItemsControl ItemsSource="{Binding Slots}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:EmulatorSlotViewModel">
+                    <ContentControl Content="{Binding}" Margin="0,0,0,10" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+
+            <!-- 3. Build tools -->
+            <StackPanel Spacing="12" IsVisible="{Binding IsTools}">
+              <TextBlock TextWrapping="Wrap" Classes="muted"
+                         Text="Building turns a pokeemerald-expansion project into a game file you can play. It needs a few free tools. Editing, backups and testing work without them, so you can skip this and come back later." />
+              <ContentControl Content="{Binding Tools}" />
+            </StackPanel>
+
+            <!-- 4. Backups -->
+            <StackPanel Spacing="14" IsVisible="{Binding IsBackups}">
+              <TextBlock TextWrapping="Wrap" Classes="muted"
+                         Text="Before every save, the app backs up the files it's about to change, so you can always go back." />
+              <StackPanel Spacing="6">
+                <TextBlock Text="Backups go in" FontWeight="Bold" />
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBox Text="{Binding BackupsFolder, Mode=OneWay}" IsReadOnly="True" AutomationProperties.Name="Backups folder" />
+                  <Button Grid.Column="1" Classes="quiet" Content="Change…" Margin="8,0,0,0" Command="{Binding ChangeBackupsFolderCommand}" />
+                </Grid>
+                <TextBlock Text="Tip: a different drive keeps your backups safe if this one fails. Backups you already have stay where they are." Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+              </StackPanel>
+              <StackPanel Spacing="6">
+                <TextBlock Text="Keep this many backups per project" FontWeight="Bold" />
+                <NumericUpDown Value="{Binding BackupKeepCount}" Minimum="1" Maximum="500" Increment="1" Width="160" HorizontalAlignment="Left" FormatString="0" AutomationProperties.Name="Backups to keep" />
+              </StackPanel>
+              <StackPanel Spacing="6">
+                <TextBlock Text="Keep this many finished builds per project" FontWeight="Bold" />
+                <NumericUpDown Value="{Binding BuildsKeepCount}" Minimum="1" Maximum="50" Increment="1" Width="160" HorizontalAlignment="Left" FormatString="0" AutomationProperties.Name="Builds to keep" />
+                <TextBlock Text="Each build is saved with the date in its name; older ones are removed." Classes="caption muted" FontWeight="Normal" />
+              </StackPanel>
+            </StackPanel>
+          </Panel>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+  </Border>
+</UserControl>

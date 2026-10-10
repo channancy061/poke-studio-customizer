@@ -57,12 +57,17 @@
           <Button Classes="quiet" Command="{Binding SaveCommand}" ToolTip.Tip="Save (Ctrl+S)">
             <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Save}" /><TextBlock Text="Save" /></StackPanel>
           </Button>
-          <Button Classes="secondary" Command="{Binding NotYetCommand}" CommandParameter="Build" ToolTip.Tip="Build your game (Phase 4)">
-            <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Build}" /><TextBlock Text="Build" /></StackPanel>
-          </Button>
-          <Button Classes="primary" Command="{Binding NotYetCommand}" CommandParameter="Test my game" ToolTip.Tip="Open your game in the emulator (Phase 4)">
-            <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Play}" /><TextBlock Text="Test my game" /></StackPanel>
-          </Button>
+          <Panel>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Button Classes="secondary" Command="{Binding BuildGameCommand}" ToolTip.Tip="Save, back up and build your game">
+                <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Build}" /><TextBlock Text="Build" /></StackPanel>
+              </Button>
+              <Button Classes="primary" Command="{Binding TestGameCommand}" ToolTip.Tip="Open your latest build in your emulator">
+                <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Play}" /><TextBlock Text="Test my game" /></StackPanel>
+              </Button>
+            </StackPanel>
+            <Border Classes="tour-ring" Margin="-4" IsVisible="{Binding IsTourActions}" />
+          </Panel>
         </StackPanel>
       </Grid>
     </Border>
@@ -84,6 +89,8 @@
 
     <!-- Side navigation -->
     <Border DockPanel.Dock="Left" Classes="panel" BorderThickness="0,0,1,0" Width="{StaticResource PL.SideNavWidth}" Padding="10,8">
+      <Panel>
+      <Border Classes="tour-ring" IsVisible="{Binding IsTourNav}" ZIndex="1" />
       <DockPanel>
         <TextBlock DockPanel.Dock="Bottom" Text="{Binding HiddenText}" IsVisible="{Binding HasHidden}" Classes="caption muted" Margin="10,8" TextWrapping="Wrap" />
         <ListBox Classes="nav" ItemsSource="{Binding NavItems}" SelectedItem="{Binding SelectedNav}" AutomationProperties.Name="Modules">
@@ -107,10 +114,13 @@
           </ListBox.ItemTemplate>
         </ListBox>
       </DockPanel>
+      </Panel>
     </Border>
 
     <!-- Changes panel -->
     <Border DockPanel.Dock="Right" Classes="panel" BorderThickness="1,0,0,0" Width="{StaticResource PL.ChangesPanelWidth}" IsVisible="{Binding IsChangesOpen}">
+      <Panel>
+      <Border Classes="tour-ring" IsVisible="{Binding IsTourChanges}" ZIndex="1" />
       <DockPanel>
         <Border DockPanel.Dock="Top" Height="52" Padding="16,0" BorderBrush="{DynamicResource PL.BorderBrush}" BorderThickness="0,0,0,1">
           <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
@@ -149,11 +159,39 @@
           </ScrollViewer>
         </Panel>
       </DockPanel>
+      </Panel>
     </Border>
 
     <!-- Current page -->
-    <ContentControl Content="{Binding CurrentPage}" />
+    <Panel>
+      <ContentControl Content="{Binding CurrentPage}" />
+      <Border Classes="tour-ring" Margin="6" IsVisible="{Binding IsTourPage}" />
+    </Panel>
   </DockPanel>
+
+  <!-- Guided tour -->
+  <Panel IsVisible="{Binding IsTourOpen}">
+    <Border Classes="card raised" Width="380" Padding="20" BorderBrush="{DynamicResource PL.AccentBrush}" BorderThickness="2"
+            HorizontalAlignment="{Binding TourHorizontal}" VerticalAlignment="{Binding TourVertical}" Margin="{Binding TourMargin}">
+      <StackPanel Spacing="10">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="{Binding TourStepText}" Classes="overline" />
+          <Button Grid.Column="1" Classes="ghost icon sm" Command="{Binding EndTourCommand}" ToolTip.Tip="End the tour" AutomationProperties.Name="End the tour">
+            <c:Icon Data="{StaticResource Icon.Close}" Size="14" />
+          </Button>
+        </Grid>
+        <TextBlock Text="{Binding TourTitle}" Classes="heading" />
+        <TextBlock Text="{Binding TourText}" TextWrapping="Wrap" />
+        <Grid ColumnDefinitions="*,Auto">
+          <Button Classes="ghost sm" Content="Skip tour" Command="{Binding EndTourCommand}" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+            <Button Classes="quiet sm" Content="Back" Command="{Binding TourBackCommand}" IsVisible="{Binding !TourIsFirst}" />
+            <Button Classes="primary sm" Content="{Binding TourNextText}" Command="{Binding TourNextCommand}" />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </Border>
+  </Panel>
 
   <!-- Check before saving -->
   <Border Background="{DynamicResource PL.ScrimBrush}" IsVisible="{Binding IsValidationOpen}">

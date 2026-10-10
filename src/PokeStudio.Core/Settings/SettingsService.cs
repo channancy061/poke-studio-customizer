@@ -25,9 +25,17 @@ public sealed record AppSettings
     public bool AdvancedMode { get; init; }
     public bool FirstRunCompleted { get; init; }
     public string? ProjectsFolder { get; init; }
+
+    /// <summary>Null = the app's default backups folder.</summary>
+    public string? BackupsFolder { get; init; }
     public int BackupKeepCount { get; init; } = 20;
     public int AutoBackupMinutes { get; init; } = 10;
     public bool BackupBeforeBuild { get; init; } = true;
+
+    /// <summary>Finished games kept per project (older dated builds are removed).</summary>
+    public int BuildsKeepCount { get; init; } = 5;
+
+    public bool TourCompleted { get; init; }
 
     /// <summary>Emulator executable per platform, configured per OS by the user.</summary>
     public IReadOnlyDictionary<GamePlatform, string> EmulatorPaths { get; init; } = new Dictionary<GamePlatform, string>();

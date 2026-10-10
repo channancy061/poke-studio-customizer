@@ -7,7 +7,7 @@
 A friendly desktop editor (Windows + Linux) for customising games you legally own.
 It ships **no game files or assets**, never modifies your originals, and uses only open-source components (MIT-licensed).
 
-## Status: Phase 2 (GBA project mode)
+## Status: Phase 3 (Build & play)
 - **Phase 1:** solution skeleton, plugin system, projects, undo/redo + change log, backups/restore, settings,
   Avalonia shell with light/dark theming, CI on Windows + Linux, Windows installer and Linux AppImage.
 - **Phase 2:** edit a **pokeemerald-expansion 1.17.1** project (Emerald-based, Gen 1–9 Pokémon):
@@ -21,6 +21,18 @@ It ships **no game files or assets**, never modifies your originals, and uses on
     up before the first save of each session.
   - Values that depend on the project's settings (e.g. `P_UPDATED_STATS`) are edited in the branch
     your settings use; parts split across settings are shown locked, with the reason.
+- **Phase 3:** first-launch **setup wizard** (theme, emulators, build tools, backups; run again from
+  Settings), a 4-step **guided tour** (replay from Help & about), **Build & test** page:
+  - **Build my game** saves, backs up and runs the project's own build, with progress, Stop, and
+    errors translated into plain English. The last 5 builds are kept as dated copies in the project's
+    `builds/` folder (configurable).
+  - On Windows, pokeemerald-expansion builds inside **WSL** (its tools don't run on plain Windows).
+    The app never installs WSL itself: without it, Build explains why and shows the steps; everything
+    else works. Once WSL + Ubuntu exist, the app can install the GBA build tools inside Ubuntu.
+  - **Test my game** opens the latest build (or any game file) in the emulator you choose. The app
+    suggests mGBA / melonDS / Azahar, recognises VBA, VBA-M, DeSmuME, Citra and Lime3DS too, finds
+    ones already on your computer, and warns that VisualBoyAdvance 1.8 is too old for modern hacks.
+    No emulator is bundled.
 - The **Demo** module still edits an invented sample (`samples/Demo Valley.demogame.json`).
 
 ## Layout
@@ -80,6 +92,11 @@ CI builds the AppImage on every `v*` tag (`release.yml`), so you can also downlo
 8. Settings › Light / Dark / Match my computer, Text size Large → whole UI scales; restart keeps settings.
 9. Tab through the window: every control shows a focus ring.
 10. Help & about lists only open-source licences and the legal note.
+11. Delete `settings.json` and start the app → the setup wizard opens; "Search again" lists emulators
+    you already have; "Use this" picks one; VBA 1.8 shows a warning; Finish closes it for good.
+12. Open a project → the guided tour runs once; Help & about › Replay the guided tour shows it again.
+13. Build & test without WSL → "Not ready to build yet" with the WSL steps; Build button disabled.
+14. With an emulator set and a build in `builds/`, **Test my game** opens it in the emulator.
 
 ## Where data lives
 | | Windows | Linux |

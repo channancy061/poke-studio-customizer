@@ -11,6 +11,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\PokeStudio.App\PokeStudio.App.csproj" />
+    <Compile Include="..\PokeStudio.Core.Tests\FakeProcessRunner.cs" Link="FakeProcessRunner.cs" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
