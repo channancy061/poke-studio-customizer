@@ -1,0 +1,87 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:mo="using:PokeStudio.Core.Modernize"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.ModernizePageView"
+             x:DataType="vm:ModernizePageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="32,28" Spacing="16" MaxWidth="960" HorizontalAlignment="Left">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Modernize" Classes="title" />
+        <TextBlock Text="Give every Pokémon the moves it learns in a newer (or older) generation. You see every change first, and one Undo puts it all back."
+                   Classes="muted" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <Border Classes="callout info" IsVisible="{Binding IsUnavailable}">
+        <TextBlock Text="Modernize isn't available for this game type yet." TextWrapping="Wrap" />
+      </Border>
+
+      <Border Classes="card" IsVisible="{Binding IsAvailable}">
+        <StackPanel Spacing="14">
+          <StackPanel Spacing="6">
+            <TextBlock Text="Use movesets from" FontWeight="Bold" />
+            <ComboBox ItemsSource="{Binding Generations}" SelectedItem="{Binding Generation}" MinWidth="460" AutomationProperties.Name="Generation">
+              <ComboBox.ItemTemplate><DataTemplate x:DataType="mo:GenerationChoice"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox>
+          </StackPanel>
+          <StackPanel Spacing="6">
+            <TextBlock Text="Update" FontWeight="Bold" />
+            <CheckBox IsChecked="{Binding IncludeMoves}" Content="Level-up moves" />
+            <CheckBox IsChecked="{Binding IncludeSpecies}" Content="Base stats, types and abilities (the changes Game Freak made in later games, like Clefairy becoming Fairy type)" />
+          </StackPanel>
+          <Button Classes="primary" HorizontalAlignment="Left" Command="{Binding PreviewCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Search}" /><TextBlock Text="Show what would change" /></StackPanel>
+          </Button>
+          <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoading}" />
+          <ItemsControl ItemsSource="{Binding Notes}">
+            <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" /></DataTemplate></ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="callout success" IsVisible="{Binding Message, Converter={x:Static ObjectConverters.IsNotNull}}">
+        <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+      </Border>
+      <Border Classes="callout info" IsVisible="{Binding NothingToChange}">
+        <TextBlock Text="Nothing to change: every Pokémon already matches this generation." TextWrapping="Wrap" />
+      </Border>
+
+      <StackPanel Spacing="10" IsVisible="{Binding HasPreview}">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <TextBlock Text="{Binding Summary}" FontWeight="Bold" TextWrapping="Wrap" VerticalAlignment="Center" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+            <Button Classes="ghost sm" Content="Tick all" Command="{Binding SelectAllCommand}">
+              <Button.CommandParameter><x:Boolean>True</x:Boolean></Button.CommandParameter>
+            </Button>
+            <Button Classes="ghost sm" Content="Untick all" Command="{Binding SelectAllCommand}">
+              <Button.CommandParameter><x:Boolean>False</x:Boolean></Button.CommandParameter>
+            </Button>
+            <Button Classes="primary" Command="{Binding ApplyCommand}" IsEnabled="{Binding CanApply}">
+              <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Sparkle}" /><TextBlock Text="{Binding ApplyText}" /></StackPanel>
+            </Button>
+          </StackPanel>
+        </Grid>
+        <ItemsControl ItemsSource="{Binding Rows}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ModernizeRowViewModel">
+              <Border Classes="well" Margin="0,0,0,6" Padding="12,8">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                  <CheckBox IsChecked="{Binding IsIncluded}" VerticalAlignment="Top" AutomationProperties.Name="{Binding Title}" />
+                  <StackPanel Grid.Column="1" Spacing="2">
+                    <TextBlock Classes="small" TextWrapping="Wrap">
+                      <Run Text="{Binding Title}" FontWeight="Bold" /><Run Text="  " /><Run Text="{Binding Summary}" />
+                    </TextBlock>
+                    <TextBlock Text="{Binding Details}" Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal"
+                               IsVisible="{Binding Details, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    <TextBlock Text="{Binding SharedText}" Classes="caption" Foreground="{DynamicResource PL.InfoTextBrush}" TextWrapping="Wrap" IsVisible="{Binding HasShared}" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

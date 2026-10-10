@@ -130,6 +130,15 @@ public sealed partial class HubViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private Task TryDemoAsync() => RunAsync(() => _main.CreateProjectFromGameAsync(DemoGamePath));
 
+    /// <summary>Something dropped on the hub: a Poke Studio project folder, a decomp folder or a game file.</summary>
+    public Task OpenDroppedAsync(string path) =>
+        RunAsync(() => Directory.Exists(path) && File.Exists(Path.Combine(path, Core.Projects.Project.ManifestFileName))
+            ? _main.OpenProjectFolderAsync(path)
+            : _main.CreateProjectFromGameAsync(path));
+
+    [ObservableProperty]
+    public partial bool IsDragOver { get; set; }
+
     internal Task OpenRecentAsync(RecentProject project) => RunAsync(() => _main.OpenProjectFolderAsync(project.Path));
 
     private async Task RunAsync(Func<Task<string?>> action)

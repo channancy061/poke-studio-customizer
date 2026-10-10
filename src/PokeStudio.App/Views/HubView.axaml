@@ -4,6 +4,7 @@
              xmlns:c="using:PokeStudio.App.Controls"
              x:Class="PokeStudio.App.Views.HubView"
              x:DataType="vm:HubViewModel">
+  <Panel>
   <DockPanel>
     <!-- Header -->
     <Border DockPanel.Dock="Top" Classes="panel" BorderThickness="0,0,0,1" Height="56" Padding="20,0">
@@ -101,4 +102,14 @@
       </ScrollViewer>
     </Grid>
   </DockPanel>
+  <!-- Drop a game or project anywhere on the hub -->
+  <Border Background="{DynamicResource PL.ScrimBrush}" IsVisible="{Binding IsDragOver}" IsHitTestVisible="False">
+    <Border Classes="card raised" BorderBrush="{DynamicResource PL.AccentBrush}" BorderThickness="3" Padding="32,24" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <StackPanel Spacing="6" HorizontalAlignment="Center">
+        <TextBlock Text="Drop to open" Classes="title" HorizontalAlignment="Center" />
+        <TextBlock Text="A game file, a pokeemerald-expansion folder or a project folder" Classes="muted" HorizontalAlignment="Center" />
+      </StackPanel>
+    </Border>
+  </Border>
+  </Panel>
 </UserControl>

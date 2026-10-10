@@ -15,6 +15,8 @@ public sealed class GameCatalog
     public List<CatalogEntry> EggGroups { get; } = [];
     public List<CatalogEntry> EvolutionMethods { get; } = [];
     public List<CatalogEntry> EvolutionConditions { get; } = [];
+    public List<CatalogEntry> MoveEffects { get; } = [];
+    public List<CatalogEntry> MoveTargets { get; } = [];
 
     /// <summary>Moves taught by TM/HM, in machine order (label like "TM01").</summary>
     public List<(string Label, string Move)> Machines { get; } = [];
@@ -30,7 +32,7 @@ public sealed class GameCatalog
         }
 
         _names ??= Types.Concat(Abilities).Concat(Items).Concat(Moves).Concat(GrowthRates)
-            .Concat(EggGroups).Concat(EvolutionMethods).Concat(EvolutionConditions)
+            .Concat(EggGroups).Concat(EvolutionMethods).Concat(EvolutionConditions).Concat(MoveEffects).Concat(MoveTargets)
             .GroupBy(e => e.Key, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.First().Name, StringComparer.Ordinal);
         return _names.TryGetValue(key, out var name) ? name : Prettify(key);
@@ -39,8 +41,19 @@ public sealed class GameCatalog
     /// <summary>Call after changing entries so names are looked up again.</summary>
     public void Invalidate() => _names = null;
 
+    /// <summary>Keeps pickers and lists in step after a move is renamed.</summary>
+    public void RenameMove(string key, string name)
+    {
+        var i = Moves.FindIndex(m => m.Key == key);
+        if (i >= 0 && Moves[i].Name != name)
+        {
+            Moves[i] = Moves[i] with { Name = name };
+            Invalidate();
+        }
+    }
+
     private static readonly string[] KnownPrefixes =
-        ["SPECIES_", "MOVE_", "ITEM_", "ABILITY_", "TYPE_", "GROWTH_", "EGG_GROUP_", "EVO_", "IF_", "TIME_", "MAPSEC_", "NATURE_", "WEATHER_", "REGION_"];
+        ["SPECIES_", "MOVE_", "EFFECT_", "TARGET_", "ITEM_", "ABILITY_", "TYPE_", "GROWTH_", "EGG_GROUP_", "EVO_", "IF_", "TIME_", "MAPSEC_", "NATURE_", "WEATHER_", "REGION_"];
 
     /// <summary>"MOVE_SOLAR_BEAM" → "Solar Beam".</summary>
     public static string Prettify(string key)

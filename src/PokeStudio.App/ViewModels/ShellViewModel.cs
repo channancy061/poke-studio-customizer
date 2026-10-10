@@ -15,7 +15,7 @@ namespace PokeStudio.App.ViewModels;
 public enum NavKey
 {
     Overview, Species, Moves, Learnsets, Evolutions, Trainers, TrainerAi, Graphics, Models3d,
-    Encounters, Items, Text, Randomizer, Build, Backups, Settings, About,
+    Encounters, Items, Text, Randomizer, Build, Backups, Settings, About, Modernize,
 }
 
 public sealed class NavItemViewModel(NavKey key, string label, string icon, bool enabled, string? reason, string section)
@@ -82,6 +82,7 @@ public sealed partial class ShellViewModel : ViewModelBase
     {
         Session = session;
         _main = main;
+        Search = new GlobalSearchViewModel(this);
         BuildNav();
         OriginalStats = session.Data.Species.ToDictionary(s => s.Key, s => s.Stats, StringComparer.Ordinal);
         session.Undo.Changed += (_, _) => { RefreshChanges(); DataChanged?.Invoke(this, EventArgs.Empty); };
@@ -101,6 +102,11 @@ public sealed partial class ShellViewModel : ViewModelBase
 
     /// <summary>The Pokémon picked on any of the Pokémon / Learnset / Evolution pages (kept when switching).</summary>
     public string? SelectedSpeciesKey { get; set; }
+
+    /// <summary>The move picked on the Moves page.</summary>
+    public string? SelectedMoveKey { get; set; }
+
+    public GlobalSearchViewModel Search { get; }
 
     /// <summary>Base stats when the project was opened, for the "before" shape on the radar chart.</summary>
     public IReadOnlyDictionary<string, BaseStats> OriginalStats { get; }
@@ -177,6 +183,11 @@ public sealed partial class ShellViewModel : ViewModelBase
         }
 
         HiddenCount = hidden;
+        if (Session.Module.ModernizeGenerations(Session.Data).Count > 0)
+        {
+            NavItems.Add(new NavItemViewModel(NavKey.Modernize, "Modernize", "Icon.Sparkle", true, null, "Tools"));
+        }
+
         NavItems.Add(new NavItemViewModel(NavKey.Build, "Build & test", "Icon.Build", true, null, "Tools"));
         NavItems.Add(new NavItemViewModel(NavKey.Backups, "Backups", "Icon.Archive", true, null, "Tools"));
         NavItems.Add(new NavItemViewModel(NavKey.Settings, "Settings", "Icon.Settings", true, null, "App"));
@@ -199,6 +210,8 @@ public sealed partial class ShellViewModel : ViewModelBase
         {
             NavKey.Overview => new OverviewPageViewModel(this),
             NavKey.Species => new PokemonPageViewModel(this),
+            NavKey.Moves when item is { IsEnabled: true } => new MovesPageViewModel(this),
+            NavKey.Modernize => new ModernizePageViewModel(this),
             NavKey.Learnsets when item is { IsEnabled: true } => new LearnsetPageViewModel(this),
             NavKey.Evolutions when item is { IsEnabled: true } => new EvolutionPageViewModel(this),
             NavKey.Build => new BuildPageViewModel(this),
@@ -212,7 +225,32 @@ public sealed partial class ShellViewModel : ViewModelBase
 
     internal void Execute(IChange change) => Session.Undo.Execute(change);
 
-    private void Select(NavKey key) => SelectedNav = NavItems.First(n => n.Key == key);
+    internal void Select(NavKey key)
+    {
+        var item = NavItems.First(n => n.Key == key);
+        if (SelectedNav == item)
+        {
+            Navigate(key); // same page: rebuild so the new selection shows
+        }
+        else
+        {
+            SelectedNav = item;
+        }
+    }
+
+    /// <summary>Opens a Pokémon, staying on the Learnset or Evolution page if that's where the user is.</summary>
+    internal void GoToSpecies(string key)
+    {
+        SelectedSpeciesKey = key;
+        var page = SelectedNav?.Key is NavKey.Learnsets or NavKey.Evolutions ? SelectedNav.Key : NavKey.Species;
+        Select(page);
+    }
+
+    internal void GoToMove(string key)
+    {
+        SelectedMoveKey = key;
+        Select(NavKey.Moves);
+    }
 
     /// <summary>Top bar "Build": opens Build &amp; test and starts a build when the tools are ready.</summary>
     [RelayCommand]
@@ -439,6 +477,12 @@ public sealed partial class ShellViewModel : ViewModelBase
         if (issue.Area == "Learnset")
         {
             key = Session.Data.Learnsets.FirstOrDefault(l => l.Key == key)?.UsedBy.FirstOrDefault() ?? key;
+        }
+
+        if (issue.Area == "Move" && key is not null)
+        {
+            GoToMove(key);
+            return;
         }
 
         SelectedSpeciesKey = key;

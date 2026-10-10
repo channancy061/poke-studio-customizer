@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using PokeStudio.Core.Build;
+using PokeStudio.Core.Modernize;
 using PokeStudio.Core.Models;
 using PokeStudio.Core.Modules;
 using PokeStudio.Core.SourceCode;
@@ -26,7 +27,7 @@ public sealed class ExpansionModule : IGameModule
     public string DisplayName => "pokeemerald-expansion project";
     public GamePlatform Platform => GamePlatform.Gba;
     public ModuleCapabilities Capabilities =>
-        ModuleCapabilities.Species | ModuleCapabilities.Learnsets | ModuleCapabilities.Evolutions | ModuleCapabilities.Build;
+        ModuleCapabilities.Species | ModuleCapabilities.Moves | ModuleCapabilities.Learnsets | ModuleCapabilities.Evolutions | ModuleCapabilities.Build;
     public bool WorksInPlace => true;
     public GameLimits Limits => _limits;
 
@@ -47,7 +48,7 @@ public sealed class ExpansionModule : IGameModule
         new(ModuleCapabilities.Learnsets, SupportLevel.Supported),
         new(ModuleCapabilities.Evolutions, SupportLevel.Supported),
         new(ModuleCapabilities.Build, SupportLevel.Supported),
-        new(ModuleCapabilities.Moves, SupportLevel.NotYet, "The move editor and “Modernize learnsets” arrive in Phase 4."),
+        new(ModuleCapabilities.Moves, SupportLevel.Supported),
         new(ModuleCapabilities.Trainers, SupportLevel.NotYet, "Trainer editing arrives in Phase 5."),
         new(ModuleCapabilities.TrainerAi, SupportLevel.NotYet, "Enemy AI presets arrive in Phase 5."),
         new(ModuleCapabilities.Encounters, SupportLevel.NotYet, "Wild encounters arrive in Phase 6."),
@@ -89,7 +90,7 @@ public sealed class ExpansionModule : IGameModule
     public IReadOnlyList<string> ManagedFiles(string workingSourcePath)
     {
         var layout = new ExpansionLayout(workingSourcePath);
-        return [.. layout.SpeciesFiles(), layout.LevelUpFile, ExpansionLayout.EggMovesFile, ExpansionLayout.LearnablesJson];
+        return [.. layout.SpeciesFiles(), layout.LevelUpFile, ExpansionLayout.EggMovesFile, ExpansionLayout.LearnablesJson, MovesInfo.File];
     }
 
     public Task<GameData> LoadDataAsync(string workingSourcePath, string projectDataDir, CancellationToken cancellationToken = default) =>
@@ -123,6 +124,14 @@ public sealed class ExpansionModule : IGameModule
             if (state.Species.TryGetValue(species.Key, out var before) && !ReferenceEquals(before, species) && state.Blocks.TryGetValue(species.Key, out var block) && block.Active)
             {
                 Add(block.File, SpeciesInfo.EditsFor(state.Files[block.File], block, before, species));
+            }
+        }
+
+        foreach (var move in data.Moves)
+        {
+            if (state.Moves.TryGetValue(move.Key, out var before) && !ReferenceEquals(before, move) && state.MoveBlocks.TryGetValue(move.Key, out var block) && block.Active)
+            {
+                Add(block.File, MovesInfo.EditsFor(state.Files[block.File], block, before, move));
             }
         }
 
@@ -187,6 +196,84 @@ public sealed class ExpansionModule : IGameModule
         _states.AddOrUpdate(data, fresh);
     }
 
+    private static readonly string[] GenerationGames =
+    [
+        "", "Red, Blue & Yellow", "Gold, Silver & Crystal", "Ruby, Sapphire, Emerald, FireRed & LeafGreen",
+        "Diamond, Pearl, Platinum, HeartGold & SoulSilver", "Black, White, Black 2 & White 2", "X, Y, Omega Ruby & Alpha Sapphire",
+        "Sun, Moon, Ultra Sun & Ultra Moon", "Sword & Shield", "Scarlet & Violet",
+    ];
+
+    /// <summary>One choice per level_up_learnsets/gen_N.h the project ships.</summary>
+    public IReadOnlyList<GenerationChoice> ModernizeGenerations(GameData data)
+    {
+        if (!_states.TryGetValue(data, out var state))
+        {
+            return [];
+        }
+
+        var gens = Enumerable.Range(1, 9).Where(n => File.Exists(state.Layout.Full(LevelUpFileFor(n)))).ToList();
+        var latest = gens.Count == 0 ? 0 : gens.Max();
+        return gens.OrderDescending()
+            .Select(n => new GenerationChoice(n, $"Gen {n} — {GenerationGames[n]}{(n == latest ? " (latest)" : "")}", n == latest))
+            .ToList();
+    }
+
+    private static string LevelUpFileFor(int generation) => $"src/data/pokemon/level_up_learnsets/gen_{generation}.h";
+
+    public Task<ModernizeReference?> LoadModernizeReferenceAsync(GameData data, int generation, CancellationToken cancellationToken = default) =>
+        Task.Run<ModernizeReference?>(() =>
+        {
+            if (!_states.TryGetValue(data, out var state) || !File.Exists(state.Layout.Full(LevelUpFileFor(generation))))
+            {
+                return null;
+            }
+
+            var layout = state.Layout;
+
+            // level-up moves from that generation's file
+            var refFile = SpeciesInfo.LoadFile(layout, LevelUpFileFor(generation));
+            var arrays = LearnsetFiles.FindArrays(refFile, levelUp: true);
+            var levelUp = new Dictionary<string, IReadOnlyList<LevelUpMove>>(StringComparer.Ordinal);
+            foreach (var key in state.Learnsets.Keys)
+            {
+                var (lv, _, _) = SplitKey(key);
+                if (lv is not null && arrays.TryGetValue(lv, out var block) && !block.Locked)
+                {
+                    levelUp[key] = LearnsetFiles.ReadLevelUp(refFile, block);
+                }
+            }
+
+            // stats, types and abilities as that generation has them: read the species files with the "updated" settings set to it
+            var settings = layout.Macros.Clone();
+            foreach (var name in new[] { "P_UPDATED_STATS", "P_UPDATED_TYPES", "P_UPDATED_ABILITIES" })
+            {
+                settings.Define(name, $"GEN_{generation}");
+            }
+
+            var species = new Dictionary<string, SpeciesUpdate>(StringComparer.Ordinal);
+            foreach (var rel in layout.SpeciesFiles())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var file = SpeciesInfo.LoadFile(layout, rel, settings);
+                foreach (var block in SpeciesInfo.ParseBlocks(file).Where(b => b.Active && state.Species.ContainsKey(b.Symbol) && !species.ContainsKey(b.Symbol)))
+                {
+                    var s = SpeciesInfo.ToSpecies(file, block, 0, out _, out _, out _, out _);
+                    species[block.Symbol] = new SpeciesUpdate(s.Stats, s.Types, s.Abilities);
+                }
+            }
+
+            var notes = new List<string>
+            {
+                "pokeemerald-expansion already uses the latest games' TM, tutor and egg move lists, so Modernize changes level-up moves.",
+            };
+            if (state.Learnables is null)
+            {
+                notes.Add("TM and tutor lists appear after you build the game once.");
+            }
+
+            return new ModernizeReference(generation, levelUp, species, notes);
+        }, cancellationToken);
+
     public IReadOnlyList<ValidationIssue> Validate(GameData data)
     {
         var issues = new List<ValidationIssue>();
@@ -228,6 +315,10 @@ public sealed class ExpansionModule : IGameModule
         {
             SpeciesNameLength = layout.NameLength("POKEMON_NAME_LENGTH", 12),
             CategoryNameLength = 12,
+            MoveNameLength = layout.NameLength("MOVE_NAME_LENGTH", 16),
+            MaxMovePower = 511, // u16 power:9
+            MinMovePriority = -8, // s32 priority:4
+            MaxMovePriority = 7,
         };
 
         var state = new LoadedState { Layout = layout };
@@ -363,6 +454,24 @@ public sealed class ExpansionModule : IGameModule
             data.Learnsets.Add(learnset);
         }
 
+        if (File.Exists(layout.Full(MovesInfo.File)))
+        {
+            var movesFile = Load(MovesInfo.File);
+            var moveIndex = 0;
+            foreach (var block in SpeciesInfo.ParseBlocks(movesFile, moves: true))
+            {
+                if (block.Symbol == "MOVE_NONE" || state.MoveBlocks.ContainsKey(block.Symbol))
+                {
+                    continue;
+                }
+
+                var move = MovesInfo.ToMove(movesFile, block, moveIndex++);
+                state.MoveBlocks[block.Symbol] = block;
+                state.Moves[block.Symbol] = move;
+                data.Moves.Add(move);
+            }
+        }
+
         FillCatalog(layout, data.Catalog);
         return (data, state);
     }
@@ -379,6 +488,15 @@ public sealed class ExpansionModule : IGameModule
         c.Items.AddRange(Catalogs.Build(Read("include/constants/items.h"), Read("src/data/items.h"), "ITEM_"));
         c.EvolutionMethods.AddRange(Catalogs.EvolutionMethods.Select(m => new CatalogEntry(m.Key, m.Name, m.Description)));
         c.EvolutionConditions.AddRange(Catalogs.EvolutionConditions.Select(m => new CatalogEntry(m.Key, m.Name)));
+        if (Read("include/constants/battle_move_effects.h") is { } effects)
+        {
+            c.MoveEffects.AddRange(Catalogs.EnumMembers(effects, "EFFECT_").Select(k => new CatalogEntry(k, GameCatalog.Prettify(k))));
+        }
+
+        var battle = Read("include/constants/battle.h");
+        c.MoveTargets.AddRange(MovesInfo.Targets
+            .Where(t => battle is null || battle.Contains(t.Key, StringComparison.Ordinal))
+            .Select(t => new CatalogEntry(t.Key, t.Name)));
         if (Read(ExpansionLayout.TmsHmsFile) is { } tms)
         {
             c.Machines.AddRange(LearnsetFiles.ReadMachines(tms));
@@ -406,6 +524,8 @@ public sealed class ExpansionModule : IGameModule
         public Dictionary<string, SpeciesBlock> Blocks { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, Species> Species { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, EvolutionSet> Evolutions { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, SpeciesBlock> MoveBlocks { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, Move> Moves { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, Learnset> Learnsets { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, ArrayBlock> LevelUpArrays { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, ArrayBlock> EggArrays { get; } = new(StringComparer.Ordinal);

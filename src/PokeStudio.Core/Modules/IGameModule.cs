@@ -90,6 +90,12 @@ public sealed record GameLimits
     public int DexEntryMaxLines { get; init; } = 4;
     public int DexEntryLineLength { get; init; } = 42;
     public int MaxEvolutionsPerSpecies { get; init; } = 10;
+    public int MoveNameLength { get; init; } = 12;
+    public int MaxMovePower { get; init; } = 255;
+    public int MaxMovePp { get; init; } = 64;
+    public int MinMovePriority { get; init; } = -7;
+    public int MaxMovePriority { get; init; } = 7;
+    public int MoveDescriptionMaxLines { get; init; } = 4;
 }
 
 /// <summary>Context handed to a module when saving: where it may write.</summary>
@@ -111,6 +117,13 @@ public interface IGameModule
     DetectionResult Detect(GameSource source);
 
     GameLimits Limits => new();
+
+    /// <summary>Generations whose movesets this game can switch to (empty = Modernize isn't available).</summary>
+    IReadOnlyList<Modernize.GenerationChoice> ModernizeGenerations(GameData data) => [];
+
+    /// <summary>Learnsets (and optionally stats, types, abilities) as they are in <paramref name="generation"/>'s games.</summary>
+    Task<Modernize.ModernizeReference?> LoadModernizeReferenceAsync(GameData data, int generation, CancellationToken cancellationToken = default) =>
+        Task.FromResult<Modernize.ModernizeReference?>(null);
 
     /// <summary>How to turn the project into a playable game, or null when this game type can't be built.</summary>
     PokeStudio.Core.Build.BuildDefinition? Build => null;

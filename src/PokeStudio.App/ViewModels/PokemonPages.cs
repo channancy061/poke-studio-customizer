@@ -662,6 +662,26 @@ public sealed partial class LearnsetEditorViewModel : ViewModelBase, IRefreshabl
         SelectedRow = LevelUp.ElementAtOrDefault(target);
     }
 
+    /// <summary>Drag-and-drop: moves a row to another position in one undo step.</summary>
+    internal void MoveRowTo(int from, int to)
+    {
+        if (Current is not { } l || from == to || from < 0 || to < 0 || from >= l.LevelUp.Count || to >= l.LevelUp.Count)
+        {
+            return;
+        }
+
+        var name = Catalog.NameOf(l.LevelUp[from].Move);
+        Update($"moved {name} to position {to + 1}", x =>
+        {
+            var list = x.LevelUp.ToList();
+            var item = list[from];
+            list.RemoveAt(from);
+            list.Insert(to, item);
+            return x with { LevelUp = list };
+        });
+        SelectedRow = LevelUp.ElementAtOrDefault(to);
+    }
+
     [RelayCommand]
     private void AddLevelUp()
     {

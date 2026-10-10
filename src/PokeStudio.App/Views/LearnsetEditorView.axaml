@@ -27,7 +27,8 @@
           </StackPanel>
           <Border Classes="callout warning" IsVisible="{Binding !CanEditLevelUp}"><TextBlock Text="{Binding LevelUpNote}" TextWrapping="Wrap" /></Border>
           <Border Classes="callout warning" IsVisible="{Binding TooManyLevelOne}"><TextBlock Text="{Binding LevelOneWarning}" TextWrapping="Wrap" /></Border>
-          <ListBox ItemsSource="{Binding LevelUp}" SelectedItem="{Binding SelectedRow}" IsEnabled="{Binding CanEditLevelUp}" Background="Transparent" AutomationProperties.Name="Level-up moves">
+          <ListBox x:Name="LevelUpList" ItemsSource="{Binding LevelUp}" SelectedItem="{Binding SelectedRow}" IsEnabled="{Binding CanEditLevelUp}" Background="Transparent" AutomationProperties.Name="Level-up moves"
+                   DragDrop.AllowDrop="True">
             <ListBox.KeyBindings>
               <KeyBinding Gesture="Alt+Up" Command="{Binding MoveSelectedUpCommand}" />
               <KeyBinding Gesture="Alt+Down" Command="{Binding MoveSelectedDownCommand}" />
@@ -35,7 +36,10 @@
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:LevelUpRowViewModel">
                 <Grid ColumnDefinitions="Auto,80,*,Auto" ColumnSpacing="8" MinWidth="420">
-                  <c:Icon Data="{StaticResource Icon.List}" Foreground="{DynamicResource PL.Text3Brush}" ToolTip.Tip="Use the arrows or Alt+↑/↓ to reorder" />
+                  <Border Classes="drag-handle" Background="Transparent" Cursor="SizeNorthSouth" PointerPressed="OnHandlePressed" PointerMoved="OnHandleMoved" Padding="2,6"
+                          ToolTip.Tip="Drag to reorder, or use the arrows / Alt+↑↓">
+                    <c:Icon Data="{StaticResource Icon.Grip}" Foreground="{DynamicResource PL.Text3Brush}" />
+                  </Border>
                   <NumericUpDown Grid.Column="1" Value="{Binding Level}" Minimum="0" Maximum="100" Increment="1" FormatString="0" ShowButtonSpinner="False" Height="32" MinHeight="32"
                                  AutomationProperties.Name="Level" ToolTip.Tip="0 = learned when it evolves" />
                   <AutoCompleteBox Grid.Column="2" ItemsSource="{Binding MoveOptions}" SelectedItem="{Binding Move}" FilterMode="Contains" MinimumPrefixLength="0"

@@ -357,6 +357,24 @@ public class ExpansionTests
         data.Species[i] = block with { Stats = block.Stats with { Speed = block.Stats.Speed == 200 ? 201 : 200 } };
         await module.SaveDataAsync(data, ctx);
         Assert.Single(original.Split('\n').Zip(Read(root, file).Split('\n')), p => p.First != p.Second);
+
+        // Moves: all read, names and power sensible; one setting-dependent edit changes one line.
+        Assert.True(data.Moves.Count > 900, $"only {data.Moves.Count} moves read");
+        Assert.Equal(90, data.Moves.Single(m => m.Key == "MOVE_THUNDERBOLT").Power);
+        Assert.Equal("Thunderbolt", data.Moves.Single(m => m.Key == "MOVE_THUNDERBOLT").Name);
+        var movesText = Read(root, "src/data/moves_info.h");
+        var bolt = data.Moves.FindIndex(m => m.Key == "MOVE_THUNDERBOLT");
+        data.Moves[bolt] = data.Moves[bolt] with { Power = 85 };
+        await module.SaveDataAsync(data, ctx);
+        var changed = movesText.Split('\n').Zip(Read(root, "src/data/moves_info.h").Split('\n')).Where(p => p.First != p.Second).ToList();
+        Assert.Equal(".power = B_UPDATED_MOVE_DATA >= GEN_6 ? 85 : 95,", Assert.Single(changed).Second.Trim());
+
+        // Modernize: every generation file is offered; going back to Gen 3 changes many level-up lists.
+        var gens = module.ModernizeGenerations(data);
+        Assert.Equal(9, gens.Count);
+        var plan = Modernize.Modernizer.Plan(data, (await module.LoadModernizeReferenceAsync(data, 3))!, moves: true, species: true);
+        Assert.True(plan.Count(r => r.ChangesMoves) > 300, $"only {plan.Count(r => r.ChangesMoves)} level-up lists differ from Gen 3");
+        Assert.Contains(plan, r => r.ChangesSpecies);
     }
 }
 

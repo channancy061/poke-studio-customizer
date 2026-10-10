@@ -49,23 +49,28 @@ internal static partial class SpeciesInfo
     [GeneratedRegex(@"\[(SPECIES_\w+)\]\s*=\s*\{")]
     private static partial Regex BlockStartRegex();
 
+    [GeneratedRegex(@"\[(MOVE_\w+)\]\s*=\s*\{")]
+    private static partial Regex MoveBlockStartRegex();
+
     [GeneratedRegex(@"(?!^)([A-Z]+)")]
     private static partial Regex SnakifyRegex();
 
-    public static SourceFile LoadFile(ExpansionLayout layout, string relative)
+    /// <param name="settings">Settings to read the file with (default: the project's own).</param>
+    public static SourceFile LoadFile(ExpansionLayout layout, string relative, MacroTable? settings = null)
     {
+        var baseMacros = settings ?? layout.Macros;
         var text = File.ReadAllText(layout.Full(relative));
-        var map = new ConditionalMap(text, layout.Macros);
-        var macros = layout.Macros.Clone();
+        var map = new ConditionalMap(text, baseMacros);
+        var macros = baseMacros.Clone();
         macros.LoadActiveDefines(text, map);
         return new SourceFile { Relative = relative, Text = text, Map = map, Macros = macros };
     }
 
-    public static List<SpeciesBlock> ParseBlocks(SourceFile file)
+    public static List<SpeciesBlock> ParseBlocks(SourceFile file, bool moves = false)
     {
         var text = file.Text;
         var blocks = new List<SpeciesBlock>();
-        foreach (Match m in BlockStartRegex().Matches(text))
+        foreach (Match m in (moves ? MoveBlockStartRegex() : BlockStartRegex()).Matches(text))
         {
             var lineStart = text.LastIndexOf('\n', Math.Max(0, m.Index - 1)) + 1;
             var before = text.AsSpan(lineStart, m.Index - lineStart).Trim();
@@ -215,10 +220,42 @@ internal static partial class SpeciesInfo
         return Resolve(chosen, macros, out _);
     }
 
-    private static int TopLevelIndex(string s, char target, int from = 0)
+    /// <summary>
+    /// The part of a value the settings use: for "cond ? a : b" the chosen branch (recursively), otherwise the whole
+    /// value. Editing only this span keeps the other setting's value intact.
+    /// </summary>
+    public static (int Start, int End) ActiveSpan(string text, int start, int end, MacroTable macros)
+    {
+        var q = TopLevelIndex(text, '?', start, end);
+        var c = q < 0 ? -1 : TopLevelIndex(text, ':', q + 1, end);
+        if (q < 0 || c < 0)
+        {
+            return Trim(text, start, end);
+        }
+
+        return macros.IsTrue(text[start..q]) ? ActiveSpan(text, q + 1, c, macros) : ActiveSpan(text, c + 1, end, macros);
+    }
+
+    private static (int, int) Trim(string text, int s, int e)
+    {
+        while (s < e && char.IsWhiteSpace(text[s]))
+        {
+            s++;
+        }
+
+        while (e > s && char.IsWhiteSpace(text[e - 1]))
+        {
+            e--;
+        }
+
+        return (s, e);
+    }
+
+    private static int TopLevelIndex(string s, char target, int from = 0, int to = -1)
     {
         var depth = 0;
-        for (var i = from; i < s.Length;)
+        var limit = to < 0 ? s.Length : to;
+        for (var i = from; i < limit;)
         {
             var skipped = CScanner.SkipTrivia(s, i);
             if (skipped != i)
@@ -235,7 +272,7 @@ internal static partial class SpeciesInfo
             {
                 depth--;
             }
-            else if (s[i] == target && depth == 0)
+            else if (s[i] == target && depth == 0 && !(target == ':' && i + 1 < limit && s[i + 1] == ':'))
             {
                 return i;
             }
@@ -518,7 +555,8 @@ internal static partial class SpeciesInfo
             var f = block.Get(field);
             if (f is not null)
             {
-                edits.Add(new TextEdit(f.ValueStart, f.ValueEnd - f.ValueStart, value));
+                var (s, e) = ActiveSpan(file.Text, f.ValueStart, f.ValueEnd, file.Macros);
+                edits.Add(new TextEdit(s, e - s, value));
                 return;
             }
 

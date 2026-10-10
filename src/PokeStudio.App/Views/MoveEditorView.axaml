@@ -1,0 +1,109 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:m="using:PokeStudio.Core.Models"
+             xmlns:c="using:PokeStudio.App.Controls"
+             x:Class="PokeStudio.App.Views.MoveEditorView"
+             x:DataType="vm:MoveEditorViewModel">
+  <UserControl.Resources>
+    <DataTemplate x:Key="EntryTemplate" x:DataType="m:CatalogEntry">
+      <TextBlock Text="{Binding Name}" />
+    </DataTemplate>
+  </UserControl.Resources>
+  <StackPanel Spacing="16" MaxWidth="1040" HorizontalAlignment="Stretch">
+    <StackPanel Orientation="Horizontal" Spacing="12">
+      <TextBlock Text="{Binding Title}" Classes="title" FontSize="30" />
+      <TextBlock Text="{Binding Subtitle}" Classes="muted" VerticalAlignment="Center" />
+    </StackPanel>
+    <TextBlock Text="{Binding TechnicalInfo}" Classes="mono" Foreground="{DynamicResource PL.WarningTextBrush}" IsVisible="{Binding AdvancedMode}" />
+
+    <Border Classes="callout warning" IsVisible="{Binding HasLockNotes}">
+      <StackPanel Spacing="4">
+        <StackPanel Orientation="Horizontal" Spacing="8"><c:Icon Data="{StaticResource Icon.Lock}" /><TextBlock Text="Some parts can't be edited here" FontWeight="Bold" /></StackPanel>
+        <ItemsControl ItemsSource="{Binding LockNotes}">
+          <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" TextWrapping="Wrap" FontSize="13" /></DataTemplate></ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+    <Border Classes="callout info" IsVisible="{Binding HasSettingNotes}">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Some values depend on your battle settings" FontWeight="Bold" />
+        <ItemsControl ItemsSource="{Binding SettingNotes}">
+          <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" TextWrapping="Wrap" FontSize="12" /></DataTemplate></ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+
+    <!-- Battle numbers -->
+    <Border Classes="card" IsEnabled="{Binding CanEditOther}">
+      <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="20" RowSpacing="16">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Type" FontWeight="Bold" />
+          <ComboBox ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding Type}" ItemTemplate="{StaticResource EntryTemplate}" HorizontalAlignment="Stretch" AutomationProperties.Name="Type" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Spacing="6">
+          <TextBlock Text="Category" FontWeight="Bold" />
+          <ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding Category}" HorizontalAlignment="Stretch" AutomationProperties.Name="Category">
+            <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:CategoryOption"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+          </ComboBox>
+          <TextBlock Text="{Binding CategoryHint}" Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+        </StackPanel>
+        <StackPanel Grid.Column="2" Spacing="6" IsEnabled="{Binding CanEditPower}">
+          <TextBlock Text="Power" FontWeight="Bold" />
+          <NumericUpDown Value="{Binding Power}" Minimum="0" Maximum="{Binding MaxPower}" Increment="5" FormatString="0" AutomationProperties.Name="Power" />
+          <TextBlock Text="{Binding PowerHint}" Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Spacing="6" IsEnabled="{Binding CanEditAccuracy}">
+          <TextBlock Text="Accuracy (%)" FontWeight="Bold" />
+          <NumericUpDown Value="{Binding Accuracy}" Minimum="0" Maximum="100" Increment="5" FormatString="0" IsEnabled="{Binding !NeverMisses}" AutomationProperties.Name="Accuracy" />
+          <CheckBox IsChecked="{Binding NeverMisses}" Content="Never misses" />
+          <TextBlock Text="{Binding AccuracyHint}" Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+        </StackPanel>
+        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6" IsEnabled="{Binding CanEditPp}">
+          <TextBlock Text="PP (uses)" FontWeight="Bold" />
+          <NumericUpDown Value="{Binding Pp}" Minimum="1" Maximum="{Binding MaxPp}" Increment="5" FormatString="0" AutomationProperties.Name="PP" />
+          <TextBlock Text="How many times it can be used before resting. PP Ups add up to 60% more." Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+        </StackPanel>
+        <StackPanel Grid.Row="1" Grid.Column="2" Spacing="6" IsEnabled="{Binding CanEditPriority}">
+          <TextBlock Text="Priority" FontWeight="Bold" />
+          <NumericUpDown Value="{Binding Priority}" Minimum="{Binding MinPriority}" Maximum="{Binding MaxPriority}" Increment="1" FormatString="+0;-0;0" AutomationProperties.Name="Priority" />
+          <TextBlock Text="{Binding PriorityHint}" Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- What it does -->
+    <Border Classes="card" IsEnabled="{Binding CanEditOther}">
+      <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="20" RowSpacing="16">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Effect" FontWeight="Bold" />
+          <ComboBox ItemsSource="{Binding EffectOptions}" SelectedItem="{Binding Effect}" ItemTemplate="{StaticResource EntryTemplate}" HorizontalAlignment="Stretch" MaxDropDownHeight="360" AutomationProperties.Name="Effect" />
+          <TextBlock Text="What happens besides damage. Effects run the game's own battle code." Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Spacing="6">
+          <TextBlock Text="Hits" FontWeight="Bold" />
+          <ComboBox ItemsSource="{Binding TargetOptions}" SelectedItem="{Binding Target}" ItemTemplate="{StaticResource EntryTemplate}" HorizontalAlignment="Stretch" AutomationProperties.Name="Target" />
+          <CheckBox IsChecked="{Binding MakesContact}" Content="Makes contact (triggers abilities like Static and Rough Skin)" />
+        </StackPanel>
+        <StackPanel Grid.Row="1" Spacing="6" IsEnabled="{Binding CanEditName}">
+          <TextBlock Text="Name" FontWeight="Bold" />
+          <TextBox Text="{Binding NameDraft}" AutomationProperties.Name="Move name" />
+          <TextBlock Text="{Binding NameCounter}" Classes="caption muted" />
+          <TextBlock Text="{Binding NameError}" Classes="caption" Foreground="{DynamicResource PL.ErrorTextBrush}" TextWrapping="Wrap"
+                     IsVisible="{Binding NameError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6" IsEnabled="{Binding CanEditDescription}">
+          <TextBlock Text="Description" FontWeight="Bold" />
+          <TextBox Text="{Binding DescriptionDraft}" AcceptsReturn="True" TextWrapping="NoWrap" Height="96" FontFamily="{StaticResource PL.FontMono}" FontSize="13" AutomationProperties.Name="Move description" />
+          <TextBlock Text="{Binding DescriptionError}" Classes="caption" Foreground="{DynamicResource PL.WarningTextBrush}" TextWrapping="Wrap"
+                     IsVisible="{Binding DescriptionError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Border Classes="well">
+      <TextBlock Text="{Binding LearnedBy}" Classes="small" TextWrapping="Wrap" />
+    </Border>
+  </StackPanel>
+</UserControl>

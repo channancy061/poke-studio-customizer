@@ -9,6 +9,7 @@
     <KeyBinding Gesture="Ctrl+Y" Command="{Binding RedoCommand}" />
     <KeyBinding Gesture="Ctrl+Shift+Z" Command="{Binding RedoCommand}" />
     <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}" />
+    <KeyBinding Gesture="Ctrl+K" Command="{Binding Search.OpenCommand}" />
   </UserControl.KeyBindings>
 
   <Panel>
@@ -30,7 +31,7 @@
         </StackPanel>
 
         <Button Grid.Column="1" Margin="20,0,0,0" Width="420" Classes="quiet" HorizontalContentAlignment="Left"
-                Command="{Binding NotYetCommand}" CommandParameter="Global search"
+                Command="{Binding Search.OpenCommand}"
                 ToolTip.Tip="Search Pokémon, moves, trainers and places (Ctrl+K)" AutomationProperties.Name="Search">
           <StackPanel Orientation="Horizontal" Spacing="8">
             <c:Icon Data="{StaticResource Icon.Search}" />
@@ -168,6 +169,45 @@
       <Border Classes="tour-ring" Margin="6" IsVisible="{Binding IsTourPage}" />
     </Panel>
   </DockPanel>
+
+  <!-- Global search (Ctrl+K) -->
+  <Border Background="{DynamicResource PL.ScrimBrush}" IsVisible="{Binding Search.IsOpen}" PointerPressed="OnSearchScrimPressed">
+    <Border Classes="card raised" Width="640" MaxHeight="560" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,80,0,0" Padding="0"
+            PointerPressed="OnSearchCardPressed">
+      <DockPanel>
+        <Border DockPanel.Dock="Top" Padding="14" BorderBrush="{DynamicResource PL.BorderBrush}" BorderThickness="0,0,0,1">
+          <TextBox x:Name="SearchBox" Text="{Binding Search.Query}" Watermark="Search Pokémon, moves and tools…" KeyDown="OnSearchKeyDown"
+                   AutomationProperties.Name="Search everything">
+            <TextBox.InnerLeftContent>
+              <c:Icon Data="{StaticResource Icon.Search}" Margin="10,0,0,0" Foreground="{DynamicResource PL.Text3Brush}" />
+            </TextBox.InnerLeftContent>
+          </TextBox>
+        </Border>
+        <Border DockPanel.Dock="Bottom" Padding="14,8" BorderBrush="{DynamicResource PL.BorderBrush}" BorderThickness="0,1,0,0">
+          <TextBlock Text="↑ ↓ to choose · Enter to open · Esc to close" Classes="caption muted" />
+        </Border>
+        <Panel>
+          <TextBlock Text="Nothing matches. Try part of a name, like “char” or “bolt”." Classes="small muted" Margin="16" IsVisible="{Binding Search.HasNoResults}" />
+          <ListBox ItemsSource="{Binding Search.Results}" SelectedItem="{Binding Search.Selected}" Background="Transparent" Margin="6"
+                   DoubleTapped="OnSearchResultActivated" AutomationProperties.Name="Search results">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:SearchResult">
+                <Grid ColumnDefinitions="72,*" Margin="0,2">
+                  <Border Classes="chip" Height="22" HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Kind}" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" />
+                  </Border>
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="{Binding Title}" FontWeight="Bold" />
+                    <TextBlock Text="{Binding Subtitle}" Classes="caption muted" />
+                  </StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Panel>
+      </DockPanel>
+    </Border>
+  </Border>
 
   <!-- Guided tour -->
   <Panel IsVisible="{Binding IsTourOpen}">

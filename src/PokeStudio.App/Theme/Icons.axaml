@@ -33,6 +33,7 @@
   <StreamGeometry x:Key="Icon.Check">M20 6L9 17L4 12</StreamGeometry>
   <StreamGeometry x:Key="Icon.ChevronUp">M6 15L12 9L18 15</StreamGeometry>
   <StreamGeometry x:Key="Icon.ChevronDown">M6 9L12 15L18 9</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Grip">M9 5H9.01 M9 12H9.01 M9 19H9.01 M15 5H15.01 M15 12H15.01 M15 19H15.01</StreamGeometry>
   <StreamGeometry x:Key="Icon.Close">M18 6L6 18 M6 6L18 18</StreamGeometry>
   <StreamGeometry x:Key="Icon.Pin">M12 17V22 M8 3H16L15 9L18 13H6L9 9Z</StreamGeometry>
   <StreamGeometry x:Key="Icon.Refresh">M20 12A8 8 0 1 1 17.7 6.3L20 8 M20 3V8H15</StreamGeometry>

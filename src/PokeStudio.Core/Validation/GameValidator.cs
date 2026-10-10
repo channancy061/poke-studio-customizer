@@ -48,6 +48,11 @@ public static class GameValidator
             CheckEvolutions(data, set, limits, speciesKeys, issues);
         }
 
+        foreach (var move in data.Moves.Where(m => !m.LockedFields.ContainsKey("*")))
+        {
+            CheckMove(move, limits, issues);
+        }
+
         issues.AddRange(module.Validate(data));
         return issues;
     }
@@ -177,6 +182,75 @@ public static class GameValidator
         {
             issues.Add(new ValidationIssue(IssueSeverity.Warning, "Evolution", who, $"has {set.Evolutions.Count} evolutions; the game handles up to {limits.MaxEvolutionsPerSpecies}.") { TargetKey = set.FromSpecies });
         }
+    }
+
+    private static void CheckMove(Move m, GameLimits limits, List<ValidationIssue> issues)
+    {
+        void Add(IssueSeverity sev, string message, string? suggestion = null, Func<GameData, IChange>? fix = null) =>
+            issues.Add(new ValidationIssue(sev, "Move", m.Name.Length > 0 ? m.Name : m.Key, message, suggestion) { Fix = fix, TargetKey = m.Key });
+
+        if (string.IsNullOrWhiteSpace(m.Name))
+        {
+            Add(IssueSeverity.Error, "has no name.", "Type a name.");
+        }
+        else if (m.Name.Length > limits.MoveNameLength)
+        {
+            var shorter = m.Name[..limits.MoveNameLength].TrimEnd();
+            Add(IssueSeverity.Error, $"name is {m.Name.Length} letters; this game allows {limits.MoveNameLength}.", $"Shorten it to “{shorter}”?",
+                d => MoveChange(d, m.Key, "name", x => x with { Name = shorter }));
+        }
+
+        if (m.Power < 0 || m.Power > limits.MaxMovePower)
+        {
+            Add(IssueSeverity.Error, $"has power {m.Power}; it must be 0 to {limits.MaxMovePower}.");
+        }
+
+        if (m.Category == MoveCategory.Status && m.Power > 0)
+        {
+            Add(IssueSeverity.Warning, $"is a status move but has power {m.Power}. Status moves don't deal damage, so the power is ignored.",
+                "Set the power to 0, or make it Physical or Special.", d => MoveChange(d, m.Key, "power", x => x with { Power = 0 }));
+        }
+        else if (m.Category != MoveCategory.Status && m.Power == 0 && m.Effect == "EFFECT_HIT")
+        {
+            Add(IssueSeverity.Warning, "is a damaging move with 0 power, so it won't do any damage.", "Give it some power, or make it a status move.");
+        }
+
+        if (m.Accuracy is < 0 or > 100)
+        {
+            Add(IssueSeverity.Error, $"has {m.Accuracy}% accuracy; it must be 0 to 100 (0 = never misses).");
+        }
+
+        if (m.Pp < 1 || m.Pp > limits.MaxMovePp)
+        {
+            Add(IssueSeverity.Error, $"has {m.Pp} PP; it must be 1 to {limits.MaxMovePp}.");
+        }
+        else if (m.Pp > 40)
+        {
+            Add(IssueSeverity.Warning, $"has {m.Pp} PP. No official move has more than 40, and PP Ups raise it further.");
+        }
+
+        if (m.Priority < limits.MinMovePriority || m.Priority > limits.MaxMovePriority)
+        {
+            Add(IssueSeverity.Error, $"has priority {m.Priority}; it must be {limits.MinMovePriority} to +{limits.MaxMovePriority}.");
+        }
+
+        var lines = m.Description.Split('\n').Length;
+        if (m.Description.Length > 0 && lines > limits.MoveDescriptionMaxLines)
+        {
+            Add(IssueSeverity.Warning, $"description has {lines} lines; the summary screen shows {limits.MoveDescriptionMaxLines}.");
+        }
+    }
+
+    private static IChange MoveChange(GameData data, string key, string field, Func<Move, Move> update)
+    {
+        var index = data.Moves.FindIndex(m => m.Key == key);
+        var before = data.Moves[index];
+        var after = update(before);
+        return new ValueChange<Move>("Moves", $"{before.Name} · fixed {field}", v =>
+        {
+            data.Moves[index] = v;
+            data.Catalog.RenameMove(v.Key, v.Name);
+        }, before, after);
     }
 
     private static IChange SpeciesChange(GameData data, string key, string field, Func<Species, Species> update)

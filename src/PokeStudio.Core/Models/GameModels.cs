@@ -106,13 +106,34 @@ public sealed record Move
     public required int Id { get; init; }
     public string Key { get; init; } = "";
     public required string Name { get; init; }
+
+    /// <summary>Text shown in the summary screen; lines separated by "\n".</summary>
+    public string Description { get; init; } = "";
+
     public string Type { get; init; } = "";
     public MoveCategory Category { get; init; }
     public int Power { get; init; }
+
+    /// <summary>0 = never misses.</summary>
     public int Accuracy { get; init; } = 100;
+
     public int Pp { get; init; } = 10;
     public int Priority { get; init; }
+
+    /// <summary>Battle effect key, e.g. "EFFECT_HIT".</summary>
+    public string Effect { get; init; } = "";
+
+    /// <summary>Who it hits, e.g. "TARGET_SELECTED".</summary>
+    public string Target { get; init; } = "";
+
+    public bool MakesContact { get; init; }
     public string EffectDescription { get; init; } = "";
+
+    /// <summary>Fields that can't be edited here, with the plain-English reason ("*" = the whole move).</summary>
+    public IReadOnlyDictionary<string, string> LockedFields { get; init; } = new Dictionary<string, string>();
+
+    /// <summary>Fields whose value depends on a game setting, with an explanation.</summary>
+    public IReadOnlyDictionary<string, string> SettingDependentFields { get; init; } = new Dictionary<string, string>();
 }
 
 public sealed record LevelUpMove(int Level, string Move);

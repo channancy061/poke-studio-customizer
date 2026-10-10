@@ -1,0 +1,11 @@
+// Invented test fixture.
+enum BattleMoveEffects
+{
+    EFFECT_NONE,
+    EFFECT_HIT,
+    EFFECT_STAT_CHANGE,
+    EFFECT_NON_VOLATILE_STATUS,
+    EFFECT_TWO_TURNS_ATTACK,
+    EFFECT_PROTECT,
+    NUM_BATTLE_MOVE_EFFECTS,
+};

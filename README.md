@@ -7,7 +7,7 @@
 A friendly desktop editor (Windows + Linux) for customising games you legally own.
 It ships **no game files or assets**, never modifies your originals, and uses only open-source components (MIT-licensed).
 
-## Status: Phase 3 (Build & play)
+## Status: Phase 4 (Moves & Modernize)
 - **Phase 1:** solution skeleton, plugin system, projects, undo/redo + change log, backups/restore, settings,
   Avalonia shell with light/dark theming, CI on Windows + Linux, Windows installer and Linux AppImage.
 - **Phase 2:** edit a **pokeemerald-expansion 1.17.1** project (Emerald-based, Gen 1–9 Pokémon):
@@ -33,6 +33,17 @@ It ships **no game files or assets**, never modifies your originals, and uses on
     suggests mGBA / melonDS / Azahar, recognises VBA, VBA-M, DeSmuME, Citra and Lime3DS too, finds
     ones already on your computer, and warns that VisualBoyAdvance 1.8 is too old for modern hacks.
     No emulator is bundled.
+- **Phase 4:**
+  - **Move editor** (pokeemerald-expansion): name, description, type, category, power, accuracy,
+    PP, priority, effect, target, contact, with plain-English hints and checks before saving.
+    Values that depend on a battle setting (`B_UPDATED_MOVE_DATA >= GEN_6 ? 90 : 95`) are edited in
+    the branch your settings use; the other branch is kept. Pokémon fields now work the same way.
+  - **Modernize**: pick a generation (Gen 9 = latest … Gen 1) and preview, per Pokémon, which
+    level-up moves change; optionally base stats, types and abilities too. Untick any Pokémon, then
+    apply as one undo step. Uses the per-generation data the project already ships.
+  - **Global search** (Ctrl+K or the search bar): jump to any Pokémon, move or tool.
+  - **Drag and drop**: drop a game file or project folder on the hub to open it; drag level-up
+    moves by their handle to reorder them.
 - The **Demo** module still edits an invented sample (`samples/Demo Valley.demogame.json`).
 
 ## Layout
@@ -97,6 +108,9 @@ CI builds the AppImage on every `v*` tag (`release.yml`), so you can also downlo
 12. Open a project → the guided tour runs once; Help & about › Replay the guided tour shows it again.
 13. Build & test without WSL → "Not ready to build yet" with the WSL steps; Build button disabled.
 14. With an emulator set and a build in `builds/`, **Test my game** opens it in the emulator.
+15. Moves › Thunderbolt › Power 85 → save → only that line changes in `src/data/moves_info.h`.
+16. Modernize › Gen 3 › Show what would change → untick one → Apply → one entry in Changes; Ctrl+Z undoes all.
+17. Ctrl+K, type "char", Enter → that Pokémon opens. Drag a project folder onto the hub → it opens.
 
 ## Where data lives
 | | Windows | Linux |
