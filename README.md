@@ -110,6 +110,8 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 5. **Build & test → Build my game.** The first time on Windows you'll be guided through WSL and the build tools.
    The first build takes 5–10 minutes; later ones are faster.
 6. **Test my game** opens the new game in your emulator.
+7. To share it, press **Make patch** next to a build. Players apply the `.bps` patch to their own game, so nobody
+   shares a ROM.
 
 The [User Guide](docs/USER_GUIDE.md) walks through every screen in detail.
 

@@ -143,6 +143,7 @@
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                       <Button Classes="ghost sm" Content="Player's Guide" Command="{Binding OpenGuideCommand}" IsVisible="{Binding HasGuide}" ToolTip.Tip="Open the guide made with this build" />
+                      <Button Classes="ghost sm" Content="Make patch" Command="{Binding MakePatchCommand}" ToolTip.Tip="Save a .bps patch of this build to share: players apply it to their own unmodified game, so nobody shares a ROM" />
                       <Button Classes="ghost sm" Content="Show in folder" Command="{Binding ShowInFolderCommand}" />
                       <Button Classes="secondary sm" Content="Test" Command="{Binding TestCommand}" />
                     </StackPanel>

@@ -2,6 +2,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using PokeStudio.App.ViewModels;
 using PokeStudio.App.Views;
+using PokeStudio.Core.Build;
 using PokeStudio.Core.Settings;
 
 namespace PokeStudio.App.Tests;
@@ -71,6 +72,15 @@ public class RomUiTests
         Assert.True(made.HasGuide); // the Player's Guide is written next to the game
         Assert.Contains("ROXY", await File.ReadAllTextAsync(made.GuideFile), StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Build finished", shell.Toast, StringComparison.Ordinal);
+
+        // a patch to share, made against the ROM the project came from: it rebuilds the game and isn't listed as a build
+        await made.MakePatchCommand.ExecuteAsync(null);
+        Assert.StartsWith("Patch saved", shell.Toast, StringComparison.Ordinal);
+        var patch = await File.ReadAllBytesAsync(BuildService.PatchPath(made.Record.FilePath));
+        Assert.Equal(working, Bps.Apply(before, patch));
+        Assert.True(patch.Length < 64 * 1024, $"patch is {patch.Length} bytes");
+        build.LoadHistory();
+        Assert.Single(build.History);
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         window.CaptureRenderedFrame()!.Save(Path.Combine(outDir, "rom-build-Dark.png"));
         window.Close();

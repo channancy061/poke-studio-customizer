@@ -431,6 +431,9 @@ public sealed partial class BuildRowViewModel(BuildRecord record, BuildPageViewM
 
     [RelayCommand]
     private void ShowInFolder() => page.ShowInFolder(Record.FilePath);
+
+    [RelayCommand]
+    private Task MakePatchAsync() => page.MakePatchAsync(Record);
 }
 
 public sealed record ProblemRowViewModel(string Title, string Explanation, string? Location, string RawLine)
@@ -703,13 +706,65 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private async Task TestFileAsync()
     {
-        var ext = _shell.Session.Module.Platform switch { GamePlatform.Nds => "*.nds", GamePlatform.N3ds => "*.3ds", GamePlatform.Gb => "*.gbc", _ => "*.gba" };
-        var file = await _shell.Main.Dialogs.PickFileAsync("Pick a game file to test", [("Game files", [ext])]);
+        var file = await _shell.Main.Dialogs.PickFileAsync("Pick a game file to test", [("Game files", [GameFilePattern])]);
         if (file is not null)
         {
             Play(file);
         }
     }
+
+    private string GameFilePattern => _shell.Session.Module.Platform switch { GamePlatform.Nds => "*.nds", GamePlatform.N3ds => "*.3ds", GamePlatform.Gb => "*.gbc", _ => "*.gba" };
+
+    /// <summary>
+    /// Saves a patch (.bps) of a build next to it, made against the unmodified game: the ROM this project was made from,
+    /// or one the user picks. Players apply it to their own copy of the game, so nobody has to share a ROM.
+    /// </summary>
+    internal async Task MakePatchAsync(BuildRecord build)
+    {
+        var manifest = _shell.Session.Project.Manifest;
+        var original = IsRomProject && !manifest.WorkInPlace && File.Exists(manifest.OriginalSourcePath)
+            ? manifest.OriginalSourcePath
+            : await _shell.Main.Dialogs.PickFileAsync("Pick your unmodified game (the patch is made from it)", [("Game files", [GameFilePattern])]);
+        if (original is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var patch = BuildService.PatchPath(build.FilePath);
+            var (size, message) = await Task.Run(() =>
+            {
+                var source = File.ReadAllBytes(original);
+                var target = File.ReadAllBytes(build.FilePath);
+                if (GbaGameCode(source) is { } a && GbaGameCode(target) is { } b && a != b)
+                {
+                    return (0, $"That's a different game ({a}) from your build ({b}). Pick the unmodified game your hack is based on.");
+                }
+
+                var bytes = Bps.Create(source, target);
+                File.WriteAllBytes(patch, bytes);
+                return (bytes.Length, (string?)null);
+            });
+
+            if (message is not null)
+            {
+                _shell.Toast = message;
+                return;
+            }
+
+            _shell.Toast = $"Patch saved: {Path.GetFileName(patch)} ({Math.Max(1, size / 1024)} KB). Players apply it to their own unmodified game with Floating IPS or an online ROM patcher.";
+            ShowInFolder(patch);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _shell.Toast = "The patch couldn't be made: " + ex.Message;
+        }
+    }
+
+    // a GBA game's 4-letter code (BPEE = Emerald, BPRE = FireRed), or null for other files
+    private static string? GbaGameCode(byte[] rom) =>
+        rom.Length >= 0xC0 && rom[0xB2] == 0x96 ? Encoding.ASCII.GetString(rom, 0xAC, 4) : null;
 
     internal void Play(string gameFile)
     {
@@ -758,7 +813,7 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
         _shell.Main.ShowInFolder(OutputFolder);
     }
 
-    private void LoadHistory()
+    internal void LoadHistory()
     {
         History.Clear();
         var first = true;

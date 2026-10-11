@@ -82,11 +82,16 @@ Building decomp projects and playing your game use free tools you install yourse
 | [DeSmuME](https://desmume.org) | [GPL-2.0](https://github.com/TASEmulators/desmume/blob/master/license.txt) | Playing DS games |
 | [Azahar](https://azahar-emu.org) | [GPL-2.0](https://github.com/azahar-emu/azahar/blob/master/license.txt) | Playing 3DS games (suggested) |
 | [Citra](https://github.com/citra-emu) / [Lime3DS](https://github.com/Lime3DS) | GPL-2.0 | Playing 3DS games (the app writes mods to Citra's mod folder) |
-| [Floating IPS (Flips)](https://github.com/Alcaro/Flips) | [GPL-3.0](https://github.com/Alcaro/Flips/blob/master/COPYING.gpl3) | Making patches to share your hack (optional) |
+| [Floating IPS (Flips)](https://github.com/Alcaro/Flips) | [GPL-3.0](https://github.com/Alcaro/Flips/blob/master/COPYING.gpl3) | Applying patches (for your players; the app makes BPS patches itself) |
 
 The app only starts these programs (for building and testing); it doesn't include or modify them.
 
-## 6. Code the app writes into your project or ROM
+## 6. File formats
+
+The app makes **BPS patches** with its own code (`src/PokeStudio.Core/Build/Bps.cs`, MIT), written from the format's
+public description by its author, byuu (Near). No code from Flips or other patchers is used.
+
+## 7. Code the app writes into your project or ROM
 
 When you use Game options, badge shops and similar tools on a decomp project, the app writes new code into that
 project (`src/poke_studio.c`, `include/constants/poke_studio.h`, `data/scripts/poke_studio_options.inc` and short

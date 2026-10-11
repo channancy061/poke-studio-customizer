@@ -121,9 +121,9 @@ public sealed partial class BuildService(IProcessRunner runner, IBuildEnvironmen
         foreach (var old in History(projectDir).Skip(Math.Max(1, keep)))
         {
             File.Delete(old.FilePath);
-            foreach (var guide in GuideFiles(old.FilePath).Where(File.Exists))
+            foreach (var companion in GuideFiles(old.FilePath).Append(PatchPath(old.FilePath)).Where(File.Exists))
             {
-                File.Delete(guide);
+                File.Delete(companion);
             }
         }
 
@@ -139,6 +139,9 @@ public sealed partial class BuildService(IProcessRunner runner, IBuildEnvironmen
         return (stem + ".html", stem + ".md");
     }
 
+    /// <summary>The patch (.bps) made from a build, next to it.</summary>
+    public static string PatchPath(string buildFile) => Path.ChangeExtension(buildFile, ".bps");
+
     private static string[] GuideFiles(string buildFile) => GuidePaths(buildFile) is var (h, m) ? [h, m] : [];
 
     private static bool IsGuide(string file) => Path.GetFileNameWithoutExtension(file).EndsWith(GuideSuffix, StringComparison.Ordinal);
@@ -153,7 +156,7 @@ public sealed partial class BuildService(IProcessRunner runner, IBuildEnvironmen
         }
 
         return Directory.EnumerateFiles(dir)
-            .Where(f => DatedName().IsMatch(Path.GetFileName(f)) && !IsGuide(f))
+            .Where(f => DatedName().IsMatch(Path.GetFileName(f)) && !IsGuide(f) && !f.EndsWith(".bps", StringComparison.OrdinalIgnoreCase))
             .Select(f => new FileInfo(f))
             .Select(f => new BuildRecord(f.FullName, new DateTimeOffset(f.LastWriteTimeUtc, TimeSpan.Zero), f.Length))
             .OrderByDescending(r => r.CreatedUtc)

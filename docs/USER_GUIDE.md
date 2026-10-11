@@ -263,9 +263,17 @@ shops and special evolutions. Make it again after changes.
 ## 10. Sharing your hack
 
 - **Never share ROMs or built game files publicly.** They contain the original game.
-- The usual way to share a ROM hack is a **patch**: a small file with only your changes, which players apply to their
-  own game. Tools such as [Floating IPS (Flips)](https://github.com/Alcaro/Flips) make BPS patches by comparing the
-  original game with your build.
+- The usual way to share a ROM hack is a **patch**: a file with only your changes, which players apply to their own
+  game. On **Build my game**, press **Make patch** next to a build. A `.bps` file is saved next to that build.
+  - **ROM projects** make the patch from the ROM you started the project with.
+  - **Decomp projects** ask you to pick your unmodified game: Emerald (US) for pokeemerald-expansion, FireRed (US 1.0)
+    for pokefirered-expansion.
+  - Anything that's also in the player's own game, even if it moved, is taken from their copy, so the patch holds only
+    your hack. Patches of expansion projects are still large (often 15–20 MB) because the expansion adds a lot of new
+    Pokémon, moves and graphics.
+- Players apply the patch to **their own unmodified game** with [Floating IPS (Flips)](https://github.com/Alcaro/Flips)
+  or an online patcher such as [Rom Patcher JS](https://www.marcrobledo.com/RomPatcher.js/). If their game is a
+  different version, the patcher says so instead of making a broken game.
 - Give your players the **Player's Guide**, and share your randomizer seed if you used one.
 
 ## 11. Settings

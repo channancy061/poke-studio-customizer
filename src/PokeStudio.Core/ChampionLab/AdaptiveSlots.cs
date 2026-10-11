@@ -122,7 +122,7 @@ public static class AdaptiveSlots
     /// </summary>
     public static Validation.ValidationIssue NotSupportedIssue(Trainer t) =>
         new(Validation.IssueSeverity.Warning, "Trainers", t.Name,
-            "has an adaptive boss slot, which only works in decomp projects. The team is saved without it.",
+            "has an adaptive boss slot, which only works in decomp projects and unmodified FireRed (US 1.0) / Emerald (US) ROMs. The team is saved without it.",
             "Remove the slot (Fix it for me), or keep it for a decomp version of this hack.")
         {
             TargetKey = t.Key,
