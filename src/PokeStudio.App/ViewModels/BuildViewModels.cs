@@ -484,7 +484,9 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
     public ObservableCollection<ProblemRowViewModel> Problems { get; } = [];
     public bool HasHistory => History.Count > 0;
     public bool HasProblems => Problems.Count > 0;
-    public string KeepText => $"The last {_shell.Main.Settings.Current.BuildsKeepCount} builds are kept, each with the date in its name.";
+    public string KeepText => _shell.Main.Settings.Current.BuildsKeepCount is var n && n == 1
+        ? "Only the latest build is kept (Settings › Projects & backups), with the date in its name."
+        : $"The last {n} builds are kept, each with the date in its name.";
     public string OutputFolder => BuildService.BuildsDir(_shell.Session.Project.Directory);
     public string WslHelp => WslBuildEnvironment.WslInstructions;
 
