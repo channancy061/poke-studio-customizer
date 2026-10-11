@@ -33,7 +33,7 @@ Game options → set several options to **Player chooses**, including difficulty
 Infinite Candy, and the Pokémon Center helper. Save and build, then start a **new game**:
 - ✔ The options menu appears once, near the start, after the warning about pressing A.
 - ✔ Each choice does what it says. Nuzlocke examples:
-  - only the first Pokémon in an area can be caught;
+  - only the first Pokémon in an area can be caught (battles before you have Poké Balls don't count);
   - fainted Pokémon are released after the battle;
   - you can't keep the default name when nicknames are required;
   - revives can't be used;

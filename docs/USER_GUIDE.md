@@ -182,7 +182,7 @@ Pick a Pokémon and a picture (front, back or party icon), then normal or shiny.
 A menu the player sees once when starting a new game. For each option you choose **not added**, **player chooses**,
 or **always on/off**:
 - **Difficulty:** Easy / Normal / Hard / Extra Hard (uses the difficulty versions).
-- **Nuzlocke**, each rule separately: only the first Pokémon met in each area can be caught; fainted Pokémon are
+- **Nuzlocke**, each rule separately: only the first Pokémon met in each area can be caught (counting starts once you have Poké Balls); fainted Pokémon are
   released; duplicates clause (whole evolution families, plus an Eevee clause); shiny clause; nicknames required (the
   species name doesn't count); no revives; respect the level cap.
 - **Hard level cap**, **no EVs / perfect IVs**, **no items in battle**, **Infinite Candy** (a reusable Rare Candy).

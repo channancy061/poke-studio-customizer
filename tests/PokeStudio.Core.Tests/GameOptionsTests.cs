@@ -310,6 +310,7 @@ public class GameOptionsCodeTests
         Assert.Contains("[SPECIES_IVYSAUR] = SPECIES_BULBASAUR,", code, StringComparison.Ordinal);
         Assert.Contains("[SPECIES_VENUSAUR] = SPECIES_BULBASAUR,", code, StringComparison.Ordinal);
         Assert.Contains("FLAG_PS_AREA_", code, StringComparison.Ordinal);
+        Assert.Contains("if (!IsBagPocketNonEmpty(POCKET_POKE_BALLS))", code, StringComparison.Ordinal); // no balls yet: the area isn't used up
         foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(code, @"FLAG_PS_\w+"))
         {
             Assert.Contains("#define " + m.Value + " ", ReadRel(GameOptionsWriter.Header), StringComparison.Ordinal);

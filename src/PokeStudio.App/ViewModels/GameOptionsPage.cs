@@ -80,7 +80,7 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         IReadOnlyList<ModeOption> rule = [new("Off", OptionMode.AlwaysOff), Asked, new("Always on", OptionMode.AlwaysOn)];
         NuzlockeRules =
         [
-            new(this, "First encounter only", "Only the first wild Pokémon met in each area can be caught. In a wild double battle, either of the two (balls can only be thrown once one is left).", rule, s => s.NuzFirstEncounter, (s, m) => s with { NuzFirstEncounter = m }),
+            new(this, "First encounter only", "Only the first wild Pokémon met in each area can be caught (counting starts once the player has a Poké Ball). In a wild double battle, either of the two (balls can only be thrown once one is left).", rule, s => s.NuzFirstEncounter, (s, m) => s with { NuzFirstEncounter = m }),
             new(this, "Fainted Pokémon are gone", "No revives: revive items and Revival Blessing fail. Pokémon that faint are released after the battle (unless the whole team fainted - then the run is over and the player decides).", rule, s => s.NuzFaintedGone, (s, m) => s with { NuzFaintedGone = m }),
             new(this, "Duplicates clause", "A Pokémon whose evolution family was already caught doesn't use up the area, so the player gets another try.", rule, s => s.NuzDupes, (s, m) => s with { NuzDupes = m }),
             new(this, "Eevee clause", "With the duplicates clause: Eevee never counts as a duplicate, so the player can catch one for each evolution.", rule, s => s.NuzEeveeException, (s, m) => s with { NuzEeveeException = m }),

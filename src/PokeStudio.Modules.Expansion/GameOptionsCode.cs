@@ -420,6 +420,7 @@ internal static partial class GameOptionsWriter
         L("#include \"data.h\"");
         L("#include \"event_data.h\"");
         L("#include \"fieldmap.h\"");
+        L("#include \"item.h\"");
         L("#include \"pokedex.h\"");
         L("#include \"pokemon.h\"");
         L("#include \"pokemon_storage_system.h\"");
@@ -509,6 +510,13 @@ internal static partial class GameOptionsWriter
                 sCatchRulesActive = FlagGet(FLAG_PS_NUZ_FIRST);
                 if (!sCatchRulesActive)
                     return;
+                // an area's first encounter only counts once the player has a Poké Ball (the usual Nuzlocke rule):
+                // battles before that, like the one on Route 101 before Birch gives you balls, don't use the area up
+                if (!IsBagPocketNonEmpty(POCKET_POKE_BALLS))
+                {
+                    sCatchRulesActive = FALSE;
+                    return;
+                }
                 for (u32 i = 0; i < 2; i++)
                 {
                     struct Pokemon *wild = &PS_ENEMY_PARTY[i];

@@ -284,7 +284,7 @@ public static class PlayersGuide
                 }
             }
 
-            Rule(o.NuzFirstEncounter, "Only the first wild Pokémon you meet in each area can be caught. In a wild double battle, knock one out and catch the other.");
+            Rule(o.NuzFirstEncounter, "Only the first wild Pokémon you meet in each area can be caught, counting from when you have Poké Balls. In a wild double battle, knock one out and catch the other.");
             Rule(o.NuzFaintedGone, "A Pokémon that faints is gone for good - no revives.");
             Rule(o.NuzDupes, "Duplicates clause: a Pokémon you already caught (or its evolution family) doesn't use up the area.");
             Rule(o.NuzEeveeException, "Eevee clause: Eevee never counts as a duplicate.");
