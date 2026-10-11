@@ -97,6 +97,9 @@ public sealed class GameData
     /// <summary>New-game options (saved with the Poke Studio project; the module writes them into the game).</summary>
     public GameOptions.GameOptionsSettings? GameOptions { get; set; }
 
+    /// <summary>Story battles (saved with the Poke Studio project, written into the game on save).</summary>
+    public Story.StorySettings? Story { get; set; }
+
     /// <summary>Pending sprite and palette changes (written by modules that support graphics).</summary>
     public Graphics.GraphicsEdits Graphics { get; } = new();
 
@@ -176,6 +179,18 @@ public interface IGameModule
 
     /// <summary>Whether this game can get the new-game options menu (written on save from <see cref="GameData.GameOptions"/>).</summary>
     bool SupportsGameOptions(GameData data) => false;
+
+    /// <summary>Whether story battles (a trainer guarding an entrance) can be added (decomp projects).</summary>
+    bool SupportsStoryBattles(GameData data) => false;
+
+    /// <summary>Maps that have entrances: (map folder, place name).</summary>
+    IReadOnlyList<(string Map, string Name)> StoryMaps(GameData data) => [];
+
+    /// <summary>Where a story battle can go on a map: one spot per entrance.</summary>
+    IReadOnlyList<Story.StorySpot> StorySpots(GameData data, string map) => [];
+
+    /// <summary>The overworld sprites a story trainer can use.</summary>
+    IReadOnlyList<string> StoryLooks(GameData data) => [];
 
     /// <summary>Whether bosses can get an adaptive slot in this game (decomp projects; some unmodified ROMs).</summary>
     bool SupportsAdaptiveSlots(GameData data) => SupportsGameOptions(data);

@@ -50,6 +50,7 @@ public sealed class ProjectSession : IDisposable
         var data = await module.LoadDataAsync(project.WorkingSourcePath, project.DataDir, cancellationToken);
         data.Lab = await LoadJsonAsync<ChampionLab.LabSettings>(project, LabFileName, cancellationToken);
         data.GameOptions = await LoadJsonAsync<GameOptions.GameOptionsSettings>(project, GameOptionsFileName, cancellationToken);
+        data.Story = await LoadJsonAsync<Story.StorySettings>(project, StoryFileName, cancellationToken);
         var session = new ProjectSession(project, module, data, projects, backups, clock ?? TimeProvider.System);
         session.RecordBaseline();
         var all = await backups.ListAsync(project.Manifest.Id, cancellationToken);
@@ -60,6 +61,7 @@ public sealed class ProjectSession : IDisposable
 
     public const string LabFileName = "champion-lab.json";
     public const string GameOptionsFileName = "game-options.json";
+    public const string StoryFileName = "story-battles.json";
 
     /// <summary>Settings kept in the project's data folder, or the defaults.</summary>
     private static async Task<T> LoadJsonAsync<T>(Project project, string fileName, CancellationToken cancellationToken)
@@ -134,6 +136,12 @@ public sealed class ProjectSession : IDisposable
             await Storage.JsonStore.WriteAsync(Path.Combine(Project.DataDir, GameOptionsFileName), options, cancellationToken);
         }
 
+        if (Data.Story is { } story)
+        {
+            Directory.CreateDirectory(Project.DataDir);
+            await Storage.JsonStore.WriteAsync(Path.Combine(Project.DataDir, StoryFileName), story, cancellationToken);
+        }
+
         await _projects.SaveManifestAsync(Project, cancellationToken);
         Undo.MarkSaved();
         _log.MarkSaved();
@@ -172,6 +180,9 @@ public sealed class ProjectSession : IDisposable
         }
 
         Data = await Module.LoadDataAsync(Project.WorkingSourcePath, Project.DataDir, cancellationToken);
+        Data.Lab = await LoadJsonAsync<ChampionLab.LabSettings>(Project, LabFileName, cancellationToken);
+        Data.GameOptions = await LoadJsonAsync<GameOptions.GameOptionsSettings>(Project, GameOptionsFileName, cancellationToken);
+        Data.Story = await LoadJsonAsync<Story.StorySettings>(Project, StoryFileName, cancellationToken);
         RecordBaseline();
         Undo.Clear();
         LastBackupUtc = _clock.GetUtcNow();

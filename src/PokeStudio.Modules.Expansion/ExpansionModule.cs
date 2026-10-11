@@ -5,6 +5,7 @@ using PokeStudio.Core.Build;
 using PokeStudio.Core.Modernize;
 using PokeStudio.Core.Models;
 using PokeStudio.Core.GameOptions;
+using PokeStudio.Core.Story;
 using PokeStudio.Core.Graphics;
 using PokeStudio.Core.Modules;
 using PokeStudio.Core.SourceCode;
@@ -107,14 +108,26 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
         var layout = new ExpansionLayout(workingSourcePath);
         return [.. layout.SpeciesFiles(), layout.LevelUpFile, ExpansionLayout.EggMovesFile, ExpansionLayout.LearnablesJson, MovesInfo.File, TrainerParty.File,
             EncountersFile.File, ItemsInfo.File, CapsFiles.Source, CapsFiles.Config, BattleConfig, ShopsJson.File, ShopsJson.ShopC, DifficultyFile, AiConfig, ItemConfig,
-            "include/config/summary_screen.h", "include/config/overworld.h",
+            "include/config/summary_screen.h", "include/config/overworld.h", StoryWriter.Opponents, StoryWriter.Script,
             .. GameOptionsWriter.Files(layout).Where(f => !f.EndsWith("/scripts.inc", StringComparison.Ordinal)), .. ScriptFiles(layout.Root)];
     }
 
     public IReadOnlyList<string> ManagedFiles(string workingSourcePath, GameData data) =>
-        _states.TryGetValue(data, out var state) && !data.Graphics.IsEmpty
-            ? [.. ManagedFiles(workingSourcePath), .. ExpansionSprites.PendingFiles(state, data.Graphics).Distinct()]
-            : ManagedFiles(workingSourcePath);
+        [.. ManagedFiles(workingSourcePath),
+            .. _states.TryGetValue(data, out var state) && !data.Graphics.IsEmpty ? ExpansionSprites.PendingFiles(state, data.Graphics).Distinct() : [],
+            .. StoryWriter.MapFiles(new ExpansionLayout(workingSourcePath).Root, data)];
+
+    public bool SupportsStoryBattles(GameData data) =>
+        _states.TryGetValue(data, out var state) && File.Exists(state.Layout.Full(StoryWriter.Opponents)) && File.Exists(state.Layout.Full(GameOptionsWriter.EventScripts));
+
+    public IReadOnlyList<(string Map, string Name)> StoryMaps(GameData data) =>
+        _states.TryGetValue(data, out var state) ? StoryWriter.Maps(state.Layout.Root) : [];
+
+    public IReadOnlyList<StorySpot> StorySpots(GameData data, string map) =>
+        _states.TryGetValue(data, out var state) ? StoryWriter.Spots(state.Layout.Root, map) : [];
+
+    public IReadOnlyList<string> StoryLooks(GameData data) =>
+        _states.TryGetValue(data, out var state) ? StoryWriter.Looks(state.Layout.Root) : [];
 
     public SpriteRules? Rules(GameData data, string species, SpriteKind kind) =>
         _states.TryGetValue(data, out var state) ? ExpansionSprites.Rules(state, species, kind) : null;
@@ -213,7 +226,8 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
 
             // versions removed in the app
             var keep = data.Trainers.Select(t => t.Key).ToHashSet(StringComparer.Ordinal);
-            foreach (var removed in state.TrainerBlocks.Values.Where(b => !keep.Contains(b.Key) && b.Key.Contains('@', StringComparison.Ordinal)))
+            foreach (var removed in state.TrainerBlocks.Values.Where(b => !keep.Contains(b.Key)
+                && (b.Key.Contains('@', StringComparison.Ordinal) || b.Key.StartsWith(StoryBattles.TrainerPrefix, StringComparison.Ordinal))))
             {
                 trainerEdits.Add(new TextEdit(removed.Start, removed.End - removed.Start, ""));
             }
@@ -298,6 +312,16 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
             await context.Writer.WriteAllTextAsync(state.Layout.Full(ExpansionLayout.LearnablesJson), state.Learnables.Serialize(), cancellationToken);
         }
 
+        // story battles: trainer list, scripts, maps and level-cap steps (after the trainers and caps above)
+        if (data.Story is { Battles.Count: > 0 } || File.Exists(state.Layout.Full(StoryWriter.Script)))
+        {
+            string? ReadFile(string rel) => File.Exists(state.Layout.Full(rel)) ? File.ReadAllText(state.Layout.Full(rel)) : null;
+            foreach (var (file, text) in StoryWriter.Plan(state.Layout.Root, data, ReadFile))
+            {
+                await context.Writer.WriteAllTextAsync(state.Layout.Full(file), text, cancellationToken);
+            }
+        }
+
         // new-game options last: they read the files as the steps above left them
         if (options is { AnyUsed: true })
         {
@@ -352,6 +376,12 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
             {
                 places.TryAdd(m.Groups[1].Value, place);
             }
+        }
+
+        // story battles: where they stand (their script is in a shared file, not the map's)
+        foreach (var b in data.Story?.Battles ?? [])
+        {
+            places[b.TrainerKey] = MapPlace(b.Map);
         }
 
         return places;
@@ -1077,12 +1107,12 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
         if (data.Rules is { } rules && state.Rules is { } beforeRules && !ReferenceEquals(rules, beforeRules) && state.CapsSource is { } capsSrc && state.CapsConfig is { } capsCfg)
         {
             var srcEdits = new List<TextEdit>();
-            for (var i = 0; i < rules.LevelCaps.Count && i < state.CapEntries.Count; i++)
+            // matched by flag: story battles can add steps in the middle of the list
+            foreach (var cap in rules.LevelCaps)
             {
-                if (rules.LevelCaps[i].Level != state.CapEntries[i].Level)
+                if (state.CapEntries.FirstOrDefault(x => x.Flag == cap.Milestone) is { } e && e.Level != cap.Level)
                 {
-                    var e = state.CapEntries[i];
-                    srcEdits.Add(new TextEdit(e.NumberStart, e.NumberEnd - e.NumberStart, rules.LevelCaps[i].Level.ToString(CultureInfo.InvariantCulture)));
+                    srcEdits.Add(new TextEdit(e.NumberStart, e.NumberEnd - e.NumberStart, cap.Level.ToString(CultureInfo.InvariantCulture)));
                 }
             }
 
