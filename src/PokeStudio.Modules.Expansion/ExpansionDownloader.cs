@@ -26,6 +26,7 @@ public sealed class ExpansionDownloader(HttpClient http)
         {
             await DownloadZipAsync(zipPath, progress, cancellationToken);
             Extract(zipPath, target, progress, cancellationToken);
+            MarkNoHistory(target);
         }
         catch
         {
@@ -46,6 +47,19 @@ public sealed class ExpansionDownloader(HttpClient http)
 
         progress?.Report(new DownloadProgress("Done", 1, target));
         return target;
+    }
+
+    /// <summary>
+    /// A downloaded release has no git history, and the project's build stops when it finds none unless a
+    /// ".histignore" file is present (the project's own instruction). Updating it with git stays possible later.
+    /// </summary>
+    internal static void MarkNoHistory(string target)
+    {
+        var marker = Path.Combine(target, ".histignore");
+        if (!Directory.Exists(Path.Combine(target, ".git")) && !File.Exists(marker))
+        {
+            File.WriteAllText(marker, "");
+        }
     }
 
     private async Task DownloadZipAsync(string zipPath, IProgress<DownloadProgress>? progress, CancellationToken cancellationToken)

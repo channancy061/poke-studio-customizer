@@ -533,6 +533,8 @@ public class ExpansionDownloaderTests
         var target = tmp.Combine("out");
         ExpansionDownloader.Extract(good, target, null, CancellationToken.None);
         Assert.Equal("all:", File.ReadAllText(Path.Combine(target, "Makefile")));
+        ExpansionDownloader.MarkNoHistory(target); // a download has no git history: the build is told that's fine
+        Assert.True(File.Exists(Path.Combine(target, ".histignore")));
 
         var evil = tmp.Combine("evil.zip");
         using (var zip = System.IO.Compression.ZipFile.Open(evil, System.IO.Compression.ZipArchiveMode.Create))

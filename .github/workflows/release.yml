@@ -50,3 +50,25 @@ jobs:
         with:
           name: linux-appimage
           path: artifacts/appimage/*.AppImage
+
+  # a tag (v0.1.0…) also publishes a GitHub Release page, so testers can download without a GitHub account
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-files
+          merge-multiple: true
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release-files/* \
+            --title "Poke Studio Customizer $GITHUB_REF_NAME" \
+            --notes-file docs/RELEASE_NOTES.md \
+            --prerelease

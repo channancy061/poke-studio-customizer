@@ -1,271 +1,151 @@
 # Poke Studio Customizer
 
-> **Working title.** Choose a trademark-safe name before any public release (candidates: Sproutforge,
-> Hatchlab, Pocket Atelier, Critterworks, Tamer's Toolkit). Rename in `src/PokeStudio.Core/AppInfo.cs`,
-> `Directory.Build.props`, `build/windows/PokeStudio.iss` and `build/linux/poke-studio.desktop`.
+A friendly desktop app (Windows and Linux) for building your own Pokémon game from games you own: change Pokémon, moves,
+trainers, wild encounters, shops, dialogue and sprites, add a new-game options menu with Nuzlocke rules and difficulty
+levels, then build and play the result.
 
-A friendly desktop editor (Windows + Linux) for customising games you legally own.
-It ships **no game files or assets**, never modifies your originals, and uses only open-source components (MIT-licensed).
+It is meant for people who want "Radical Red / Kaizo" style hacks without learning to program. Every change can be
+undone, every save is backed up first, and your original game files are never changed.
 
-## Status: Phase 12 (graphics studio) done; Phase 8 game code not yet test-built
-- **Phase 1:** solution skeleton, plugin system, projects, undo/redo + change log, backups/restore, settings,
-  Avalonia shell with light/dark theming, CI on Windows + Linux, Windows installer and Linux AppImage.
-- **Phase 2:** edit a **pokeemerald-expansion 1.17.1** project (Emerald-based, Gen 1–9 Pokémon):
-  Pokémon editor (stats + radar chart, types, abilities, held items, catch rate, EXP, gender, growth,
-  egg groups, category, Pokédex text), learnset editor (level-up list with reordering, TM/HM/tutor
-  compatibility, egg moves), evolution builder (all methods + conditions, plain-English sentences),
-  checks before saving with one-click fixes. The app can **download pokeemerald-expansion** from its
-  official GitHub release, or open a copy you already have.
-  - Edits go straight into the project's source files, changing only the edited values (layout and
-    comments untouched). Only the data files the module declares can be written, and they're backed
-    up before the first save of each session.
-  - Values that depend on the project's settings (e.g. `P_UPDATED_STATS`) are edited in the branch
-    your settings use; parts split across settings are shown locked, with the reason.
-- **Phase 3:** first-launch **setup wizard** (theme, emulators, build tools, backups; run again from
-  Settings), a 4-step **guided tour** (replay from Help & about), **Build & test** page:
-  - **Build my game** saves, backs up and runs the project's own build, with progress, Stop, and
-    errors translated into plain English. The last 5 builds are kept as dated copies in the project's
-    `builds/` folder (configurable).
-  - On Windows, pokeemerald-expansion builds inside **WSL** (its tools don't run on plain Windows).
-    The app never installs WSL itself: without it, Build explains why and shows the steps; everything
-    else works. Once WSL + Ubuntu exist, the app can install the GBA build tools inside Ubuntu.
-  - **Test my game** opens the latest build (or any game file) in the emulator you choose. The app
-    suggests mGBA / melonDS / Azahar, recognises VBA, VBA-M, DeSmuME, Citra and Lime3DS too, finds
-    ones already on your computer, and warns that VisualBoyAdvance 1.8 is too old for modern hacks.
-    No emulator is bundled.
-- **Phase 4:**
-  - **Move editor** (pokeemerald-expansion): name, description, type, category, power, accuracy,
-    PP, priority, effect, target, contact, with plain-English hints and checks before saving.
-    Values that depend on a battle setting (`B_UPDATED_MOVE_DATA >= GEN_6 ? 90 : 95`) are edited in
-    the branch your settings use; the other branch is kept. Pokémon fields now work the same way.
-  - **Modernize**: pick a generation (Gen 9 = latest … Gen 1) and preview, per Pokémon, which
-    level-up moves change; optionally base stats, types and abilities too. Untick any Pokémon, then
-    apply as one undo step. Uses the per-generation data the project already ships.
-  - **Global search** (Ctrl+K or the search bar): jump to any Pokémon, move or tool.
-  - **Drag and drop**: drop a game file or project folder on the hub to open it; drag level-up
-    moves by their handle to reorder them.
-- **Phase 5:**
-  - **Trainer editor** (pokeemerald-expansion `src/data/trainers.party`): name, class, picture,
-    gender, music, single/double battle, battle items, and the team: Pokémon, level, held item,
-    ability, nature, IVs, nickname, shiny, four moves (or "learned automatically").
-    Only changed trainers are rewritten, and within them only changed lines and Pokémon; comments stay.
-    Names are written the way the project's trainerproc tool expects ("Aroma Lady", "Skill Swap"),
-    falling back to constants when a name wouldn't convert back (forms, aliases).
-  - **Change levels**: + N levels or a percentage, for one trainer, the filtered list or everyone,
-    as one undo step. **Copy team** from another trainer.
-  - **Enemy AI**: presets (Random, Beginner, Basic, Smart, Expert) built from the project's own
-    AI_FLAG_* names, per trainer or for groups (every trainer / bosses / everyone else); individual
-    behaviours with the descriptions from `battle_ai.h`.
-  - Checks before saving: team size, levels, unknown Pokémon/moves/items, Pokémon switched off in
-    settings, double battle with one Pokémon, EV limits; warnings for unusual abilities and moves
-    a Pokémon can't normally learn. Trainers that pick from a random pool are shown locked.
-- **Phase 6:**
-  - **Wild encounters** (`wild_encounters.json`, written back in its exact layout): every place's grass,
-    surfing, fishing (per rod) and rock-smash slots with each slot's chance in plain words; change all
-    wild levels by N; replace a Pokémon everywhere (optionally on trainers' teams too).
-  - **Items & shops:** item name, price, description, effect strength (`items.h`). Every shop's stock
-    (`data/maps/*/scripts.inc`), ready-made lists (competitive held items, battle berries, X items,
-    training items, healing, balls, TMs), **stock unlocked by badges** (the app writes clearly marked
-    extra shop lists and `goto_if_set FLAG_BADGExx_GET` lines; removing them restores the file), and
-    **Rare Candies in every shop** at a price you choose.
-  - **Text:** search all dialogue; edit with real line breaks (a blank line = new text box); each line
-    is measured with the project's own font (`src/fonts.c` + `charmap.txt`) against the 216-pixel box.
-  - **Levels & caps:** set milestone levels (Gym 1 … Champion, from `src/caps.c`), with presets for a
-    Lv 70–100 Champion; every trainer and wild Pokémon follows the curve, optionally evolving trainers'
-    Pokémon; edit the caps and `include/config/caps.h` (caps on/off, hard or soft XP cap, Rare Candy
-    cap, more XP below the cap).
-  - **Physical/Special split** (`B_PHYSICAL_SPECIAL_SPLIT`): switch between the Gen 4+ rule and the
-    Gen 1–3 type rule; Modernize offers it when moving between generations; the move editor explains
-    which category a move really uses.
-- **Phase 7 (first half) — Champion Lab:**
-  - **Groups:** trainers are sorted into Regular / Gyms 1–5 / Gyms 6–8 / Rival / Elite Four / Champion /
-    Post-game from their class, code name and level (rematches go to Post-game); move any trainer.
-  - **Type themes** per trainer (strict, or 1–2 off-type Pokémon allowed), suggested from current teams;
-    varied second types.
-  - **Legendary rules** per group × difficulty using the project's own `isRestrictedLegendary`,
-    `isSubLegendary`, `isMythical`, `isUltraBeast`, `isParadox`, Mega/Primal flags (editable as tickboxes in
-    the Pokémon editor): limits per category, "one restricted OR the sub-legendaries", max Megas, Species
-    and Item Clause, story locks (not before a milestone), fair play (no more legendaries than the player
-    can catch by then). Defaults as agreed; all editable.
-  - **Rival keeps their starter:** starters read from the project (Emerald `starter_choose.c`, FireRed
-    `field_specials.c`); the rival naming convention is detected (Emerald: suffix = player's pick; FireRed:
-    suffix = the rival's own); flags fights without the line, or unevolved more than 3 levels past evolution.
-  - **Scouting:** what the player can catch before each milestone (areas at or below the cap, plus
-    evolutions by then).
-  - Rule breaks are "Check this" warnings with "Take me there"; settings live in the Poke Studio project
-    (`data/champion-lab.json`), never in the game files, and every change is undoable.
-- **Phase 7 (second half):**
-  - **Suggest a team** (trainer editor; rule-based, no AI model): fits the theme, legendary rules, story locks,
-    Species/Item Clause and level; picks Pokémon that patch the team's weaknesses against what the player can
-    have; moves (STAB, coverage, a matching setup or utility move), nature, ability, item and EVs by role and
-    difficulty; the strongest last as the ace; the rival's starter stays. Every pick is explained; "Try another".
-    **Official Pokémon only** (National Dex 1–1025 from the project's `natDexNum`, no novelty/battle-only
-    forms) is on by default.
-  - **Report card:** speed and two-hit-KO tables against the player's possible Pokémon at the level cap
-    (main-series damage formula), shared weaknesses, a 1–10 score and suggested fixes.
-  - **Difficulty versions:** Easy / Hard / Extra Hard blocks generated for every important trainer from its
-    Normal team (never smaller than the original); `DIFFICULTY_EXTRA_HARD` is added to
-    `include/constants/difficulty.h` when needed. The in-game menu to pick it comes in Phase 8.
-  - **Enemy AI:** Champion and Double Ace presets; AI tuning sliders for `include/config/ai.h` (game-wide).
-- **Phase 8a — Game options** (Tools): a menu shown once when a new game starts. Per option the creator picks
-  "not added / player chooses / always on (or off)": difficulty (Easy–Extra Hard, with a starting choice),
-  EVs & IVs off (perfect IVs, no EVs), hard level cap (Rare Candies stop at it too), no items in battle
-  (trainer or all battles), and a reusable Infinite Candy. Saving writes `data/scripts/poke_studio_options.inc`,
-  `include/constants/poke_studio.h` (flags/variables picked from ones the project doesn't use), and small
-  lines marked "Poke Studio" in the start map, configs, `caps.c`, `pokemon.c`, `party_menu.c` and the item
-  lists; each is added once. Settings live in the project's `data/game-options.json`. Not compile-tested yet
-  (needs WSL).
-- **Fix evolutions** (Tools): trade and day/night evolutions become level, stone (Linking Cord; Sun / Moon / Dusk
-  Stone) or level-up-holding-an-item evolutions, chosen per evolution; branches that would clash (Espeon/Umbreon,
-  Lycanroc) get a stone. Evolution lists split by `#if` settings have their entries replaced one for one.
-- **Phase 8b — game code** (all in a generated `src/poke_studio.c`, plus one marked line per hook):
-  - **Nuzlocke**, each rule its own option: first encounter per area (per-area flags; uses expansion's
-    no-catching flag), fainted Pokémon released after the battle (not when the whole team fainted), duplicates
-    clause by evolution family, **Eevee clause**, shiny clause, nicknames required, respect the level cap.
-  - **Adaptive boss slot**: gym leaders, rival and Elite Four (never the Champion) get a flexible member plus
-    candidates, written as an expansion party pool (`Party Size`, `Pool Pick Functions: Poke Studio Adaptive`,
-    `Tags: Tag7`); our pick function keeps the team in order and picks the candidate whose types best counter
-    the player's party. Candidates come from the team builder (Champion Lab "for all bosses", or the trainer editor).
-  - **Pokémon Center helper**: an NPC in every Center (behind the counter next to the nurse when there's room,
-    otherwise a free tile that blocks no path, door, sign or machine — read from the map's collision and
-    metatile behaviours) who changes natures, gives perfect IVs and sets EV spreads, each optional with a price.
-- **Phase 9 — Player's Guide** (Tools): one self-contained `guide/players-guide.html` (light/dark, prints well) plus
-  Markdown, built from the project: the new-game questions (with the "don't keep pressing A" warning), Nuzlocke
-  rules, level caps, every important battle in story order with where it is (from the map scripts), team, "Bring"
-  advice and every difficulty version, adaptive slots shown as "?" with their candidates, wild Pokémon per place
-  with chances, shops with badge stock, and how special Pokémon evolve.
-- **Phase 10a — GBA ROM mode** (Ruby, Sapphire, FireRed, LeafGreen, Emerald): open a `.gba` you own; the app
-  works on a copy. Tables are found by their contents (Bulbasaur's stats, Pound, "MASTER BALL"…), so any
-  version/revision works, and their places are remembered in the project (`data/gba-tables.json`) because edits
-  change those contents. Edits: Pokémon (stats, types, abilities, items, gender, growth, egg groups, names), moves,
-  level-up moves (longer lists move to the ROM's free space), TM/HM lists, evolutions (Gen 3 methods only — Fix
-  evolutions knows these games can't evolve by holding an item), trainers (teams grow into free space), wild
-  Pokémon, item names and prices. "Test my game" plays the edited copy. Tested on Emerald, FireRed and Ruby ROMs.
-- **Phase 10b — DS ROM mode** (Diamond, Pearl, Platinum, HeartGold, SoulSilver, Black, White; Black 2/White 2
-  untested): reads the ROM's own file system and NARC archives, the encrypted Gen 4 / Gen 5 text (including Gen 4's
-  packed trainer names) and the TM list from the main program or its overlays (decompressing them when needed).
-  Edits Pokémon, moves (incl. physical/special), level-up and TM lists, evolutions (all Gen 4/5 methods), trainers,
-  wild Pokémon (numbered areas), item names and prices; changed archives are rebuilt, moved to the end of the ROM
-  when they grow, and the header checksum is recalculated. Tested on Diamond, Platinum, SoulSilver and Black ROMs.
-- **Phase 10c — 3DS mode** (X, Y, Omega Ruby, Alpha Sapphire; decrypted .3ds): reads the game in place (NCSD →
-  NCCH → RomFS, GARC archives, Gen 6 text, the TM list from the decompressed program code) and saves every change as
-  a LayeredFS mod: the project's `data/romfs` folder and, when Citra is installed, `%APPDATA%/Citra/load/mods/<TitleID>/romfs`
-  so "Test my game" in Citra uses it. Edits Pokémon (incl. Fairy type, hidden abilities), moves, level-up and TM/HM
-  lists, evolutions (all Gen 6 methods), trainers, item prices and Pokémon names. Tested on Omega Ruby.
-- **Phase 11 — Game Boy Color mode** (Gold, Silver, Crystal): tables found by content (Bulbasaur's stats, Pound,
-  "MASTER BALL", Falkner's team…), banked pointers followed; edits Pokémon, moves, level-up and TM/HM/tutor lists,
-  evolutions, trainers, wild Pokémon (numbered areas) and item prices; grown lists move to free space in their own
-  bank; the cartridge checksum is updated. New "Game Boy" emulator slot (mGBA / VBA-M). Tested on Crystal.
-- **Phase 12 — Graphics studio** (expansion projects and GBA ROMs): a Graphics page lists every Pokémon with its
-  front (both animation frames), back and party icon, normal and shiny. Colours are edited as #RRGGBB swatches
-  (rounded to what the GBA can show); "Replace from PNG…" fits any picture to the game's size and 16-colour limit
-  (a single frame is repeated for two-frame sprites; icons are matched to their shared palette); "Export PNG"
-  writes a paletted PNG to `<project>/graphics-export`. Every change is one undo step. Expansion projects get
-  the PNG/.pal files that `src/data/graphics/pokemon.h` points to rewritten (honouring the GBA-style settings);
-  GBA ROMs get the graphics LZ77-compressed into free space and the tables repointed. DS/3DS/GBC sprites: not yet.
-- **FireRed base:** projects made from **pokefirered-expansion** (community port, cawtds/pokefirered-expansion,
-  expansion 1.15.x) open with the same editors. Differences handled: the ROM is `pokefirered.gba`, the text
-  box is 26 tiles (208 px, read from `src/menu.c`), shops live in `src/data/shops.json` (stages; edited in
-  place; badge stock adds stages plus eight marked `PokeStudio_HasBadgeN` checks in `src/shop.c`; shops
-  that already change with the story keep their stages; shared lists are edited once).
-- Only text you change is checked against the text box (the original game has lines meant for wider windows).
-- The **Demo** module still edits an invented sample (`samples/Demo Valley.demogame.json`).
+> **Status: early testing (version 0.1).** The GBA side is the most complete. See [What works today](#what-works-today)
+> before you start. Please report anything odd. [docs/TESTING.md](docs/TESTING.md) explains how.
 
-## Layout
-```
-src/PokeStudio.Core           platform-neutral engine (no UI / OS APIs)
-  Modules/   IGameModule, ModuleCapabilities, FeatureSupport, ModuleRegistry
-  Models/    Species, Move, Learnset, EvolutionMethod, Trainer, TrainerPokemon, AiProfile, ModelAsset, Encounter
-  Projects/  Project (project.json + source/ + data/ + history.db), ProjectService, ProjectSession
-  Changes/   UndoRedoStack (with drag-merging), ChangeLog (SQLite)
-  Backups/   BackupService (timestamped snapshots, SHA-256, pin, prune, verified restore)
-  Settings/  AppSettings, SettingsService (atomic writes, damaged-file recovery)
-  Platform/  AppPaths (Windows AppData / Linux XDG), PathRules (case-sensitive archive names)
-  Safety/    SafeFileWriter (confined, atomic, never touches originals)
-src/PokeStudio.Modules.Expansion  pokeemerald-expansion project mode (reader/writer, downloader)
-src/PokeStudio.Modules.Demo   sample module used to exercise everything
-src/PokeStudio.App            Avalonia 11 + CommunityToolkit.Mvvm (theme from the Pixel Lab design handoff)
-tests/                        xUnit (Core) + Avalonia.Headless (UI, renders screenshots)
-build/                        publish.ps1 + Inno Setup, build-appimage.sh, license-audit.py
-.github/workflows             ci.yml (Windows + Ubuntu matrix), release.yml (installer + AppImage on tag)
-```
+> Poke Studio Customizer is a fan-made tool. It is **not affiliated with or endorsed by** Nintendo, Creatures,
+> GAME FREAK or The Pokémon Company. Pokémon and all related names are trademarks of their owners.
+> The app contains **no game files, graphics, music or text** from any game.
 
-## Requirements
-- .NET SDK 10 (see `global.json`). Users need nothing — releases are self-contained.
-- Windows installer: [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`).
-- AppImage: any x86-64 Linux with .NET 10 SDK and `curl`.
-- Optional: set `AVALONIA_TELEMETRY_OPTOUT=1` to switch off Avalonia's build-time telemetry (CI does).
+---
 
-## Run and verify — Windows
-```powershell
-dotnet test                                   # Core + UI tests (screenshots in tests/PokeStudio.App.Tests/bin/*/net10.0/TestResults/screens)
-dotnet run --project src/PokeStudio.App       # run from source
-./build/publish.ps1 -Version 0.1.0            # artifacts/publish/win-x64/PokeStudio.exe (+ installer if Inno Setup is installed)
-python build/license-audit.py                 # all dependencies open-source?
-```
-Install `artifacts/installer/PokeStudio-0.1.0-win-x64-setup.exe` (no admin needed), launch from the Start menu,
-then uninstall from Settings › Apps. Your projects and settings are kept.
+## Contents
+- [What it can do](#what-it-can-do)
+- [What works today](#what-works-today)
+- [What you need](#what-you-need)
+- [Install](#install)
+- [Quick start: your first GBA hack](#quick-start-your-first-gba-hack)
+- [Your games stay yours](#your-games-stay-yours)
+- [Documentation](#documentation)
+- [Reporting problems](#reporting-problems)
+- [Licence and credits](#licence-and-credits)
 
-## Run and verify — Linux (Ubuntu 22.04 / 24.04, Fedora 40+)
+---
+
+## What it can do
+
+| Area | What you can change |
+|---|---|
+| **Pokémon** | Base stats (with a chart), types, abilities, held items, catch rate, EXP, gender ratio, growth rate, egg groups, Pokédex text |
+| **Moves** | Name, power, accuracy, PP, type, category (physical/special), priority, effect, description |
+| **Learnsets** | Level-up moves (drag to reorder), TM/HM and tutor compatibility, egg moves |
+| **Evolutions** | Any method the game supports, written as plain sentences. **Fix evolutions** turns trade and day/night evolutions into ones you can do alone |
+| **Trainers** | Name, class, team, levels, moves, items, abilities, natures, IVs/EVs, AI. "Suggest a team" builds a competitive team that fits the gym's type |
+| **Champion Lab** | Gym type themes, legendary rules, rival keeps their starter, difficulty versions (Easy / Normal / Hard / Extra Hard), a report card for every boss |
+| **Wild encounters** | Every area's grass, water, fishing and rock-smash Pokémon and levels |
+| **Items & shops** | Prices, shop stock, stock that grows with badges, cheap Rare Candies |
+| **Text** | All dialogue, with a preview of how each line fits the text box |
+| **Graphics** | Replace front/back sprites and party icons from a PNG, edit normal and shiny colours |
+| **Levels & caps** | Level curve for the whole game, level caps per badge |
+| **Game options** (decomp projects) | A menu shown when a new game starts: difficulty, Nuzlocke rules (each one optional), hard level cap, no EVs/IVs, no items in battle, Infinite Candy, adaptive boss slot, a Pokémon Center helper who changes natures/IVs/EVs |
+| **Modernize** | Update movesets to a newer generation's |
+| **Randomizer** | Wild Pokémon, trainers, abilities, types, moves, TM lists, with a shareable seed |
+| **Player's Guide** | A walkthrough page for your players: every boss team, where to catch Pokémon, shops, level caps |
+| **Build & test** | Builds your game and opens it in your emulator |
+
+## What works today
+
+"Verified" means it has been tested on real games and projects. "Built" means the result was compiled into a game file
+that was produced without errors. **Nothing has been played through in an emulator yet**: that is what testers are for.
+
+| Game type | Status |
+|---|---|
+| **pokeemerald-expansion** project (Emerald base, version 1.17.x) | ✅ Every editor verified on a real project. A copy with **every game-code feature switched on** (options menu, Nuzlocke, adaptive boss slot, Pokémon Center helper, Infinite Candy, level caps, badge shops, edited dialogue) **builds into a working game file**. Not yet played through. |
+| **pokefirered-expansion** project (FireRed base, community port, 1.15.x) | ✅ Same as above: verified and **builds**. Not yet played through. |
+| **GBA ROM** (Emerald, FireRed, LeafGreen, Ruby, Sapphire) | 🟡 Edits are saved and read back correctly on Emerald, FireRed and Ruby, including dialogue, shops, egg moves, sprites, icons and the randomizer. Not yet played in an emulator. The new-game options menu needs a decomp project. |
+| DS ROM (Diamond, Pearl, Platinum, HeartGold, SoulSilver, Black, White) | 🧪 Experimental: Pokémon, moves, learnsets, evolutions, trainers, wild Pokémon, items, dialogue, egg moves, Gen 4 sprites. No shops yet. |
+| 3DS (X, Y, Omega Ruby, Alpha Sapphire, decrypted `.3ds`) | 🧪 Experimental, saved as a Citra mod. No wild Pokémon or shops yet. |
+| Game Boy Color (Gold, Silver, Crystal) | 🧪 Experimental. No sprites or shops yet. |
+
+**Recommended for testers:** a pokeemerald-expansion project. It gets every feature and builds a game you can play.
+
+## What you need
+
+| | |
+|---|---|
+| Computer | Windows 10/11 (64-bit) or a 64-bit Linux (Ubuntu 22.04+, Fedora 40+…) |
+| A game you own | A `.gba` / `.nds` / `.3ds` / `.gbc` file you dumped yourself, **or** a pokeemerald-expansion project (the app can download it for you) |
+| An emulator | Recommended: [mGBA](https://mgba.io) for GBA and GBC, [melonDS](https://melonds.kuribo64.net) for DS, [Azahar](https://azahar-emu.org) for 3DS. VisualBoyAdvance 1.8 is too old for modern hacks |
+| To **build** an expansion project on Windows | **WSL** with Ubuntu (free, from Microsoft). The app explains the steps and installs the build tools inside Ubuntu for you. Not needed for ROM editing |
+| Disk space | About 2 GB for an expansion project and its builds |
+
+## Install
+
+**Windows:** download `PokeStudio-<version>-win-x64-setup.exe` from the
+[Releases page](https://github.com/channancy061/poke-studio-customizer/releases) and run it. No administrator rights
+are needed. Windows SmartScreen may warn about an unknown publisher, because the app isn't code-signed yet. Click
+"More info" → "Run anyway".
+
+**Linux:** download `PokeStudio-<version>-x86_64.AppImage`, then:
 ```bash
-dotnet test
+chmod +x PokeStudio-*-x86_64.AppImage
+```
+```bash
+./PokeStudio-*-x86_64.AppImage
+```
+If it doesn't start on a minimal system, install FUSE 2 (`sudo apt install libfuse2`).
+
+**From source** (developers): install the [.NET 10 SDK](https://dotnet.microsoft.com/download), then:
+```bash
 dotnet run --project src/PokeStudio.App
-bash build/linux/build-appimage.sh 0.1.0
-chmod +x artifacts/appimage/PokeStudio-0.1.0-x86_64.AppImage
-./artifacts/appimage/PokeStudio-0.1.0-x86_64.AppImage
 ```
-If the AppImage won't start on a minimal distro: `sudo apt install libfuse2` (or run with `--appimage-extract-and-run`).
-CI builds the AppImage on every `v*` tag (`release.yml`), so you can also download it from the run's artifacts.
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
-## Manual checklist (both OSes)
-1. First launch shows the hub with the empty state.
-2. **Try the demo game** → workspace opens on Pokémon; the menu shows Moves/Trainers/Enemy AI **locked with a reason** and "6 tools hidden for this game".
-3. Drag Leafling's **Speed** slider → one entry "Leafling · Speed 45 → …" in Changes; status bar shows "1 unsaved change".
-4. **Ctrl+Z / Ctrl+Y** undo and redo; the undo button tooltip names the change.
-5. Type a 13-letter name → plain-English "too long for this game" message, no change recorded.
-6. **Ctrl+S** saves; close and reopen from Recent projects → value persisted.
-7. Backups › **Back up now**, change a stat, save, **Restore…** → value returns; a "Before restore" backup appears.
-8. Settings › Light / Dark / Match my computer, Text size Large → whole UI scales; restart keeps settings.
-9. Tab through the window: every control shows a focus ring.
-10. Help & about lists only open-source licences and the legal note.
-11. Delete `settings.json` and start the app → the setup wizard opens; "Search again" lists emulators
-    you already have; "Use this" picks one; VBA 1.8 shows a warning; Finish closes it for good.
-12. Open a project → the guided tour runs once; Help & about › Replay the guided tour shows it again.
-13. Build & test without WSL → "Not ready to build yet" with the WSL steps; Build button disabled.
-14. With an emulator set and a build in `builds/`, **Test my game** opens it in the emulator.
-15. Moves › Thunderbolt › Power 85 → save → only that line changes in `src/data/moves_info.h`.
-16. Modernize › Gen 3 › Show what would change → untick one → Apply → one entry in Changes; Ctrl+Z undoes all.
-17. Ctrl+K, type "char", Enter → that Pokémon opens. Drag a project folder onto the hub → it opens.
-18. Trainers › Hiker Sawyer › level 25 → save → only that line changes in `src/data/trainers.party`.
-19. Trainers › Change levels… › Percent 120 › Every trainer › Apply → one entry in Changes.
-20. Enemy AI › Expert › Gym Leaders… › Apply → bosses use the new AI; Ctrl+Z undoes it.
-21. Wild encounters › Route 101 › first slot level 4 → save → two lines change in `wild_encounters.json`.
-22. Items & shops › Shops › Oldale Mart › Competitive held items after badge 4 → save → extra shop lists
-    appear at the end of the map's `scripts.inc`; build the game and check the shop after badge 4.
-23. Levels & caps › Champion at Lv 90 › Apply the curve → trainers, wild levels and caps all move; one undo.
+## Quick start: your first GBA hack
 
-## Where data lives
-| | Windows | Linux |
-|---|---|---|
-| Settings | `%APPDATA%\PokeStudio\settings.json` | `$XDG_CONFIG_HOME/poke-studio` (default `~/.config/poke-studio`) |
-| Backups | `%LOCALAPPDATA%\PokeStudio\Backups` | `$XDG_DATA_HOME/poke-studio/backups` |
-| Logs | `%LOCALAPPDATA%\PokeStudio\Logs` | `$XDG_STATE_HOME/poke-studio/logs` |
-| Projects | `Documents\Poke Studio` | `~/Documents/Poke Studio` |
+1. **Start the app.** A short setup asks for your theme, your emulator, the build tools and where backups go.
+   Everything can be changed later in Settings.
+2. **Get a project.** On the start screen choose **Download pokeemerald-expansion**, or **Open decomp project** if you
+   already have one (if you downloaded it yourself as a ZIP, see [this note](docs/USER_GUIDE.md#projects-from-a-zip-download)).
+3. **Change something.** For example: Pokémon → Bulbasaur → raise its Speed. Every change appears in **Changes** and can be
+   undone with Ctrl+Z.
+4. **Save** (Ctrl+S). The app checks your changes first and explains anything that needs fixing in plain words.
+5. **Build & test → Build my game.** The first time on Windows you'll be guided through WSL and the build tools.
+   The first build takes 5–10 minutes; later ones are faster.
+6. **Test my game** opens the new game in your emulator.
 
-## Ground rules
-No ROMs, BIOS or keys are shipped, downloaded or linked, and no game assets are bundled. No DRM
-circumvention. Game files are never written (decomp projects are edited in place, with backups).
-No GPL code. See `THIRD-PARTY-NOTICES.md`.
+The [User Guide](docs/USER_GUIDE.md) walks through every screen in detail.
 
-Exception (owner's decision, 2026-10-10): at the user's request the app may download
-**pokeemerald-expansion** from its official GitHub repository. That project contains assets extracted
-from the original games and has no open-source licence; it is downloaded to the user's computer only,
-never bundled with this app.
+## Your games stay yours
 
-## Optional: test against real projects
-```bash
-POKESTUDIO_EXPANSION_DIR=/path/to/pokeemerald-expansion dotnet test --filter Real_project
-POKESTUDIO_FIRERED_DIR=/path/to/pokefirered-expansion dotnet test --filter FireRedRealTests
-```
-The folder is copied first; the test checks that saving without changes keeps every file identical
-and that one edit changes exactly one line.
+- The app never includes, downloads or links to ROMs, BIOS files or keys. You provide games you own.
+- **ROM files:** the app works on a copy inside the project folder; your original file is never written to.
+- **Decomp projects** are edited in place, but only the files the app understands, and they are **backed up before the
+  first save of every session**. Backups → Restore puts them back.
+- **3DS games** are only read; changes are saved as a separate mod folder.
+- Projects, backups and settings stay on your computer. The app has no accounts, ads or tracking.
+
+## Documentation
+
+| | |
+|---|---|
+| [User Guide](docs/USER_GUIDE.md) | How to use every screen, step by step |
+| [Testing guide](docs/TESTING.md) | What to try first and how to report problems |
+| [Developer notes](docs/DEVELOPMENT.md) | Building from source, running the tests, how the code is organised |
+| [Third-party notices](THIRD-PARTY-NOTICES.md) | Every open-source component and tool, with licence links |
+
+## Reporting problems
+
+Open an [issue](https://github.com/channancy061/poke-studio-customizer/issues) and include:
+- the game or project type and version (shown at the top left of the app),
+- what you did, what you expected and what happened,
+- a screenshot of any message, and the build log if a build failed (Build & test → "Show or hide the build log").
+
+**Never attach ROMs, save files or game data**, and never ask for or share links to them.
+
+## Licence and credits
+
+Poke Studio Customizer is free and open source under the [MIT Licence](LICENSE).
+It is built only with open-source components; the full list with licence links is in
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+Thanks to the communities behind [pokeemerald-expansion](https://github.com/rh-hideout/pokeemerald-expansion),
+[pret](https://github.com/pret) and [pokefirered-expansion](https://github.com/cawtds/pokefirered-expansion), whose
+projects this app edits, and to the open-source projects listed in the notices.
