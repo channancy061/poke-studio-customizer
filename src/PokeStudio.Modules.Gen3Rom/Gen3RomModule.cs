@@ -111,6 +111,8 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
             state.Path = workingSourcePath;
             Gen3EggMoves.Read(state, data);
             Gen3Dialogue.Load(state, data);
+            Gen3Adaptive.Read(state, data);
+            data.AdaptiveSlotsAlwaysOn = Gen3Adaptive.Supported(rom);
             _states.AddOrUpdate(data, state);
             return data;
         }, cancellationToken);
@@ -133,17 +135,26 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
         Gen3Sprites.Write(state, data);
         Gen3Dialogue.Save(state, data);
         Gen3Marts.Save(state, data);
+        Gen3Adaptive.Write(state, data);
         await context.Writer.WriteAllBytesAsync(context.WorkingSourceDir, state.Rom.Bytes, cancellationToken);
         var (freshData, fresh) = Gen3Reader.Read(state.Rom, state.Tables);
         fresh.Path = state.Path;
         Gen3EggMoves.Read(fresh, freshData);
         Gen3Dialogue.Load(fresh, freshData); // positions and places only: the edited text stays in data
+        Gen3Adaptive.Read(fresh, freshData);
         _states.AddOrUpdate(data, fresh);
     }
+
+    /// <summary>Unmodified FireRed (US 1.0) and Emerald (US) ROMs get the adaptive slot as injected code.</summary>
+    public bool SupportsAdaptiveSlots(GameData data) => _states.TryGetValue(data, out var s) && Gen3Adaptive.Supported(s.Rom);
 
     public IReadOnlyList<ValidationIssue> Validate(GameData data)
     {
         var issues = Gen3Writer.Check(data, Limits).ToList();
+        if (_states.TryGetValue(data, out var rom) && !Gen3Adaptive.Supported(rom.Rom))
+        {
+            issues.AddRange(data.Trainers.Where(t => t.HasAdaptiveSlot).Select(Core.ChampionLab.AdaptiveSlots.NotSupportedIssue));
+        }
         issues.AddRange(Gen3EggMoves.Check(data));
         _states.TryGetValue(data, out var state);
         foreach (var t in data.Texts)

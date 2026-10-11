@@ -86,12 +86,12 @@ public static class PlayersGuide
             blocks.Add(new GuideText("In story order. Each team shows the Pokémon, their levels, abilities, held items, natures and moves. \"Bring\" lists the types that hit most of the team hard."));
 
             // the adaptive slot is only real when the game has the option (decomp projects with it switched on)
-            var adaptiveOn = data.GameOptions?.AdaptiveSlot is OptionMode.PlayerChooses or OptionMode.AlwaysOn;
+            var adaptiveOn = data.AdaptiveSlotsAlwaysOn || data.GameOptions?.AdaptiveSlot is OptionMode.PlayerChooses or OptionMode.AlwaysOn;
             if (adaptiveOn && data.Trainers.Any(t => t.HasAdaptiveSlot && !t.NeverFought))
             {
                 blocks.Add(new GuideTip("Adaptive bosses: gym leaders, your rival and the Elite Four keep one Pokémon secret (marked ?). When the battle starts it becomes "
                     + "whichever of its candidates best counters your current team, so every run can be different. The candidates are listed under each team."
-                    + (data.GameOptions!.AdaptiveSlot == OptionMode.PlayerChooses ? " This only happens if you said yes to adaptive bosses when starting the game." : "")));
+                    + (!data.AdaptiveSlotsAlwaysOn && data.GameOptions?.AdaptiveSlot == OptionMode.PlayerChooses ? " This only happens if you said yes to adaptive bosses when starting the game." : "")));
             }
 
             // story order: by milestone when the game has level caps, otherwise by the strongest Pokémon's level

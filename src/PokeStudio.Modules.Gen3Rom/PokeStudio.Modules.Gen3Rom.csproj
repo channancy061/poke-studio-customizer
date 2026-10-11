@@ -10,4 +10,9 @@
   <ItemGroup>
     <InternalsVisibleTo Include="PokeStudio.Core.Tests" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- the adaptive boss slot's code for unmodified FireRed / Emerald ROMs, built from Inject/*.c|S by Inject/build.sh -->
+    <EmbeddedResource Include="Inject\adaptive_firered.bin" />
+    <EmbeddedResource Include="Inject\adaptive_emerald.bin" />
+  </ItemGroup>
 </Project>

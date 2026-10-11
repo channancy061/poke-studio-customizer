@@ -43,6 +43,8 @@ Creatures / GAME FREAK / The Pokémon Company assets are included.
 | [Inno Setup](https://jrsoftware.org/isinfo.php) | [Inno Setup Licence](https://jrsoftware.org/files/is/license.txt) | Building the Windows installer |
 | [Chocolatey](https://chocolatey.org) | [Apache-2.0](https://github.com/chocolatey/choco/blob/develop/LICENSE) | Installing Inno Setup in CI |
 | [appimagetool](https://github.com/AppImage/appimagetool) | [MIT](https://github.com/AppImage/appimagetool/blob/main/LICENSE) | Building the Linux AppImage |
+| [GNU Arm Embedded Toolchain](https://developer.arm.com/downloads/-/gnu-rm) (`gcc-arm-none-eabi`) | [GPL-3.0-or-later with the GCC Runtime Library Exception](https://www.gnu.org/licenses/gcc-exception-3.1.html) | Compiling the app's own adaptive-slot code for GBA ROMs (`src/PokeStudio.Modules.Gen3Rom/Inject`) |
+| [agbcc](https://github.com/pret/agbcc) | [GPL-2.0](https://github.com/pret/agbcc/blob/master/LICENSE) | Developer tool only: rebuilding the original games from the [pret](https://github.com/pret) decompilations to confirm the addresses of game routines the injected code calls. Never shipped |
 
 ## 3. Downloaded only when you ask (never bundled)
 
@@ -84,9 +86,15 @@ Building decomp projects and playing your game use free tools you install yourse
 
 The app only starts these programs (for building and testing); it doesn't include or modify them.
 
-## 6. Code the app writes into your project
+## 6. Code the app writes into your project or ROM
 
 When you use Game options, badge shops and similar tools on a decomp project, the app writes new code into that
 project (`src/poke_studio.c`, `include/constants/poke_studio.h`, `data/scripts/poke_studio_options.inc` and short
 marked lines in existing files). That generated code is part of this app and is covered by the MIT Licence, so you can
 ship it in your hack.
+
+For unmodified Pokémon FireRed (US 1.0) and Emerald (US) ROMs, the adaptive boss slot is added as a small piece of
+compiled code written by this project (`src/PokeStudio.Modules.Gen3Rom/Inject/adaptive.c`, MIT) plus a table of
+candidates. It calls the game's own routines at fixed addresses; those addresses were confirmed by rebuilding the
+original games from the pret decompilations on the developer's computer. No code from the games or the decompilations
+is included.

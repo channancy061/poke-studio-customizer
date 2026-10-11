@@ -141,7 +141,7 @@ public sealed partial class ChampionLabPageViewModel : ViewModelBase
     }
 
     /// <summary>Adaptive slots need new game code, so only decomp projects get them.</summary>
-    public bool AdaptiveSupported => _shell.Session.Module.SupportsGameOptions(Data);
+    public bool AdaptiveSupported => _shell.Session.Module.SupportsAdaptiveSlots(Data);
 
     [RelayCommand]
     private void SuggestAdaptiveSlots()

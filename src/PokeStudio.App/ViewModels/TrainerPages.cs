@@ -560,7 +560,7 @@ public sealed partial class TrainerEditorViewModel : ViewModelBase
 
     // ---- adaptive boss slot ----
     // only games that can get the new game code (decomp projects) can run an adaptive slot
-    public bool AdaptiveAllowed => IsEditable && _shell.Session.Module.SupportsGameOptions(_shell.Session.Data) && Model.Party.Count >= Core.ChampionLab.AdaptiveSlots.MinTeam
+    public bool AdaptiveAllowed => IsEditable && _shell.Session.Module.SupportsAdaptiveSlots(_shell.Session.Data) && Model.Party.Count >= Core.ChampionLab.AdaptiveSlots.MinTeam
         && Core.ChampionLab.AdaptiveSlots.Allowed(Core.ChampionLab.Lab.GroupOf(_shell.Session.Data, Lab, Model));
 
     public bool HasAdaptive => Model.HasAdaptiveSlot;

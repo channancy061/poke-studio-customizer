@@ -44,15 +44,12 @@ public class RomGuideTests
         Assert.All(table.Rows, r => Assert.False(string.IsNullOrEmpty(r[3]), "ability"));
         Assert.All(table.Rows, r => Assert.False(string.IsNullOrEmpty(r[6]), "moves"));
 
-        // adaptive slots can't run in a ROM: a warning with a fix, never a blocker
+        // unmodified FireRed / Emerald get the adaptive slot as injected code: no warning
         var (change, count) = AdaptiveSlots.SuggestForAll(data, lab);
         Assert.True(count > 0);
         change!.Apply();
-        var issues = module.Validate(data).Where(i => i.Message.Contains("adaptive boss slot", StringComparison.Ordinal)).ToList();
-        Assert.NotEmpty(issues);
-        Assert.All(issues, i => Assert.Equal(IssueSeverity.Warning, i.Severity));
-        issues[0].Fix!(data).Apply();
-        Assert.Equal(count - 1, data.Trainers.Count(t => t.HasAdaptiveSlot));
+        Assert.True(module.SupportsAdaptiveSlots(data));
+        Assert.DoesNotContain(module.Validate(data), i => i.Message.Contains("adaptive boss slot", StringComparison.Ordinal));
     }
 
     [Fact]

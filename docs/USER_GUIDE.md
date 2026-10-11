@@ -250,6 +250,9 @@ shops and special evolutions. Make it again after changes.
   game is pointed to it.
 - **GBA ROMs:** Pokémon, moves, learnsets (level-up, TM/HM, egg moves), evolutions (only methods these games know),
   trainers, wild Pokémon, items and shops, dialogue, sprites and icons, randomizer.
+- **Adaptive boss slots in GBA ROMs:** unmodified **FireRed (US 1.0)** and **Emerald (US)** ROMs can get them too: the app
+  adds a small piece of its own code to the ROM when you save. In a ROM the slot is always on (there's no new-game menu).
+  Other versions and already-hacked ROMs show a note instead.
 - **DS / 3DS / GBC ROMs:** experimental. See the Overview page for what each game supports. 3DS changes are saved as a
   mod folder that Citra loads automatically.
 - **Saving** writes your changes into the project's copy of the ROM. There is nothing to compile.

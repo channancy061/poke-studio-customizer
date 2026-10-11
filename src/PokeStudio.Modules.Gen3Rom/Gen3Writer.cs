@@ -74,10 +74,6 @@ internal static class Gen3Writer
                 Error("Trainers", t.Name, "A trainer needs 1 to 6 Pokémon.", t.Key);
             }
 
-            if (t.HasAdaptiveSlot)
-            {
-                issues.Add(Core.ChampionLab.AdaptiveSlots.NotSupportedIssue(t));
-            }
         }
 
         foreach (var i in data.Items)

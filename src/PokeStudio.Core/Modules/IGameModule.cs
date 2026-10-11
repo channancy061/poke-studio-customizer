@@ -97,6 +97,9 @@ public sealed class GameData
     /// <summary>Pending sprite and palette changes (written by modules that support graphics).</summary>
     public Graphics.GraphicsEdits Graphics { get; } = new();
 
+    /// <summary>The adaptive slot is built into the game and always on (ROMs patched by the app have no options menu).</summary>
+    public bool AdaptiveSlotsAlwaysOn { get; set; }
+
     /// <summary>False for games that can't evolve a Pokémon by levelling up while it holds an item (Gen 3).</summary>
     public bool HeldItemLevelEvolutions { get; set; } = true;
     public GameCatalog Catalog { get; } = new();
@@ -170,6 +173,9 @@ public interface IGameModule
 
     /// <summary>Whether this game can get the new-game options menu (written on save from <see cref="GameData.GameOptions"/>).</summary>
     bool SupportsGameOptions(GameData data) => false;
+
+    /// <summary>Whether bosses can get an adaptive slot in this game (decomp projects; some unmodified ROMs).</summary>
+    bool SupportsAdaptiveSlots(GameData data) => SupportsGameOptions(data);
 
     /// <summary>Learnsets (and optionally stats, types, abilities) as they are in <paramref name="generation"/>'s games.</summary>
     Task<Modernize.ModernizeReference?> LoadModernizeReferenceAsync(GameData data, int generation, CancellationToken cancellationToken = default) =>
