@@ -420,9 +420,14 @@ public sealed partial class BuildRowViewModel(BuildRecord record, BuildPageViewM
     public string When => Record.CreatedUtc.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture);
     public string Size => $"{Record.Size / 1024.0 / 1024.0:0.0} MB";
     public bool IsLatest { get; } = latest;
+    public string GuideFile => BuildService.GuidePaths(Record.FilePath).Html;
+    public bool HasGuide => File.Exists(GuideFile);
 
     [RelayCommand]
     private void Test() => page.Play(Record.FilePath);
+
+    [RelayCommand]
+    private void OpenGuide() => page.OpenFile(GuideFile);
 
     [RelayCommand]
     private void ShowInFolder() => page.ShowInFolder(Record.FilePath);
@@ -627,7 +632,8 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
         {
             case BuildOutcome.Succeeded:
                 ResultIsSuccess = true;
-                Result = $"Your game is ready: {result.Output!.FileName}";
+                var guide = WriteGuide(result.Output!);
+                Result = $"Your game is ready: {result.Output!.FileName}" + (guide is null ? "" : ". The Player's Guide is next to it.");
                 Progress = 100;
                 Step = "Done!";
                 LoadHistory();
@@ -661,6 +667,9 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
         }
 
         OnPropertyChanged(nameof(HasProblems));
+
+        // also in the status bar, so it's seen when the build was started from the top bar or another page
+        _shell.Toast = result.Outcome == BuildOutcome.Succeeded ? "Build finished. " + Result : Result;
     }
 
     private bool CanCancel() => IsBuilding;
@@ -713,6 +722,32 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
     }
 
     internal void ShowInFolder(string file) => _shell.Main.ShowInFolder(file);
+
+    internal void OpenFile(string file) => _shell.Main.OpenFile(file);
+
+    /// <summary>The Player's Guide for this build, next to the game file. Returns null when it couldn't be written.</summary>
+    private string? WriteGuide(BuildRecord build)
+    {
+        if (!_shell.Main.Settings.Current.GuideWithBuild)
+        {
+            return null;
+        }
+
+        try
+        {
+            var data = _shell.Session.Data;
+            var options = new Core.Guide.GuideOptions { Title = $"{_shell.Session.Project.Manifest.Name} — Player's Guide" };
+            var doc = Core.Guide.PlayersGuide.Build(data, data.Lab ?? new Core.ChampionLab.LabSettings(), _shell.Session.Module.TrainerPlaces(data), options);
+            var (html, md) = BuildService.GuidePaths(build.FilePath);
+            File.WriteAllText(html, Core.Guide.PlayersGuide.ToHtml(doc));
+            File.WriteAllText(md, Core.Guide.PlayersGuide.ToMarkdown(doc));
+            return html;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
 
     [RelayCommand]
     private void OpenBuildsFolder()

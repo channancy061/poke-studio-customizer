@@ -113,6 +113,19 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             : $"Opening {Path.GetFileName(gameFile)} in {name}.");
     }
 
+    /// <summary>Opens a document (e.g. the Player's Guide) in the program the computer uses for it.</summary>
+    public void OpenFile(string path)
+    {
+        try
+        {
+            Runner.Launch(OperatingSystem.IsWindows() ? new ProcessSpec("explorer.exe", [path]) : new ProcessSpec("xdg-open", [path]));
+        }
+        catch (ProgramNotFoundException)
+        {
+            // nothing can open it: the file is still there
+        }
+    }
+
     public void ShowInFolder(string path)
     {
         try

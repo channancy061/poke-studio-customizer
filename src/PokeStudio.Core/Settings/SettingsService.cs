@@ -32,6 +32,9 @@ public sealed record AppSettings
     public int AutoBackupMinutes { get; init; } = 10;
     public bool BackupBeforeBuild { get; init; } = true;
 
+    /// <summary>Write the Player's Guide next to every finished build.</summary>
+    public bool GuideWithBuild { get; init; } = true;
+
     /// <summary>Finished games kept per project (older dated builds are removed).</summary>
     public int BuildsKeepCount { get; init; } = 5;
 

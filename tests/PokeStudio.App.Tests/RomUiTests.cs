@@ -68,6 +68,9 @@ public class RomUiTests
         Assert.True(build.ResultIsSuccess, build.Result);
         var made = Assert.Single(build.History);
         Assert.Equal(working, await File.ReadAllBytesAsync(made.Record.FilePath));
+        Assert.True(made.HasGuide); // the Player's Guide is written next to the game
+        Assert.Contains("ROXY", await File.ReadAllTextAsync(made.GuideFile), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Build finished", shell.Toast, StringComparison.Ordinal);
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         window.CaptureRenderedFrame()!.Save(Path.Combine(outDir, "rom-build-Dark.png"));
         window.Close();

@@ -47,6 +47,7 @@
             </Grid>
           </StackPanel>
           <ToggleSwitch IsChecked="{Binding BackupBeforeBuild}" Content="Back up before every build" />
+          <ToggleSwitch IsChecked="{Binding GuideWithBuild}" Content="Write the Player's Guide next to every build" />
           <StackPanel Spacing="6">
             <TextBlock Text="Keep this many finished builds per project" FontWeight="Bold" />
             <NumericUpDown Value="{Binding BuildsKeepCount}" Minimum="1" Maximum="50" Increment="1" Width="160" HorizontalAlignment="Left" FormatString="0" AutomationProperties.Name="Builds to keep" />

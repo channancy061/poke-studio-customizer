@@ -121,10 +121,27 @@ public sealed partial class BuildService(IProcessRunner runner, IBuildEnvironmen
         foreach (var old in History(projectDir).Skip(Math.Max(1, keep)))
         {
             File.Delete(old.FilePath);
+            foreach (var guide in GuideFiles(old.FilePath).Where(File.Exists))
+            {
+                File.Delete(guide);
+            }
         }
 
         return new BuildRecord(target, now, new FileInfo(target).Length);
     }
+
+    public const string GuideSuffix = "-players-guide";
+
+    /// <summary>The Player's Guide written next to a build: (HTML, Markdown).</summary>
+    public static (string Html, string Markdown) GuidePaths(string buildFile)
+    {
+        var stem = Path.Combine(Path.GetDirectoryName(buildFile)!, Path.GetFileNameWithoutExtension(buildFile) + GuideSuffix);
+        return (stem + ".html", stem + ".md");
+    }
+
+    private static string[] GuideFiles(string buildFile) => GuidePaths(buildFile) is var (h, m) ? [h, m] : [];
+
+    private static bool IsGuide(string file) => Path.GetFileNameWithoutExtension(file).EndsWith(GuideSuffix, StringComparison.Ordinal);
 
     /// <summary>Kept builds, newest first.</summary>
     public static IReadOnlyList<BuildRecord> History(string projectDir)
@@ -136,7 +153,7 @@ public sealed partial class BuildService(IProcessRunner runner, IBuildEnvironmen
         }
 
         return Directory.EnumerateFiles(dir)
-            .Where(f => DatedName().IsMatch(Path.GetFileName(f)))
+            .Where(f => DatedName().IsMatch(Path.GetFileName(f)) && !IsGuide(f))
             .Select(f => new FileInfo(f))
             .Select(f => new BuildRecord(f.FullName, new DateTimeOffset(f.LastWriteTimeUtc, TimeSpan.Zero), f.Length))
             .OrderByDescending(r => r.CreatedUtc)

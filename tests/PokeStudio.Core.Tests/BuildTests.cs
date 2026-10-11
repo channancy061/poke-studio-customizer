@@ -136,14 +136,21 @@ public class BuildServiceTests
         var clock = new FixedClock(new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero));
         var service = new BuildService(new FakeProcessRunner(), new NativeBuildEnvironment(new FakeProcessRunner()), clock);
 
+        var first = "";
         for (var i = 0; i < 7; i++)
         {
-            service.Keep(game, project, keep: 5);
+            var kept = service.Keep(game, project, keep: 5);
+            first = first.Length == 0 ? kept.FilePath : first;
+            var (html, md) = BuildService.GuidePaths(kept.FilePath); // a guide written next to each build
+            File.WriteAllText(html, "guide");
+            File.WriteAllText(md, "guide");
             clock.Now = clock.Now.AddHours(1);
         }
 
         var history = BuildService.History(project);
-        Assert.Equal(5, history.Count);
+        Assert.Equal(5, history.Count); // guides aren't builds
+        Assert.False(File.Exists(BuildService.GuidePaths(first).Html)); // and go with their build
+        Assert.True(File.Exists(BuildService.GuidePaths(history[0].FilePath).Html));
         Assert.True(history[0].CreatedUtc > history[4].CreatedUtc); // newest first
         Assert.Equal(new DateTimeOffset(2026, 10, 1, 15, 0, 0, TimeSpan.Zero), history[0].CreatedUtc);
     }

@@ -196,6 +196,7 @@ public sealed partial class SettingsPageViewModel : ViewModelBase
     }
 
     public bool BackupBeforeBuild { get => S.BackupBeforeBuild; set => Update(s => s with { BackupBeforeBuild = value }); }
+    public bool GuideWithBuild { get => S.GuideWithBuild; set => Update(s => s with { GuideWithBuild = value }); }
     public string ProjectsFolder => _main.ProjectsFolder;
     public string SettingsFile => "Settings are stored in your user profile's app-data folder.";
 

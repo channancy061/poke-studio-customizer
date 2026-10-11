@@ -142,6 +142,7 @@
                       </TextBlock>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                      <Button Classes="ghost sm" Content="Player's Guide" Command="{Binding OpenGuideCommand}" IsVisible="{Binding HasGuide}" ToolTip.Tip="Open the guide made with this build" />
                       <Button Classes="ghost sm" Content="Show in folder" Command="{Binding ShowInFolderCommand}" />
                       <Button Classes="secondary sm" Content="Test" Command="{Binding TestCommand}" />
                     </StackPanel>
