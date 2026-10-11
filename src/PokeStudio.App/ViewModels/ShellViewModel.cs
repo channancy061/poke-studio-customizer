@@ -313,7 +313,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         Select(NavKey.Build);
         if (CurrentPage is BuildPageViewModel page && page.CanBuildGame)
         {
-            if (!page.Tools.HasChecked)
+            if (page.IsCompiled && !page.Tools.HasChecked)
             {
                 await page.Tools.CheckAsync();
             }
@@ -331,6 +331,14 @@ public sealed partial class ShellViewModel : ViewModelBase
     {
         var latest = Core.Build.BuildService.History(Session.Project.Directory).FirstOrDefault();
         var platform = Session.Module.Platform == GamePlatform.Demo ? GamePlatform.Gba : Session.Module.Platform;
+        if (latest is null && Session.Project.Manifest.SourceKind == GameSourceKind.RomFile && File.Exists(Session.Project.WorkingSourcePath))
+        {
+            // ROM projects: the edited copy (3DS: the game plus its mod) is always playable; saved changes are in it
+            var (played, text) = _main.LaunchGame(platform, Session.Project.WorkingSourcePath);
+            Toast = IsDirty && played ? text + " (Unsaved changes aren't in it: save first.)" : text;
+            return;
+        }
+
         if (latest is null)
         {
             Select(NavKey.Build);

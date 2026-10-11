@@ -252,7 +252,10 @@ shops and special evolutions. Make it again after changes.
   trainers, wild Pokémon, items and shops, dialogue, sprites and icons, randomizer.
 - **DS / 3DS / GBC ROMs:** experimental. See the Overview page for what each game supports. 3DS changes are saved as a
   mod folder that Citra loads automatically.
-- **Test my game** plays your edited copy.
+- **Saving** writes your changes into the project's copy of the ROM. There is nothing to compile.
+- **Build my game** saves and puts a dated copy of your edited game in **Recent builds** (the project's `builds`
+  folder), so you have a game file to play or keep, the same as with decomp projects.
+- **Test my game** plays your newest build, or the edited copy if you haven't built yet.
 
 ## 10. Sharing your hack
 

@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using PokeStudio.Core.Backups;
 using PokeStudio.Core.Build;
 using PokeStudio.Core.Models;
+using PokeStudio.Core.Modules;
 using PokeStudio.Core.Settings;
 
 namespace PokeStudio.App.ViewModels;
@@ -449,19 +450,29 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
         Emulator = new EmulatorSlotViewModel(shell.Main, shell.Session.Module.Platform == GamePlatform.Demo ? GamePlatform.Gba : shell.Session.Module.Platform);
         ShowLog = shell.Main.Settings.Current.AdvancedMode;
         LoadHistory();
-        if (checkNow && Definition is not null)
+        if (checkNow && IsCompiled)
         {
             _ = Tools.CheckAsync();
         }
     }
 
     public BuildDefinition? Definition { get; }
-    public bool CanBuildGame => Definition is not null;
 
-    /// <summary>A project made from a ROM file: no build step, the edited copy is played directly.</summary>
+    /// <summary>
+    /// A project made from a ROM file: nothing to compile. "Build" saves and keeps a dated copy of the edited game in
+    /// Recent builds, so ROM projects work like decomp projects. (3DS games are saved as a mod folder instead.)
+    /// </summary>
     public bool IsRomProject => Definition is null && File.Exists(_shell.Session.Project.WorkingSourcePath)
-        && Path.GetExtension(_shell.Session.Project.WorkingSourcePath) is ".gba" or ".nds" or ".3ds" or ".gbc" or ".gb";
+        && Path.GetExtension(_shell.Session.Project.WorkingSourcePath).ToLowerInvariant() is ".gba" or ".nds" or ".gbc" or ".gb";
+
+    public bool IsCompiled => Definition is not null;
+    public bool CanBuildGame => IsCompiled || IsRomProject;
     public bool CannotBuildGame => !CanBuildGame;
+
+    public string BuildHint => IsRomProject
+        ? "Your project edits a copy of your ROM, so there's nothing to compile: Build saves your changes and puts a dated copy of your edited game here. Your original file is never changed. "
+            + KeepText
+        : KeepText;
     public ToolsPanelViewModel Tools { get; }
     public EmulatorSlotViewModel Emulator { get; }
     public ObservableCollection<BuildRowViewModel> History { get; } = [];
@@ -472,11 +483,11 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
     public string OutputFolder => BuildService.BuildsDir(_shell.Session.Project.Directory);
     public string WslHelp => WslBuildEnvironment.WslInstructions;
 
-    public string CannotBuildText => IsRomProject
-        ? $"This project edits a copy of your ROM, so there's nothing to build: save your changes, then \"Test my game\" plays the edited copy. The copy is in {Path.GetDirectoryName(_shell.Session.Project.WorkingSourcePath)} (your original file is never changed)."
+    public string CannotBuildText => _shell.Session.Module.WorksInPlace && _shell.Session.Project.Manifest.SourceKind == GameSourceKind.RomFile
+        ? "3DS games aren't rebuilt: every save writes your changes as a mod folder that Citra (or Azahar) loads automatically. Save, then \"Test my game\" plays your game with the changes."
         : $"{_shell.Session.Module.DisplayName} projects can't be built into a game yet. You can still test any game file you have with your emulator.";
 
-    public bool IsBuildBlocked => CanBuildGame && Tools.HasChecked && !Tools.AllReady;
+    public bool IsBuildBlocked => IsCompiled && Tools.HasChecked && !Tools.AllReady;
 
     public string BuildBlockedReason => Tools.NeedsWsl
         ? "Building needs WSL (Windows Subsystem for Linux). pokeemerald-expansion's build tools don't run on plain Windows, so Windows runs them inside WSL. Everything else in the app works without it."
@@ -516,11 +527,17 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
 
     partial void OnResultIsSuccessChanged(bool value) => OnPropertyChanged(nameof(HasResultError));
 
-    private bool CanBuild() => CanBuildGame && !IsBuilding && Tools.AllReady;
+    private bool CanBuild() => !IsBuilding && (IsRomProject || (IsCompiled && Tools.AllReady));
 
     [RelayCommand(CanExecute = nameof(CanBuild))]
     public async Task BuildAsync()
     {
+        if (IsRomProject)
+        {
+            await KeepRomAsync();
+            return;
+        }
+
         if (Definition is null)
         {
             return;
@@ -571,6 +588,35 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
             IsBuilding = false;
             _cts.Dispose();
             _cts = null;
+        }
+    }
+
+    /// <summary>ROM projects: save, then keep a dated copy of the edited game as a build.</summary>
+    private async Task KeepRomAsync()
+    {
+        if (_shell.IsDirty && !await _shell.SaveForBuildAsync())
+        {
+            ResultIsSuccess = false;
+            Result = "Your changes couldn't be saved, so no game file was made. Check the messages above.";
+            return;
+        }
+
+        IsBuilding = true;
+        try
+        {
+            Step = "Making your game file…";
+            var record = await Task.Run(() => _shell.Main.Builds.Keep(_shell.Session.Project.WorkingSourcePath, _shell.Session.Project.Directory,
+                _shell.Main.Settings.Current.BuildsKeepCount));
+            ShowResult(new BuildResult(BuildOutcome.Succeeded, "", [], record, []));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            ResultIsSuccess = false;
+            Result = "The game file couldn't be written: " + ex.Message;
+        }
+        finally
+        {
+            IsBuilding = false;
         }
     }
 

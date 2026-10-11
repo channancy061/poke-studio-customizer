@@ -17,7 +17,7 @@
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
             <StackPanel Spacing="2">
               <TextBlock Text="Build my game" Classes="heading" />
-              <TextBlock Text="{Binding KeepText}" Classes="small muted" TextWrapping="Wrap" IsVisible="{Binding CanBuildGame}" />
+              <TextBlock Text="{Binding BuildHint}" Classes="small muted" TextWrapping="Wrap" IsVisible="{Binding CanBuildGame}" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top" IsVisible="{Binding CanBuildGame}">
               <Button Classes="ghost" Content="Stop" Command="{Binding CancelCommand}" IsVisible="{Binding IsBuilding}" />
@@ -67,7 +67,7 @@
             </ItemsControl.ItemTemplate>
           </ItemsControl>
 
-          <StackPanel Spacing="6" IsVisible="{Binding CanBuildGame}">
+          <StackPanel Spacing="6" IsVisible="{Binding IsCompiled}">
             <Button Classes="ghost sm" HorizontalAlignment="Left" Command="{Binding ToggleLogCommand}" Content="Show or hide the build log" />
             <Border Classes="well" IsVisible="{Binding ShowLog}" MaxHeight="260">
               <ScrollViewer>
@@ -79,7 +79,7 @@
       </Border>
 
       <!-- Build tools -->
-      <Border Classes="card" IsVisible="{Binding CanBuildGame}">
+      <Border Classes="card" IsVisible="{Binding IsCompiled}">
         <StackPanel Spacing="10">
           <TextBlock Text="Build tools" Classes="heading" />
           <ContentControl Content="{Binding Tools}" />

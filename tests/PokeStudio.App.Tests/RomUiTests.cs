@@ -56,6 +56,20 @@ public class RomUiTests
         Assert.Equal(before, await File.ReadAllBytesAsync(copy));
         var working = await File.ReadAllBytesAsync(shell.Session.Project.WorkingSourcePath);
         Assert.NotEqual(before, working);
+
+        // Build on a ROM project: nothing to compile, it keeps a dated copy of the edited game in Recent builds
+        shell.SelectedNav = shell.NavItems.Single(n => n.Key == NavKey.Build);
+        var build = Assert.IsType<BuildPageViewModel>(shell.CurrentPage);
+        Assert.True(build.IsRomProject);
+        Assert.True(build.CanBuildGame);
+        Assert.False(build.IsCompiled);
+        Assert.True(build.BuildCommand.CanExecute(null));
+        await build.BuildCommand.ExecuteAsync(null);
+        Assert.True(build.ResultIsSuccess, build.Result);
+        var made = Assert.Single(build.History);
+        Assert.Equal(working, await File.ReadAllBytesAsync(made.Record.FilePath));
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        window.CaptureRenderedFrame()!.Save(Path.Combine(outDir, "rom-build-Dark.png"));
         window.Close();
     }
 }
