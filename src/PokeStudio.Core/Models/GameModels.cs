@@ -387,6 +387,9 @@ public enum ExpCapKind
 /// <summary>A number in the game's AI settings, e.g. how often it switches out when it would lose the 1-on-1 (0–100%).</summary>
 public sealed record AiSetting(string Key, string Label, int Value, string? Comment, bool IsPercentage);
 
+/// <summary>An on/off game setting, e.g. showing IVs and EVs on the summary screen.</summary>
+public sealed record GameSwitch(string Key, string Label, string Help, bool Value);
+
 public sealed record GameRules
 {
     public IReadOnlyList<LevelCap> LevelCaps { get; init; } = [];
@@ -400,4 +403,7 @@ public sealed record GameRules
     /// Null when the game has no such setting.
     /// </summary>
     public bool? PhysicalSpecialSplit { get; init; }
+
+    /// <summary>True: TMs aren't used up when taught (Gen 5+). Null when the game can't be switched.</summary>
+    public bool? ReusableTms { get; init; }
 }

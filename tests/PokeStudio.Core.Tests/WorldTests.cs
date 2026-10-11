@@ -90,7 +90,16 @@ public class WorldDataTests
             ExpCap = ExpCapKind.Hard,
             RareCandyCap = true,
             PhysicalSpecialSplit = false,
+            ReusableTms = true,
         };
+        Assert.False(data.Rules.ReusableTms is null);
+        Assert.Equal(["B_SHOW_TYPES", "P_SUMMARY_SCREEN_IV_EV_INFO"], data.Switches.Select(s => s.Key));
+        Assert.All(data.Switches, s => Assert.False(s.Value));
+        for (var i = 0; i < data.Switches.Count; i++)
+        {
+            data.Switches[i] = data.Switches[i] with { Value = true };
+        }
+
         await module.SaveDataAsync(data, ctx);
 
         Assert.Equal(["\"species\": \"SPECIES_BLOOMTLE\""], Diff(json, ExpansionMovesTests.Read(root, "src/data/wild_encounters.json")));
@@ -105,6 +114,11 @@ public class WorldDataTests
         Assert.True(again.Rules!.CapsEnabled);
         Assert.Equal(ExpCapKind.Hard, again.Rules.ExpCap);
         Assert.False(again.Rules.PhysicalSpecialSplit);
+        Assert.Contains("#define I_REUSABLE_TMS          TRUE ", ExpansionMovesTests.Read(root, "include/config/item.h"), StringComparison.Ordinal);
+        Assert.True(again.Rules.ReusableTms);
+        Assert.Contains("#define B_SHOW_TYPES        SHOW_TYPES_ALWAYS     //", ExpansionMovesTests.Read(root, "include/config/battle.h"), StringComparison.Ordinal);
+        Assert.Contains("#define P_SUMMARY_SCREEN_IV_EV_INFO      TRUE  //", ExpansionMovesTests.Read(root, "include/config/summary_screen.h"), StringComparison.Ordinal);
+        Assert.All(again.Switches, s => Assert.True(s.Value));
     }
 
     [Fact]

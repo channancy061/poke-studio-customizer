@@ -106,7 +106,8 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
     {
         var layout = new ExpansionLayout(workingSourcePath);
         return [.. layout.SpeciesFiles(), layout.LevelUpFile, ExpansionLayout.EggMovesFile, ExpansionLayout.LearnablesJson, MovesInfo.File, TrainerParty.File,
-            EncountersFile.File, ItemsInfo.File, CapsFiles.Source, CapsFiles.Config, BattleConfig, ShopsJson.File, ShopsJson.ShopC, DifficultyFile, AiConfig,
+            EncountersFile.File, ItemsInfo.File, CapsFiles.Source, CapsFiles.Config, BattleConfig, ShopsJson.File, ShopsJson.ShopC, DifficultyFile, AiConfig, ItemConfig,
+            "include/config/summary_screen.h", "include/config/overworld.h",
             .. GameOptionsWriter.Files(layout).Where(f => !f.EndsWith("/scripts.inc", StringComparison.Ordinal)), .. ScriptFiles(layout.Root)];
     }
 
@@ -470,6 +471,17 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
     private const string BattleConfig = "include/config/battle.h";
     private const string DifficultyFile = "include/constants/difficulty.h";
     private const string AiConfig = "include/config/ai.h";
+    private const string ItemConfig = "include/config/item.h";
+
+    // quality-of-life settings: (define, file, label, help, value when on, value when off)
+    private static readonly (string Key, string File, string Label, string Help, string On, string Off)[] SwitchDefs =
+    [
+        ("B_SHOW_TYPES", BattleConfig, "Show the opponent's types in battle", "Type icons next to the HP bars while choosing a move.", "SHOW_TYPES_ALWAYS", "SHOW_TYPES_NEVER"),
+        ("B_SHOW_EFFECTIVENESS", BattleConfig, "Show how well each move will work", "Super effective, not very effective or no effect, shown on the move list.", "SHOW_EFFECTIVENESS_ALWAYS", "SHOW_EFFECTIVENESS_NEVER"),
+        ("P_SUMMARY_SCREEN_IV_EV_INFO", "include/config/summary_screen.h", "IVs and EVs on the summary screen", "The player can switch the stats page between stats, IVs and EVs.", "TRUE", "FALSE"),
+        ("OW_SHOW_ITEM_DESCRIPTIONS", "include/config/overworld.h", "Item descriptions when found", "Says what an item does when the player picks it up.", "OW_ITEM_DESCRIPTIONS_ALWAYS", "OW_ITEM_DESCRIPTIONS_OFF"),
+        ("B_FAST_INTRO_NO_SLIDE", BattleConfig, "Skip the battle slide-in", "Battles start straight away, without the sliding animation.", "TRUE", "FALSE"),
+    ];
 
     /// <summary>Grass, fire, water starter (Emerald: src/starter_choose.c; FireRed: src/field_specials.c).</summary>
     private static List<string> ReadStarters(ExpansionLayout layout)
@@ -764,6 +776,17 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
                 }
             }
         }
+        foreach (var (key, file, label, help, on, off) in SwitchDefs)
+        {
+            if (File.Exists(layout.Full(file)) && CapsFiles.Define(File.ReadAllText(layout.Full(file)), key) is { } d)
+            {
+                var value = d.Value.Split("//")[0].Trim();
+                var setting = new GameSwitch(key, label, help, value != off && value != "0");
+                state.Switches[key] = setting;
+                data.Switches.Add(setting);
+            }
+        }
+
         FillCatalog(layout, data.Catalog);
         // the game's own names set the real limits (Z-moves, for example, are longer than MOVE_NAME_LENGTH)
         _limits = _limits with
@@ -883,14 +906,15 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
                     RareCandyCap = Def("B_RARE_CANDY_CAP") == "TRUE",
                     ExpBoostBelowCap = Def("B_LEVEL_CAP_EXP_UP") == "TRUE",
                     PhysicalSpecialSplit = SplitSetting(layout),
+                    ReusableTms = ReusableTmsSetting(layout),
                 };
                 data.Rules = state.Rules;
             }
         }
 
-        if (data.Rules is null && SplitSetting(layout) is { } split)
+        if (data.Rules is null && (SplitSetting(layout) is not null || ReusableTmsSetting(layout) is not null))
         {
-            state.Rules = new GameRules { PhysicalSpecialSplit = split };
+            state.Rules = new GameRules { PhysicalSpecialSplit = SplitSetting(layout), ReusableTms = ReusableTmsSetting(layout) };
             data.Rules = state.Rules;
         }
     }
@@ -918,6 +942,9 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
     /// <summary>B_PHYSICAL_SPECIAL_SPLIT ≥ GEN_4 means each move's category counts.</summary>
     private static bool? SplitSetting(ExpansionLayout layout) =>
         layout.Macros.IsDefined("B_PHYSICAL_SPECIAL_SPLIT") && layout.Macros.TryEvaluate("B_PHYSICAL_SPECIAL_SPLIT >= GEN_4") is { } v ? v != 0 : null;
+
+    private static bool? ReusableTmsSetting(ExpansionLayout layout) =>
+        layout.Macros.IsDefined("I_REUSABLE_TMS") && layout.Macros.TryEvaluate("I_REUSABLE_TMS") is { } v ? v != 0 : null;
 
     private async Task SaveWorldAsync(GameData data, LoadedState state, ModuleSaveContext context, Dictionary<string, List<TextEdit>> edits, CancellationToken cancellationToken)
     {
@@ -1020,6 +1047,29 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
             {
                 await context.Writer.WriteAllTextAsync(state.Layout.Full(BattleConfig),
                     TextEdits.Apply(cfg, [new TextEdit(d.Start, d.End - d.Start, split ? "GEN_LATEST" : "GEN_3")]), cancellationToken);
+            }
+        }
+
+        // quality-of-life switches, grouped by file
+        foreach (var group in data.Switches.Where(s => state.Switches.TryGetValue(s.Key, out var b) && b.Value != s.Value)
+                     .Select(s => (Setting: s, Def: SwitchDefs.First(d => d.Key == s.Key))).GroupBy(x => x.Def.File))
+        {
+            var path = state.Layout.Full(group.Key);
+            var cfg = await File.ReadAllTextAsync(path, cancellationToken);
+            var switchEdits = group.Select(x => CapsFiles.Define(cfg, x.Setting.Key) is { } d ? new TextEdit(d.Start, d.End - d.Start, x.Setting.Value ? x.Def.On : x.Def.Off) : null)
+                .Where(x => x is not null).Select(x => x!).ToList();
+            await context.Writer.WriteAllTextAsync(path, TextEdits.Apply(cfg, switchEdits), cancellationToken);
+        }
+
+        // reusable TMs (include/config/item.h)
+        if (data.Rules?.ReusableTms is { } reusable && state.Rules?.ReusableTms is { } oldReusable && reusable != oldReusable
+            && File.Exists(state.Layout.Full(ItemConfig)))
+        {
+            var cfg = await File.ReadAllTextAsync(state.Layout.Full(ItemConfig), cancellationToken);
+            if (CapsFiles.Define(cfg, "I_REUSABLE_TMS") is { } d)
+            {
+                await context.Writer.WriteAllTextAsync(state.Layout.Full(ItemConfig),
+                    TextEdits.Apply(cfg, [new TextEdit(d.Start, d.End - d.Start, reusable ? "TRUE" : "FALSE")]), cancellationToken);
             }
         }
 
@@ -1184,6 +1234,7 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
         public List<CapsFiles.CapEntry> CapEntries { get; set; } = [];
         public ShopsJson.Parsed? ShopsJson { get; set; }
         public Dictionary<string, AiSetting> AiSettings { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, GameSwitch> Switches { get; } = new(StringComparer.Ordinal);
         public GameRules? Rules { get; set; }
         public Dictionary<string, TrainerBlock> TrainerBlocks { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, Trainer> Trainers { get; } = new(StringComparer.Ordinal);

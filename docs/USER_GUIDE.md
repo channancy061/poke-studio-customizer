@@ -198,6 +198,16 @@ Set how strong the big fights are (Gym 1 … Champion); every trainer and wild P
 Set **level caps** per badge, choose whether Rare Candies stop at the cap, and whether Pokémon below the cap get extra
 experience. Also switches between the modern **physical/special split** and the Gen 1–3 type rule.
 
+**Reusable TMs:** TMs aren't used up when a Pokémon learns a move, as in Gen 5 and later. This works in decomp projects
+and in unmodified FireRed (US 1.0) and Emerald (US) ROMs.
+
+**Quality of life** (decomp projects), each a switch:
+- show the opponent's types in battle;
+- show how well each move will work;
+- IVs and EVs on the summary screen;
+- item descriptions when found;
+- skip the battle slide-in.
+
 ### Fix evolutions
 Turns trade and day/night evolutions into ones anyone can do alone: a level, a stone, or (where the game supports it)
 levelling up while holding an item. You choose per evolution; clashes (Espeon/Umbreon) are handled.

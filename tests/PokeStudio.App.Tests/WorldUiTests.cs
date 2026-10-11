@@ -159,8 +159,15 @@ public class WorldUiTests
         page2.CapsEnabled = true;
         page2.ExpCapIndex = 1;
         page2.RareCandyCap = true;
+        Assert.True(page2.HasReusableTms);
+        page2.ReusableTms = true;
+        Assert.True(page2.HasSwitches);
+        page2.Switches.First(s => s.Label.Contains("types", StringComparison.Ordinal)).IsOn = true;
+        Assert.Contains(shell.Changes, c => c.Description.StartsWith("Show the opponent's types in battle: on", StringComparison.Ordinal));
 
         await SaveAsync(shell);
+        Assert.Contains("#define I_REUSABLE_TMS          TRUE", File.ReadAllText(Path.Combine(root, "include", "config", "item.h")), StringComparison.Ordinal);
+        Assert.Contains("#define B_SHOW_TYPES        SHOW_TYPES_ALWAYS", File.ReadAllText(Path.Combine(root, "include", "config", "battle.h")), StringComparison.Ordinal);
         Assert.Contains("{FLAG_IS_CHAMPION, 90}", File.ReadAllText(Path.Combine(root, "src", "caps.c")), StringComparison.Ordinal);
         var cfg = File.ReadAllText(Path.Combine(root, "include", "config", "caps.h"));
         Assert.Contains("#define B_LEVEL_CAP_TYPE                LEVEL_CAP_FLAG_LIST", cfg, StringComparison.Ordinal);

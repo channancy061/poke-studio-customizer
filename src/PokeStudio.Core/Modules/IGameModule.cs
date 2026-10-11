@@ -85,6 +85,9 @@ public sealed class GameData
     /// <summary>Game-wide AI settings (switch chances…) that can be tuned.</summary>
     public List<AiSetting> AiSettings { get; } = [];
 
+    /// <summary>Quality-of-life switches the game has (shown on the Levels &amp; caps page).</summary>
+    public List<GameSwitch> Switches { get; } = [];
+
     /// <summary>The three starters the player chooses from, in the game's order (empty if unknown).</summary>
     public List<string> Starters { get; } = [];
 

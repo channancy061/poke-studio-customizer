@@ -113,6 +113,11 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
             Gen3Dialogue.Load(state, data);
             Gen3Adaptive.Read(state, data);
             data.AdaptiveSlotsAlwaysOn = Gen3Adaptive.Supported(rom);
+            if (Gen3ReusableTms.Read(rom) is { } reusable)
+            {
+                data.Rules = (data.Rules ?? new GameRules()) with { ReusableTms = reusable };
+            }
+
             _states.AddOrUpdate(data, state);
             return data;
         }, cancellationToken);
@@ -136,6 +141,11 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
         Gen3Dialogue.Save(state, data);
         Gen3Marts.Save(state, data);
         Gen3Adaptive.Write(state, data);
+        if (data.Rules?.ReusableTms is { } keepTms)
+        {
+            Gen3ReusableTms.Write(state.Rom, keepTms);
+        }
+
         await context.Writer.WriteAllBytesAsync(context.WorkingSourceDir, state.Rom.Bytes, cancellationToken);
         var (freshData, fresh) = Gen3Reader.Read(state.Rom, state.Tables);
         fresh.Path = state.Path;

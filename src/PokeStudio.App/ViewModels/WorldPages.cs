@@ -866,6 +866,19 @@ public sealed partial class MilestoneViewModel(LevelCap cap, Action changed) : V
     partial void OnTargetChanged(decimal value) => changed();
 }
 
+/// <summary>One quality-of-life switch on the Levels &amp; caps page.</summary>
+public sealed class SwitchRowViewModel(GameSwitch setting, Action<string, bool> set) : ViewModelBase
+{
+    public string Label => setting.Label;
+    public string Help => setting.Help;
+
+    public bool IsOn
+    {
+        get => setting.Value;
+        set => set(setting.Key, value);
+    }
+}
+
 public sealed partial class ProgressionPageViewModel : ViewModelBase
 {
     private readonly ShellViewModel _shell;
@@ -886,6 +899,21 @@ public sealed partial class ProgressionPageViewModel : ViewModelBase
     public bool HasCaps => Milestones.Count > 0;
     public bool NoCaps => !HasCaps;
     public bool HasSplit => Rules?.PhysicalSpecialSplit is not null;
+    public bool HasReusableTms => Rules?.ReusableTms is not null;
+    public bool HasSwitches => Data.Switches.Count > 0;
+    public IReadOnlyList<SwitchRowViewModel> Switches => Data.Switches.Select(s => new SwitchRowViewModel(s, SetSwitch)).ToList();
+
+    private void SetSwitch(string key, bool value)
+    {
+        var i = Data.Switches.FindIndex(s => s.Key == key);
+        if (i < 0 || Data.Switches[i].Value == value)
+        {
+            return;
+        }
+
+        var before = Data.Switches[i];
+        _shell.Execute(new ValueChange<GameSwitch>("Quality of life", $"{before.Label}: {(value ? "on" : "off")}", v => Data.Switches[i] = v, before, before with { Value = value }));
+    }
     public ObservableCollection<MilestoneViewModel> Milestones { get; } = [];
     public IReadOnlyList<int> ChampionPresets { get; } = [70, 80, 90, 95, 100];
     public IReadOnlyList<string> ExpCapOptions { get; } = ["No cap", "Hard cap (no XP at the cap)", "Soft cap (less XP at the cap)"];
@@ -992,5 +1020,11 @@ public sealed partial class ProgressionPageViewModel : ViewModelBase
     {
         get => Rules?.PhysicalSpecialSplit ?? true;
         set => SetRules(r => r with { PhysicalSpecialSplit = value }, value ? "Physical/Special split on (Gen 4+)" : "Gen 1–3 rule: type decides physical/special");
+    }
+
+    public bool ReusableTms
+    {
+        get => Rules?.ReusableTms ?? false;
+        set => SetRules(r => r with { ReusableTms = value }, value ? "TMs can be used again and again" : "TMs are used up when taught");
     }
 }

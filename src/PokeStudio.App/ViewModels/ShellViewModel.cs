@@ -208,7 +208,8 @@ public sealed partial class ShellViewModel : ViewModelBase
             NavItems.Add(new NavItemViewModel(NavKey.GameOptions, "Game options", "Icon.Settings", true, null, "Tools"));
         }
 
-        if (Session.Data.Rules is { } rules && (rules.LevelCaps.Count > 0 || rules.PhysicalSpecialSplit is not null))
+        if ((Session.Data.Rules is { } rules && (rules.LevelCaps.Count > 0 || rules.PhysicalSpecialSplit is not null || rules.ReusableTms is not null))
+            || Session.Data.Switches.Count > 0)
         {
             NavItems.Add(new NavItemViewModel(NavKey.Progression, "Levels & caps", "Icon.ChevronUp", true, null, "Tools"));
         }
