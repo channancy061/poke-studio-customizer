@@ -211,6 +211,7 @@ public class BuildErrorTranslatorTests
     [InlineData("/bin/sh: 1: arm-none-eabi-gcc: not found", "A build tool is missing: arm-none-eabi-gcc")]
     [InlineData("src/data/moves_info.h:10:5: error: expected '}' before ';' token", "There's a typo in a data file")]
     [InlineData("cp: cannot create regular file 'pokeemerald.gba': Permission denied", "A file couldn't be written")]
+    [InlineData("fatal: no git history found. You will be unable to use version control", "The project has no git history")]
     public void Common_errors_get_friendly_titles(string line, string title) =>
         Assert.Equal(title, BuildErrorTranslator.TryTranslate(line)?.Title);
 

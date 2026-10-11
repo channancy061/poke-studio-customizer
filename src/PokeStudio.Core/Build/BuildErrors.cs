@@ -34,6 +34,8 @@ public static partial class BuildErrorTranslator
             "Another program may have the file open, or the folder is read-only. Close other programs (including the emulator) and try again.")),
         new(OutOfSpace(), _ => ("Your disk is full",
             "Free up some space and build again.")),
+        new(NoGitHistory(), _ => ("The project has no git history",
+            "pokeemerald-expansion checks that it was downloaded with git (not as a ZIP). Download it again with git, or create an empty file named “.histignore” in the project folder to build anyway.")),
     ];
 
     /// <summary>Plain-English problems in <paramref name="output"/>, most important first, without duplicates.</summary>
@@ -122,4 +124,7 @@ public static partial class BuildErrorTranslator
 
     [GeneratedRegex(@"No space left on device")]
     private static partial Regex OutOfSpace();
+
+    [GeneratedRegex(@"no git history found")]
+    private static partial Regex NoGitHistory();
 }

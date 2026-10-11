@@ -99,7 +99,11 @@ public static class CScanner
     }
 
     /// <summary>Splits [start,end) at <paramref name="separator"/> characters that are not nested inside brackets, strings or comments.</summary>
-    public static List<(int Start, int End)> SplitTopLevel(string s, int start, int end, char separator = ',')
+    /// <param name="counts">
+    /// Whether a bracket at a position counts (e.g. only in the branch of an #if the settings use: a value whose
+    /// closing bracket is repeated in each branch would otherwise swallow everything after it).
+    /// </param>
+    public static List<(int Start, int End)> SplitTopLevel(string s, int start, int end, char separator = ',', Func<int, bool>? counts = null)
     {
         var parts = new List<(int, int)>();
         var depth = 0;
@@ -114,11 +118,11 @@ public static class CScanner
             }
 
             var ch = s[i];
-            if (ch is '(' or '{' or '[')
+            if (ch is '(' or '{' or '[' && (counts is null || counts(i)))
             {
                 depth++;
             }
-            else if (ch is ')' or '}' or ']')
+            else if (ch is ')' or '}' or ']' && (counts is null || counts(i)))
             {
                 depth--;
             }

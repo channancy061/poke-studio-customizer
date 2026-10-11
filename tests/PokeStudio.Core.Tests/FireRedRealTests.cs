@@ -108,7 +108,7 @@ public class FireRedRealTests
         await module2.SaveDataAsync(again, ctx2);
         Assert.Contains("\"isUnlockedFunc\": \"PokeStudio_HasBadge2\"", Read(root, "src/data/shops.json"), StringComparison.Ordinal);
         var shopCAfter = Read(root, "src/shop.c");
-        Assert.Contains("static bool32 PokeStudio_HasBadge2(void) { return FlagGet(FLAG_BADGE02_GET); }", shopCAfter, StringComparison.Ordinal);
+        Assert.Contains("static bool32 __attribute__((unused)) PokeStudio_HasBadge2(void) { return FlagGet(FLAG_BADGE02_GET); }", shopCAfter, StringComparison.Ordinal);
         Assert.True(shopCAfter.IndexOf("PokeStudio_HasBadge1", StringComparison.Ordinal) < shopCAfter.IndexOf("#include \"data/shops.h\"", StringComparison.Ordinal));
         Assert.Equal(shopC.Split('\n').Length + 11, shopCAfter.Split('\n').Length); // marker lines + 8 checks + blank line
 

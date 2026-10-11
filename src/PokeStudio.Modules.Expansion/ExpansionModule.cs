@@ -765,6 +765,13 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
             }
         }
         FillCatalog(layout, data.Catalog);
+        // the game's own names set the real limits (Z-moves, for example, are longer than MOVE_NAME_LENGTH)
+        _limits = _limits with
+        {
+            SpeciesNameLength = Math.Max(_limits.SpeciesNameLength, data.Species.Where(s => !s.LockedFields.ContainsKey("*")).Select(s => s.Name.Length).DefaultIfEmpty(0).Max()),
+            MoveNameLength = Math.Max(_limits.MoveNameLength, data.Moves.Select(x => x.Name.Length).DefaultIfEmpty(0).Max()),
+            ItemNameLength = Math.Max(_limits.ItemNameLength, data.Items.Select(x => x.Name.Length).DefaultIfEmpty(0).Max()),
+        };
         return (data, state);
     }
 
@@ -811,12 +818,14 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
                     var tiers = parsed.Tiers.TryGetValue(list.Label, out var full)
                         ? MartScripts.Additions(list.Items, full)
                         : new Dictionary<int, IReadOnlyList<string>>();
+                    var decorations = list.Items.Any(i => i.StartsWith("DECOR_", StringComparison.Ordinal));
                     var mart = new Mart
                     {
                         Key = list.Label,
                         Place = MartScripts.PlaceName(rel, list.Label, parsed.Lists.Count),
                         Items = list.Items,
                         BadgeTiers = tiers,
+                        LockedReason = decorations ? "Decoration shops sell decorations, not items. Edit them in the map's script file." : null,
                     };
                     if (state.Marts.TryAdd(mart.Key, mart))
                     {
@@ -1078,6 +1087,23 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
         c.Moves.AddRange(Catalogs.Build(Read("include/constants/moves.h"), Read("src/data/moves_info.h"), "MOVE_").Where(m => m.Key != "MOVE_NONE"));
         c.Abilities.AddRange(Catalogs.Build(Read("include/constants/abilities.h"), Read("src/data/abilities.h"), "ABILITY_"));
         c.Items.AddRange(Catalogs.Build(Read("include/constants/items.h"), Read("src/data/items.h"), "ITEM_"));
+
+        // names the game also accepts: old spellings, and TM/HM items named after their move (ITEM_TM_FIRE_BLAST)
+        foreach (var (file, prefix) in new[] { ("include/constants/items.h", "ITEM_"), ("include/constants/moves.h", "MOVE_"), ("include/constants/species.h", "SPECIES_") })
+        {
+            if (Read(file) is { } constants)
+            {
+                c.AlsoValid.UnionWith(Catalogs.Aliases(constants, prefix).Keys);
+            }
+        }
+
+        if (Read(ExpansionLayout.TmsHmsFile) is { } machines)
+        {
+            foreach (var (label, move) in LearnsetFiles.ReadMachines(machines))
+            {
+                c.AlsoValid.Add($"ITEM_{(label.StartsWith("HM", StringComparison.Ordinal) ? "HM" : "TM")}_{move.Replace("MOVE_", "", StringComparison.Ordinal)}");
+            }
+        }
         c.EvolutionMethods.AddRange(Catalogs.EvolutionMethods.Select(m => new CatalogEntry(m.Key, m.Name, m.Description)));
         c.EvolutionConditions.AddRange(Catalogs.EvolutionConditions.Select(m => new CatalogEntry(m.Key, m.Name)));
         if (Read("include/constants/battle_move_effects.h") is { } effects)

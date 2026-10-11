@@ -68,7 +68,7 @@ public class ShopsJsonTests
 
         const string shopC = "#include \"global.h\"\n\n#include \"data/shops.h\"\n";
         var code = TextEdits.Apply(shopC, [ShopsJson.BadgeFunctionsEdit(shopC)!]);
-        Assert.Contains("static bool32 PokeStudio_HasBadge8(void) { return FlagGet(FLAG_BADGE08_GET); }\n// Poke Studio: end\n\n#include \"data/shops.h\"", code, StringComparison.Ordinal);
+        Assert.Contains("static bool32 __attribute__((unused)) PokeStudio_HasBadge8(void) { return FlagGet(FLAG_BADGE08_GET); }\n// Poke Studio: end\n\n#include \"data/shops.h\"", code, StringComparison.Ordinal);
         Assert.Null(ShopsJson.BadgeFunctionsEdit(code)); // added only once
     }
 

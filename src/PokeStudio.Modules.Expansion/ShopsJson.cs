@@ -258,9 +258,27 @@ internal static partial class ShopsJson
     /// <summary>Adds the eight badge checks to src/shop.c (before the generated shop data is included), once.</summary>
     public static TextEdit? BadgeFunctionsEdit(string shopC)
     {
-        if (shopC.Contains(CodeStart, StringComparison.Ordinal))
+        var nl = CScanner.LineEnding(shopC);
+        var sb = new StringBuilder(CodeStart).Append(nl);
+        for (var b = 1; b <= 8; b++)
         {
-            return null;
+            // not every badge is used by every hack; "unused" keeps the build log free of warnings
+            sb.Append($"static bool32 __attribute__((unused)) {BadgeFunc}{b}(void) {{ return FlagGet(FLAG_BADGE0{b}_GET); }}").Append(nl);
+        }
+
+        sb.Append(CodeEnd).Append(nl);
+        var start = shopC.IndexOf(CodeStart, StringComparison.Ordinal);
+        if (start >= 0)
+        {
+            // written by an earlier version: bring it up to date
+            var end = shopC.IndexOf(CodeEnd, start, StringComparison.Ordinal);
+            if (end < 0 || shopC.Contains("__attribute__((unused)) " + BadgeFunc, StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            var after = end + CodeEnd.Length + (shopC.AsSpan(end + CodeEnd.Length).StartsWith(nl, StringComparison.Ordinal) ? nl.Length : 0);
+            return new TextEdit(start, after - start, sb.ToString());
         }
 
         var include = Regex.Match(shopC, @"^#include ""data/shops\.h""", RegexOptions.Multiline);
@@ -269,14 +287,6 @@ internal static partial class ShopsJson
             return null;
         }
 
-        var nl = CScanner.LineEnding(shopC);
-        var sb = new StringBuilder(CodeStart).Append(nl);
-        for (var b = 1; b <= 8; b++)
-        {
-            sb.Append($"static bool32 {BadgeFunc}{b}(void) {{ return FlagGet(FLAG_BADGE0{b}_GET); }}").Append(nl);
-        }
-
-        sb.Append(CodeEnd).Append(nl).Append(nl);
-        return new TextEdit(include.Index, 0, sb.ToString());
+        return new TextEdit(include.Index, 0, sb.Append(nl).ToString());
     }
 }

@@ -23,6 +23,7 @@ internal static partial class GameOptionsWriter
     public const string PoolsHeader = "include/trainer_pools.h";
     public const string WildConfig = "include/config/wild_encounter.h";
     public const string ItemUse = "src/item_use.c";
+    public const string DataSource = "src/data.c";
 
     /// <summary>What the code needs from the rest of the project.</summary>
     public sealed record Extras(
@@ -31,9 +32,12 @@ internal static partial class GameOptionsWriter
         IReadOnlyList<string> CenterMaps)
     {
         public static readonly Extras None = new(new Dictionary<string, string>(), [], []);
+
+        /// <summary>Expansion 1.17+ keeps parties in gParties[…] (the old gPlayerParty/gEnemyParty names are deprecated).</summary>
+        public bool HasParties { get; init; }
     }
 
-    public static IReadOnlyList<string> CodeFiles => [CodeFile, CodeHeader, BattleSetup, BattleScripts, PoolsSource, PoolsHeader, WildConfig, ItemUse];
+    public static IReadOnlyList<string> CodeFiles => [CodeFile, CodeHeader, BattleSetup, BattleScripts, PoolsSource, PoolsHeader, WildConfig, ItemUse, DataSource];
 
     private static readonly string[] CodeFlagNames =
         ["FLAG_PS_NUZ_FIRST", "FLAG_PS_NUZ_FAINT", "FLAG_PS_NUZ_DUPES", "FLAG_PS_NUZ_EEVEE", "FLAG_PS_NUZ_SHINY", "FLAG_PS_NUZ_NICK", "FLAG_PS_ADAPTIVE", "FLAG_PS_NO_CATCH"];
@@ -126,7 +130,11 @@ internal static partial class GameOptionsWriter
             }
         }
 
-        return new Extras(roots, [.. areas], [.. CenterPlacement.CenterMaps(layout.Root)]);
+        var pokemonHeader = layout.Full("include/pokemon.h");
+        return new Extras(roots, [.. areas], [.. CenterPlacement.CenterMaps(layout.Root)])
+        {
+            HasParties = File.Exists(pokemonHeader) && File.ReadAllText(pokemonHeader).Contains("gParties[", StringComparison.Ordinal),
+        };
     }
 
     /// <summary>Plans the code files and hooks (called from <see cref="Plan"/>).</summary>
@@ -289,6 +297,14 @@ internal static partial class GameOptionsWriter
             }
         }
 
+        // the trainer list (compiled in data.c) names our pick function; older expansion versions (1.15) don't include
+        // the pools header there
+        if (read(DataSource) is { } dataC && read(PoolsHeader) is not null && !dataC.Contains("#include \"trainer_pools.h\"", StringComparison.Ordinal)
+            && Regex.Match(dataC, @"^#include ""data\.h""[^\n]*\n", RegexOptions.Multiline) is { Success: true } dataH)
+        {
+            put(DataSource, dataC, dataC.Insert(dataH.Index + dataH.Length, $"#include \"trainer_pools.h\" // {Mark}: adaptive boss slot{CScanner.LineEnding(dataC)}"));
+        }
+
         // the Pokémon Center helper stands in every Center
         if (o.CenterHelper.AnyService)
         {
@@ -419,6 +435,9 @@ internal static partial class GameOptionsWriter
         L("#define PS_NO_CATCH FLAG_PS_NO_CATCH");
         L("#endif");
         L();
+        L(x.HasParties ? "#define PS_PLAYER_PARTY gParties[B_TRAINER_PLAYER]" : "#define PS_PLAYER_PARTY gPlayerParty");
+        L(x.HasParties ? "#define PS_ENEMY_PARTY gParties[B_TRAINER_OPPONENT_A]" : "#define PS_ENEMY_PARTY gEnemyParty");
+        L();
 
         var areas = o.NuzRuleUsed(o.NuzFirstEncounter) ? x.EncounterAreas.Where(a => ids.Flags.ContainsKey(AreaFlag(a))).ToList() : [];
         L("// Region map section → flag set once the first wild Pokémon there was met.");
@@ -492,7 +511,7 @@ internal static partial class GameOptionsWriter
                     return;
                 for (u32 i = 0; i < 2; i++)
                 {
-                    struct Pokemon *wild = &gEnemyParty[i];
+                    struct Pokemon *wild = &PS_ENEMY_PARTY[i];
                     u32 species = GetMonData(wild, MON_DATA_SPECIES);
                     if (species == SPECIES_NONE)
                         continue;
@@ -545,16 +564,16 @@ internal static partial class GameOptionsWriter
                     return;
                 for (u32 i = 0; i < PARTY_SIZE; i++)
                 {
-                    if (IsUsableMon(&gPlayerParty[i]) && GetMonData(&gPlayerParty[i], MON_DATA_HP) != 0)
+                    if (IsUsableMon(&PS_PLAYER_PARTY[i]) && GetMonData(&PS_PLAYER_PARTY[i], MON_DATA_HP) != 0)
                         alive++;
                 }
                 if (alive == 0)
                     return;
                 for (u32 i = 0; i < PARTY_SIZE; i++)
                 {
-                    if (IsUsableMon(&gPlayerParty[i]) && GetMonData(&gPlayerParty[i], MON_DATA_HP) == 0)
+                    if (IsUsableMon(&PS_PLAYER_PARTY[i]) && GetMonData(&PS_PLAYER_PARTY[i], MON_DATA_HP) == 0)
                     {
-                        ZeroMonData(&gPlayerParty[i]);
+                        ZeroMonData(&PS_PLAYER_PARTY[i]);
                         released++;
                     }
                 }
@@ -586,7 +605,7 @@ internal static partial class GameOptionsWriter
                 s32 score = 0;
                 for (u32 i = 0; i < PARTY_SIZE; i++)
                 {
-                    struct Pokemon *mon = &gPlayerParty[i];
+                    struct Pokemon *mon = &PS_PLAYER_PARTY[i];
                     u32 foe = GetMonData(mon, MON_DATA_SPECIES);
                     s32 attack = 0, defend = 0;
                     if (!IsUsableMon(mon) || GetMonData(mon, MON_DATA_HP) == 0)
@@ -671,7 +690,7 @@ internal static partial class GameOptionsWriter
             // Pokémon Center helper (callnative): perfect IVs for the chosen party member (gSpecialVar_0x8004).
             void PokeStudio_MaxIvs(void)
             {
-                struct Pokemon *mon = &gPlayerParty[gSpecialVar_0x8004];
+                struct Pokemon *mon = &PS_PLAYER_PARTY[gSpecialVar_0x8004];
                 u32 iv = MAX_PER_STAT_IVS;
                 for (u32 i = 0; i < NUM_STATS; i++)
                     SetMonData(mon, MON_DATA_HP_IV + i, &iv);
@@ -692,7 +711,7 @@ internal static partial class GameOptionsWriter
 
             void PokeStudio_SetEvSpread(void)
             {
-                struct Pokemon *mon = &gPlayerParty[gSpecialVar_0x8004];
+                struct Pokemon *mon = &PS_PLAYER_PARTY[gSpecialVar_0x8004];
                 u32 spread = gSpecialVar_Result < ARRAY_COUNT(sEvSpreads) ? gSpecialVar_Result : 0;
                 for (u32 i = 0; i < NUM_STATS; i++)
                 {

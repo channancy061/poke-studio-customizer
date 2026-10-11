@@ -10,6 +10,12 @@ public sealed class GameCatalog
     public List<CatalogEntry> Types { get; } = [];
     public List<CatalogEntry> Abilities { get; } = [];
     public List<CatalogEntry> Items { get; } = [];
+
+    /// <summary>
+    /// Other spellings the game accepts for species, moves and items (old names such as ITEM_X_DEFEND, or names
+    /// generated from lists such as ITEM_TM_FIRE_BLAST). Valid in checks; not offered in pickers.
+    /// </summary>
+    public HashSet<string> AlsoValid { get; } = new(StringComparer.Ordinal);
     public List<CatalogEntry> Moves { get; } = [];
     public List<CatalogEntry> GrowthRates { get; } = [];
     public List<CatalogEntry> EggGroups { get; } = [];

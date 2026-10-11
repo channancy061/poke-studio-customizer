@@ -51,6 +51,7 @@ public sealed class ProjectSession : IDisposable
         data.Lab = await LoadJsonAsync<ChampionLab.LabSettings>(project, LabFileName, cancellationToken);
         data.GameOptions = await LoadJsonAsync<GameOptions.GameOptionsSettings>(project, GameOptionsFileName, cancellationToken);
         var session = new ProjectSession(project, module, data, projects, backups, clock ?? TimeProvider.System);
+        session.RecordBaseline();
         var all = await backups.ListAsync(project.Manifest.Id, cancellationToken);
         var latest = all.Count > 0 ? all[0] : null;
         session.LastBackupUtc = latest?.CreatedUtc;
@@ -89,8 +90,27 @@ public sealed class ProjectSession : IDisposable
         ? new ExternalFiles(Project.WorkingSourcePath, Module.ManagedFiles(Project.WorkingSourcePath, Data))
         : null;
 
-    /// <summary>Runs every check (general + module-specific) on the current data.</summary>
-    public IReadOnlyList<Validation.ValidationIssue> Validate() => Validation.GameValidator.Run(Data, Module);
+    // issues the game already had when the project was opened (its own data, not the user's changes)
+    private HashSet<string> _baseline = new(StringComparer.Ordinal);
+
+    private static string Signature(Validation.ValidationIssue i) => $"{i.Severity}|{i.Area}|{i.Subject}|{i.Message}";
+
+    private void RecordBaseline() => _baseline = Validation.GameValidator.Run(Data, Module).Select(Signature).ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>How many issues of the original game the last check left out.</summary>
+    public int HiddenOriginalIssues { get; private set; }
+
+    /// <summary>
+    /// Runs every check (general + module-specific) on the current data. Issues the game already had when the project
+    /// was opened are left out (counted in <see cref="HiddenOriginalIssues"/>): only what the user's changes caused is shown.
+    /// </summary>
+    public IReadOnlyList<Validation.ValidationIssue> Validate()
+    {
+        var all = Validation.GameValidator.Run(Data, Module);
+        var shown = all.Where(i => !_baseline.Contains(Signature(i))).ToList();
+        HiddenOriginalIssues = all.Count - shown.Count;
+        return shown;
+    }
 
     public async Task SaveAsync(CancellationToken cancellationToken = default)
     {
@@ -152,6 +172,7 @@ public sealed class ProjectSession : IDisposable
         }
 
         Data = await Module.LoadDataAsync(Project.WorkingSourcePath, Project.DataDir, cancellationToken);
+        RecordBaseline();
         Undo.Clear();
         LastBackupUtc = _clock.GetUtcNow();
         DataReloaded?.Invoke(this, EventArgs.Empty);

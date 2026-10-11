@@ -555,6 +555,8 @@ internal static partial class TextScripts
     /// <summary>The .string lines for a text: one line per visible line, ending in its \n, \l or \p code.</summary>
     public static string Format(string text, string indent, bool terminated, string nl)
     {
+        // a real line break can't go inside a .string: write it as the \n code
+        text = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\n", "\\n", StringComparison.Ordinal);
         var sb = new StringBuilder();
         var i = 0;
         while (i < text.Length)

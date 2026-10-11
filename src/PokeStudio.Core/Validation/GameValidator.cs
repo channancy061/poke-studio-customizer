@@ -30,8 +30,12 @@ public static class GameValidator
     {
         var issues = new List<ValidationIssue>();
         var limits = module.Limits;
-        var speciesKeys = new HashSet<string>(data.Species.Select(s => s.Key), StringComparer.Ordinal);
+        var speciesKeys = new HashSet<string>(data.Species.Select(s => s.Key).Concat(data.Catalog.AlsoValid.Where(k => k.StartsWith("SPECIES_", StringComparison.Ordinal))), StringComparer.Ordinal);
         var moveKeys = new HashSet<string>(data.Catalog.Moves.Select(m => m.Key), StringComparer.Ordinal);
+        if (moveKeys.Count > 0)
+        {
+            moveKeys.UnionWith(data.Catalog.AlsoValid.Where(k => k.StartsWith("MOVE_", StringComparison.Ordinal)));
+        }
 
         for (var i = 0; i < data.Species.Count; i++)
         {
@@ -57,6 +61,10 @@ public static class GameValidator
         {
             var species = data.Species.ToDictionary(s => s.Key, StringComparer.Ordinal);
             var items = new HashSet<string>(data.Catalog.Items.Select(i => i.Key), StringComparer.Ordinal);
+            if (items.Count > 0)
+            {
+                items.UnionWith(data.Catalog.AlsoValid.Where(k => k.StartsWith("ITEM_", StringComparison.Ordinal)));
+            }
             foreach (var t in data.Trainers.Where(t => t.LockedReason is null))
             {
                 CheckTrainer(data, t, limits, species, moveKeys, items, issues);
@@ -75,9 +83,9 @@ public static class GameValidator
     private static void CheckSpecies(GameData data, int index, GameLimits limits, List<ValidationIssue> issues)
     {
         var s = data.Species[index];
-        if (!s.IsEnabled)
+        if (!s.IsEnabled || s.LockedFields.ContainsKey("*"))
         {
-            return;
+            return; // read-only Pokémon are as the source file has them
         }
 
         var who = s.DisplayName;
@@ -412,6 +420,10 @@ public static class GameValidator
         }
 
         var itemKeys = data.Catalog.Items.Select(i => i.Key).ToHashSet(StringComparer.Ordinal);
+        if (itemKeys.Count > 0)
+        {
+            itemKeys.UnionWith(data.Catalog.AlsoValid.Where(k => k.StartsWith("ITEM_", StringComparison.Ordinal)));
+        }
         foreach (var item in data.Items.Where(i => !i.LockedFields.ContainsKey("*")))
         {
             void Add(IssueSeverity sev, string msg, string? suggestion = null) => issues.Add(new ValidationIssue(sev, "Item", item.Name, msg, suggestion) { TargetKey = item.Key });

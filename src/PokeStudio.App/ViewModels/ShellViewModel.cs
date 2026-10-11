@@ -127,7 +127,9 @@ public sealed partial class ShellViewModel : ViewModelBase
     public bool HasErrors => Issues.Any(i => i.IsError);
     public bool CanSaveAnyway => !HasErrors;
     public string ValidationTitle => Issues.Count == 0 ? "All clear" : $"{Issues.Count} thing{(Issues.Count == 1 ? "" : "s")} to look at before saving";
-    public string ValidationFooter => HasErrors ? "Fix the “Must fix” items first. “Check this” items won't stop you saving." : "Nothing blocks saving.";
+    public string ValidationFooter =>
+        (HasErrors ? "Fix the “Must fix” items first. “Check this” items won't stop you saving." : "Nothing blocks saving.")
+        + (Session.HiddenOriginalIssues > 0 ? $" ({Session.HiddenOriginalIssues} notes about the original game's own data are left out.)" : "");
     internal MainWindowViewModel Main => _main;
     public string ProjectName => Session.Project.Manifest.Name;
     public string GameTitle => Session.Project.Manifest.GameTitle;

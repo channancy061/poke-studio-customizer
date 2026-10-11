@@ -50,19 +50,34 @@ public class ExpansionUiTests
         var editor = Assert.IsType<PokemonEditorViewModel>(Assert.IsType<PokemonPageViewModel>(shell.CurrentPage).Editor);
         editor.Stats.Single(s => s.Label == "Speed").Value = 77;
 
+        // Bloomtle already learns 5 moves at level 1 in the fixture: the game's own issue, left out of the checks
+        await shell.SaveCommand.ExecuteAsync(null);
+        Assert.DoesNotContain(shell.Issues, i => i.Text.StartsWith("Bloomtle", StringComparison.Ordinal));
+        Assert.Contains("left out", shell.ValidationFooter, StringComparison.Ordinal);
+        Assert.False(shell.IsDirty);
+        editor.Stats.Single(s => s.Label == "Speed").Value = 78;
+
+        // an issue the user causes is shown: Sproutle now learns 5 moves at level 1 too
+        var data = shell.Session.Data;
+        var li = data.Learnsets.FindIndex(l => l.UsedBy.Contains("SPECIES_SPROUTLE"));
+        var learnset = data.Learnsets[li];
+        var extra = data.Moves.Select(m => m.Key).Where(k => k != "MOVE_NONE" && learnset.LevelUp.All(x => x.Move != k)).Take(5 - learnset.LevelUp.Count(x => x.Level == 1))
+            .Select(k => new PokeStudio.Core.Models.LevelUpMove(1, k));
+        shell.Execute(new PokeStudio.Core.Changes.ValueChange<PokeStudio.Core.Models.Learnset>("Learnsets", "test", v => data.Learnsets[li] = v, learnset,
+            learnset with { LevelUp = [.. extra, .. learnset.LevelUp] }));
         await shell.SaveCommand.ExecuteAsync(null);
 
-        Assert.True(shell.IsValidationOpen); // Bloomtle learns 5 moves at level 1
-        var issue = Assert.Single(shell.Issues, i => i.Text.StartsWith("Bloomtle", StringComparison.Ordinal)); // the fixture also has a deliberately long sign
+        Assert.True(shell.IsValidationOpen);
+        var issue = Assert.Single(shell.Issues, i => i.Text.StartsWith("Sproutle", StringComparison.Ordinal));
         Assert.True(issue.HasFix);
-        Assert.Equal(before, Read(root, SpeciesFile)); // nothing written yet
+        Assert.Contains(".baseSpeed     = 77,", Read(root, SpeciesFile), StringComparison.Ordinal); // the second change isn't written yet
 
         issue.FixCommand.Execute(null);
-        Assert.DoesNotContain(shell.Issues, i => i.IsError || i.Text.StartsWith("Bloomtle", StringComparison.Ordinal));
+        Assert.DoesNotContain(shell.Issues, i => i.IsError || i.Text.StartsWith("Sproutle", StringComparison.Ordinal));
         await shell.SaveAnywayCommand.ExecuteAsync(null);
 
         Assert.False(shell.IsValidationOpen);
-        Assert.Contains(".baseSpeed     = 77,", Read(root, SpeciesFile), StringComparison.Ordinal);
+        Assert.Contains(".baseSpeed     = 78,", Read(root, SpeciesFile), StringComparison.Ordinal);
         Assert.False(shell.IsDirty);
         Assert.NotEmpty(await shell.Session.ListBackupsAsync()); // backed up before writing
     }

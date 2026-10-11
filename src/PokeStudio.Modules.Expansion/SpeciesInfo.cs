@@ -26,6 +26,10 @@ internal sealed class SpeciesBlock
     public required int Close { get; init; }
     public required bool Active { get; init; }
     public required string? Condition { get; init; }
+
+    /// <summary>The shared template the entry is built from (e.g. UNOWN_MISC_INFO), or null for a normal entry.</summary>
+    public string? Template { get; init; }
+
     public List<FieldOccurrence> Fields { get; } = [];
 
     /// <summary>The occurrence the game is built with: the first active one.</summary>
@@ -49,6 +53,14 @@ internal static partial class SpeciesInfo
     [GeneratedRegex(@"\[(SPECIES_\w+)\]\s*=\s*\{")]
     private static partial Regex BlockStartRegex();
 
+    // "[SPECIES_UNOWN] = UNOWN_MISC_INFO(A, …)," or "[SPECIES_MOTHIM_PLANT] = MOTHIM_SPECIES_INFO,"
+    [GeneratedRegex(@"\[(SPECIES_\w+)\]\s*=\s*([A-Z_][A-Z0-9_]*)\s*[(,]")]
+    private static partial Regex TemplateEntryRegex();
+
+    // a block whose first content is a template call: "{ VIVILLON_MISC_INFO(…), … }"
+    [GeneratedRegex(@"^\s*([A-Z_][A-Z0-9_]*)\s*\(")]
+    private static partial Regex LeadingTemplateRegex();
+
     [GeneratedRegex(@"\[(MOVE_\w+)\]\s*=\s*\{")]
     private static partial Regex MoveBlockStartRegex();
 
@@ -57,6 +69,37 @@ internal static partial class SpeciesInfo
 
     [GeneratedRegex(@"(?!^)([A-Z]+)")]
     private static partial Regex SnakifyRegex();
+
+    [GeneratedRegex(@"^[A-Za-z_]\w*$")]
+    private static partial Regex IdentifierRegex();
+
+    /// <summary>
+    /// A value written as a name the file defines (newer expansion versions share a family's types and abilities, e.g.
+    /// <c>#define CLEFAIRY_FAMILY_TYPES { TYPE_FAIRY, TYPE_FAIRY }</c>) → what it stands for with the project's settings.
+    /// Constants the game itself knows (TYPE_FAIRY…) are left as they are.
+    /// </summary>
+    public static string ExpandName(string value, MacroTable macros, Func<string, bool>? known = null)
+    {
+        var v = Unwrap(value);
+        for (var depth = 0; depth < 8 && IdentifierRegex().IsMatch(v) && (known is null || !known(v)) && macros.Raw(v) is { } body; depth++)
+        {
+            v = Unwrap(Resolve(Unwrap(CScanner.StripComments(body)), macros, out _));
+        }
+
+        return Unwrap(Resolve(v, macros, out _));
+    }
+
+    /// <summary>"(a ? b : c)" → "a ? b : c": brackets around the whole value only.</summary>
+    private static string Unwrap(string value)
+    {
+        var v = value.Trim();
+        while (v.Length > 1 && v[0] == '(' && CScanner.FindMatching(v, 0) == v.Length - 1)
+        {
+            v = v[1..^1].Trim();
+        }
+
+        return v;
+    }
 
     /// <param name="settings">Settings to read the file with (default: the project's own).</param>
     public static SourceFile LoadFile(ExpansionLayout layout, string relative, MacroTable? settings = null)
@@ -67,6 +110,30 @@ internal static partial class SpeciesInfo
         var macros = baseMacros.Clone();
         macros.LoadActiveDefines(text, map);
         return new SourceFile { Relative = relative, Text = text, Map = map, Macros = macros };
+    }
+
+    /// <summary>True inside a preprocessor line, including a #define continued with backslashes.</summary>
+    private static bool InDirective(string text, int index)
+    {
+        var lineStart = text.LastIndexOf('\n', Math.Max(0, index - 1)) + 1;
+        while (lineStart > 1)
+        {
+            var prevEnd = lineStart - 1; // the '\n'
+            var e = prevEnd;
+            while (e > 0 && text[e - 1] is '\r' or ' ' or '\t')
+            {
+                e--;
+            }
+
+            if (e == 0 || text[e - 1] != '\\')
+            {
+                break;
+            }
+
+            lineStart = text.LastIndexOf('\n', Math.Max(0, prevEnd - 1)) + 1;
+        }
+
+        return text.AsSpan(lineStart).TrimStart().StartsWith("#", StringComparison.Ordinal);
     }
 
     public static List<SpeciesBlock> ParseBlocks(SourceFile file, bool moves = false, bool items = false)
@@ -106,13 +173,38 @@ internal static partial class SpeciesInfo
             blocks.Add(block);
         }
 
+        if (!moves && !items)
+        {
+            foreach (Match m in TemplateEntryRegex().Matches(text))
+            {
+                var lineStart = text.LastIndexOf('\n', Math.Max(0, m.Index - 1)) + 1;
+                if (text.AsSpan(lineStart, m.Index - lineStart).Trim().Length > 0 || InDirective(text, m.Index))
+                {
+                    continue; // commented out, part of a bigger expression, or inside a #define
+                }
+
+                blocks.Add(new SpeciesBlock
+                {
+                    File = file.Relative,
+                    Symbol = m.Groups[1].Value,
+                    Open = m.Groups[2].Index,
+                    Close = m.Groups[2].Index,
+                    Active = file.Map.IsActive(m.Index),
+                    Condition = file.Map.ConditionAt(m.Index),
+                    Template = m.Groups[2].Value,
+                });
+            }
+
+            blocks.Sort((a, b) => a.Open.CompareTo(b.Open));
+        }
+
         return blocks;
     }
 
     private static void ParseFields(SourceFile file, SpeciesBlock block)
     {
         var text = file.Text;
-        foreach (var (s, e) in CScanner.SplitTopLevel(text, block.Open + 1, block.Close))
+        foreach (var (s, e) in CScanner.SplitTopLevel(text, block.Open + 1, block.Close, counts: block.Active ? file.Map.IsActive : null))
         {
             var designator = FindDesignator(text, s, e);
             if (designator is not { } d)
@@ -374,13 +466,40 @@ internal static partial class SpeciesInfo
             return (int)n.Value;
         }
 
-        var name = Value("speciesName", "Name") is { } n ? CStrings.DecodeLiterals(n) : block.Symbol;
+        // built from a shared template the app can't expand: shown, but edited only in the source file
+        var template = block.Template ?? (block.Get("speciesName") is null && LeadingTemplateRegex().Match(file.Text[(block.Open + 1)..block.Close]) is { Success: true } lead
+            ? lead.Groups[1].Value : null);
+        if (template is not null)
+        {
+            locked["*"] = $"This Pokémon is built from the shared template “{template}” in the source file, so it can only be edited there.";
+        }
+
+        var name = Value("speciesName", "Name") is { } n ? CStrings.DecodeLiterals(n)
+            : template is not null ? GameCatalog.Prettify(block.Symbol.Replace("SPECIES_", "", StringComparison.Ordinal)) : block.Symbol;
         var stats = new BaseStats(
             Int("baseHP", "Stats", 1), Int("baseAttack", "Stats", 1), Int("baseDefense", "Stats", 1),
             Int("baseSpAttack", "Stats", 1), Int("baseSpDefense", "Stats", 1), Int("baseSpeed", "Stats", 1));
 
-        var types = Value("types", "Types") is { } t ? Args(t) : [];
-        var abilities = Value("abilities", "Abilities") is { } a ? Args(a) : [];
+        // (a family's shared name is expanded; editing then gives this Pokémon its own value)
+        List<string> Listed(string field, string modelField)
+        {
+            if (Value(field, modelField) is not { } raw)
+            {
+                return [];
+            }
+
+            var whole = ExpandName(raw, file.Macros);
+            var list = Args(whole).Select(x => ExpandName(x, file.Macros, n => n.StartsWith("TYPE_", StringComparison.Ordinal) || n.StartsWith("ABILITY_", StringComparison.Ordinal))).ToList();
+            if (whole != raw.Trim() || list.Count != Args(raw).Count || !list.SequenceEqual(Args(whole)))
+            {
+                dependent.TryAdd(modelField, $"Shared through “{raw.Trim()}” in the source file. Editing gives this Pokémon its own value.");
+            }
+
+            return list;
+        }
+
+        var types = Listed("types", "Types");
+        var abilities = Listed("abilities", "Abilities");
         while (abilities.Count is > 0 and < 3)
         {
             abilities.Add("ABILITY_NONE");

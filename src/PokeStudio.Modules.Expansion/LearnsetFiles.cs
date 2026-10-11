@@ -204,6 +204,8 @@ internal static partial class Catalogs
     [GeneratedRegex(@"\.name\s*=\s*(?:\w+\s*\()?\s*""((?:[^""\\]|\\.)*)""")]
     private static partial Regex NameField();
 
+    private static bool IsCounter(string name) => name.Split('_').Contains("COUNT");
+
     public static List<string> EnumMembers(string text, string prefix)
     {
         var list = new List<string>();
@@ -212,13 +214,14 @@ internal static partial class Catalogs
         {
             var name = m.Groups[1].Value;
             var rhs = m.Groups[3].Value.Trim();
-            if (name.Contains("COUNT", StringComparison.Ordinal) || name.EndsWith("_END", StringComparison.Ordinal) || name.StartsWith(prefix + "FIRST", StringComparison.Ordinal))
+            // counters and markers (MOVES_COUNT, …_END, …FIRST); whole words only, so MOVE_COUNTER stays
+            if (IsCounter(name) || name.EndsWith("_END", StringComparison.Ordinal))
             {
                 continue;
             }
 
             // skip aliases such as MOVE_DOUBLESLAP = MOVE_DOUBLE_SLAP
-            if (rhs.StartsWith(prefix, StringComparison.Ordinal) && !rhs.Contains("COUNT", StringComparison.Ordinal))
+            if (rhs.StartsWith(prefix, StringComparison.Ordinal) && !IsCounter(rhs))
             {
                 continue;
             }
