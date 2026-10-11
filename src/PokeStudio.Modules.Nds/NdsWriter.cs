@@ -55,7 +55,7 @@ internal static class NdsWriter
 
             if (t.HasAdaptiveSlot)
             {
-                Error("Trainers", t.Name, "Adaptive boss slots need a project (decomp); ROM mode can't add them.", t.Key);
+                issues.Add(Core.ChampionLab.AdaptiveSlots.NotSupportedIssue(t));
             }
         }
 

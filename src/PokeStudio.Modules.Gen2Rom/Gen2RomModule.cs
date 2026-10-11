@@ -584,10 +584,12 @@ public sealed class Gen2RomModule : IGameModule
             issues.AddRange(Gen2EggMoves.Check(s, data));
         }
 
-        foreach (var t in data.Trainers.Where(t => t.LockedReason is null && (t.Party.Count is 0 or > 6 || t.HasAdaptiveSlot || t.Name.Length > 10)))
+        foreach (var t in data.Trainers.Where(t => t.LockedReason is null && (t.Party.Count is 0 or > 6 || t.Name.Length > 10)))
         {
-            Error("Trainers", t.Name, t.HasAdaptiveSlot ? "Adaptive boss slots need a project (decomp)." : "Trainers need 1 to 6 Pokémon and a name of up to 10 letters.", t.Key);
+            Error("Trainers", t.Name, "Trainers need 1 to 6 Pokémon and a name of up to 10 letters.", t.Key);
         }
+
+        issues.AddRange(data.Trainers.Where(t => t.LockedReason is null && t.HasAdaptiveSlot).Select(Core.ChampionLab.AdaptiveSlots.NotSupportedIssue));
 
         return issues;
     }

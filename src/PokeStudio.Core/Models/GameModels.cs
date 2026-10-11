@@ -281,6 +281,12 @@ public sealed record Trainer
 
     /// <summary>Why this trainer can't be edited here, or null.</summary>
     public string? LockedReason { get; init; }
+
+    /// <summary>
+    /// No map starts this battle (e.g. leftover placeholder trainers in FireRed's list). Still editable, but left out
+    /// of the Player's Guide and the boss tools.
+    /// </summary>
+    public bool NeverFought { get; init; }
 }
 
 public sealed record ModelAsset(string OwnerKey, string Name, string? ImportedFilePath);

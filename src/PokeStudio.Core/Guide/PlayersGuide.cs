@@ -84,34 +84,78 @@ public static class PlayersGuide
         {
             Section("Important battles", "bosses");
             blocks.Add(new GuideText("In story order. Each team shows the Pokémon, their levels, abilities, held items, natures and moves. \"Bring\" lists the types that hit most of the team hard."));
+
+            // the adaptive slot is only real when the game has the option (decomp projects with it switched on)
+            var adaptiveOn = data.GameOptions?.AdaptiveSlot is OptionMode.PlayerChooses or OptionMode.AlwaysOn;
+            if (adaptiveOn && data.Trainers.Any(t => t.HasAdaptiveSlot && !t.NeverFought))
+            {
+                blocks.Add(new GuideTip("Adaptive bosses: gym leaders, your rival and the Elite Four keep one Pokémon secret (marked ?). When the battle starts it becomes "
+                    + "whichever of its candidates best counters your current team, so every run can be different. The candidates are listed under each team."
+                    + (data.GameOptions!.AdaptiveSlot == OptionMode.PlayerChooses ? " This only happens if you said yes to adaptive bosses when starting the game." : "")));
+            }
+
+            // story order: by milestone when the game has level caps, otherwise by the strongest Pokémon's level
             var bosses = data.Trainers
-                .Where(t => Lab.DifficultyOf(t) == Difficulty.Normal && t.Party.Count > 0)
+                .Where(t => Lab.DifficultyOf(t) == Difficulty.Normal && t.Party.Count > 0 && !t.NeverFought)
                 .Select(t => (Trainer: t, Group: Lab.GroupOf(data, lab, t)))
                 .Where(x => x.Group != TrainerGroup.Regular || o.OtherTrainers)
                 .OrderBy(x => Lab.MilestoneOf(data, x.Trainer))
-                .ThenBy(x => x.Group)
                 .ThenBy(x => x.Trainer.Party.Max(p => p.Level))
+                .ThenBy(x => x.Group)
+                .ThenBy(x => x.Trainer.Id)
                 .ToList();
-            foreach (var (t, group) in bosses)
-            {
-                var label = $"{Name(t.TrainerClass)} {GameCatalog.Prettify(t.Name)}".Trim();
-                blocks.Add(new GuideHeading(3, label, Anchor(t.Key)));
-                var where = trainerPlaces.TryGetValue(Lab.BaseKey(t), out var place) ? $"Where: {place}. " : "";
-                var kind = t.Battle == BattleType.Double ? "Double battle. " : "";
-                var theme = lab.Themes.TryGetValue(Lab.BaseKey(t), out var th) ? $"Type: {TypeName(th.Type)}. " : "";
-                blocks.Add(new GuideText($"{Lab.Label(group)}. {where}{kind}{theme}".Trim()));
-                blocks.Add(TeamTable(data, t, Species, Name, Item, Types));
-                if (t.HasAdaptiveSlot)
-                {
-                    var choices = string.Join(", ", new[] { t.Party[t.FlexIndex!.Value] }.Concat(t.FlexCandidates).Select(c => Species(c.Species)));
-                    blocks.Add(new GuideTip($"? — one Pokémon (shown as \"{Species(t.Party[t.FlexIndex.Value].Species)} ?\") counters your team when the adaptive boss option is on: one of {choices}. Every run can be different!"));
-                }
 
-                blocks.Add(new GuideTip(Advice(data, t)));
-                foreach (var version in data.Trainers.Where(v => Lab.BaseKey(v) == t.Key && v.Key != t.Key).OrderBy(Lab.DifficultyOf))
+            // one fight with a team per starter (the rival): same trainer, place, size and top level, side by side
+            string PlaceOf(Trainer t) => trainerPlaces.TryGetValue(Lab.BaseKey(t), out var pl) ? pl : "";
+            bool SameFight(Trainer a, Trainer b) => a.Name == b.Name && a.TrainerClass == b.TrainerClass && PlaceOf(a) == PlaceOf(b)
+                && a.Party.Count == b.Party.Count && a.Party.Max(p => p.Level) == b.Party.Max(p => p.Level);
+            var fights = new List<List<(Trainer Trainer, TrainerGroup Group)>>();
+            foreach (var x in bosses)
+            {
+                if (fights.Count > 0 && fights[^1].Count < 3 && SameFight(fights[^1][0].Trainer, x.Trainer))
                 {
-                    blocks.Add(new GuideHeading(4, $"{label} — {Lab.Label(Lab.DifficultyOf(version))}"));
-                    blocks.Add(TeamTable(data, version, Species, Name, Item, Types));
+                    fights[^1].Add(x);
+                }
+                else
+                {
+                    fights.Add([x]);
+                }
+            }
+
+            foreach (var fight in fights)
+            {
+                var (first, group) = fight[0];
+                var label = $"{Name(first.TrainerClass)} {GameCatalog.Prettify(first.Name)}".Trim();
+                blocks.Add(new GuideHeading(3, label, Anchor(first.Key)));
+                var where = PlaceOf(first) is { Length: > 0 } place ? $"Where: {place}. " : "";
+                var kind = first.Battle == BattleType.Double ? "Double battle. " : "";
+                var theme = lab.Themes.TryGetValue(Lab.BaseKey(first), out var th) ? $"Type: {TypeName(th.Type)}. " : "";
+                var variants = fight.Count > 1 ? $"Their team depends on the starter you picked: they take the one that's strong against yours ({fight.Count} versions below). " : "";
+                blocks.Add(new GuideText($"{Lab.Label(group)}. {where}{kind}{theme}{variants}".Trim()));
+                foreach (var (t, _) in fight)
+                {
+                    if (fight.Count > 1)
+                    {
+                        // name each version by the Pokémon only it has (the rival's starter line)
+                        var own = t.Party.Select(p => p.Species)
+                            .Where(sp => fight.Where(o2 => !ReferenceEquals(o2.Trainer, t)).All(o2 => o2.Trainer.Party.All(p => p.Species != sp)))
+                            .Distinct().Select(Species).ToList();
+                        blocks.Add(new GuideHeading(4, own.Count > 0 ? $"With {string.Join(", ", own)}" : $"Version {fight.IndexOf((t, group)) + 1}"));
+                    }
+
+                    blocks.Add(TeamTable(data, t, Species, Name, Item, Types, adaptiveOn));
+                    if (adaptiveOn && t.HasAdaptiveSlot)
+                    {
+                        var choices = string.Join(", ", new[] { t.Party[t.FlexIndex!.Value] }.Concat(t.FlexCandidates).Select(c => Species(c.Species)));
+                        blocks.Add(new GuideTip($"? — one Pokémon (shown as \"{Species(t.Party[t.FlexIndex.Value].Species)} ?\") counters your team: one of {choices}."));
+                    }
+
+                    blocks.Add(new GuideTip(Advice(data, t)));
+                    foreach (var version in data.Trainers.Where(v => Lab.BaseKey(v) == t.Key && v.Key != t.Key).OrderBy(Lab.DifficultyOf))
+                    {
+                        blocks.Add(new GuideHeading(4, $"{label} — {Lab.Label(Lab.DifficultyOf(version))}"));
+                        blocks.Add(TeamTable(data, version, Species, Name, Item, Types, adaptiveOn));
+                    }
                 }
             }
         }
@@ -202,21 +246,32 @@ public static class PlayersGuide
 
     private static string Anchor(string key) => key.ToLowerInvariant().Replace('_', '-').Replace("@", "-", StringComparison.Ordinal);
 
-    private static GuideTable TeamTable(GameData data, Trainer t, Func<string, string> species, Func<string, string> name, Func<string, string> item, Func<string, string> types)
+    /// <summary>The moves a Pokémon knows at a level when none are set: the last four it learned by levelling up.</summary>
+    private static IReadOnlyList<string> DefaultMoves(GameData data, Species species, int level) =>
+        data.LearnsetFor(species) is not { } learnset ? []
+        : learnset.LevelUp.Where(m => m.Level <= level && m.Move is not ("" or "MOVE_NONE")).Select(m => m.Move).Reverse().Distinct().Take(4).Reverse().ToList();
+
+    private static GuideTable TeamTable(GameData data, Trainer t, Func<string, string> species, Func<string, string> name, Func<string, string> item, Func<string, string> types,
+        bool adaptiveOn = true)
     {
         var rows = new List<IReadOnlyList<string>>();
         for (var i = 0; i < t.Party.Count; i++)
         {
             var p = t.Party[i];
-            var flex = t.HasAdaptiveSlot && i == t.FlexIndex;
+            var flex = adaptiveOn && t.HasAdaptiveSlot && i == t.FlexIndex;
+            // what the game uses when the team doesn't say: one of the Pokémon's abilities, its last four level-up
+            // moves by that level, a random nature, no item
+            var sp = data.Species.FirstOrDefault(s => s.Key == p.Species);
+            var abilities = sp?.Abilities.Where(x => x is not ("" or "ABILITY_NONE")).Distinct().Select(name).ToList() ?? [];
+            var moves = p.Moves.Count > 0 ? p.Moves : sp is null ? [] : DefaultMoves(data, sp, p.Level);
             rows.Add([
                 species(p.Species) + (flex ? " ?" : ""),
                 types(p.Species),
                 p.Level.ToString(CultureInfo.InvariantCulture),
-                p.Ability is { } a ? name(a) : "",
-                p.HeldItem is { } h && h != "ITEM_NONE" ? item(h) : "",
-                p.Nature is { } n ? name(n) : "",
-                string.Join(", ", p.Moves.Select(name)),
+                p.Ability is { } a ? name(a) : abilities.Count > 0 ? string.Join(" or ", abilities) : "",
+                p.HeldItem is { } h && h != "ITEM_NONE" ? item(h) : "None",
+                p.Nature is { } n ? name(n) : "Random",
+                string.Join(", ", moves.Select(name)),
             ]);
         }
 
@@ -329,10 +384,17 @@ public static class PlayersGuide
             th, td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; } th { background: var(--head); }
             ul { padding-left: 22px; } li.sub { list-style: none; margin-left: 12px; }
             footer { margin-top: 48px; color: var(--muted); font-size: 13px; }
-            @media print { body { max-width: none; } h2 { break-before: page; } table { font-size: 11px; } }
+            details > summary { cursor: pointer; list-style: none; } details > summary::-webkit-details-marker { display: none; }
+            details > summary > * { display: inline; } details > summary::before { content: "\25B8"; display: inline-block; width: 1.2em; color: var(--muted); transition: transform .15s; }
+            details[open] > summary::before { transform: rotate(90deg); }
+            details.sec > summary > h2 { display: inline-block; border: 0; margin: 0; } details.sec { margin-top: 40px; border-bottom: 2px solid var(--line); padding-bottom: 8px; }
+            details.item { margin: 18px 0 6px; } details.item > summary > h3 { margin: 0; }
+            .tools { margin: 12px 0; display: flex; gap: 8px; } .tools button { font: inherit; padding: 4px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--head); color: var(--fg); cursor: pointer; }
+            @media print { body { max-width: none; } details.sec { break-before: page; } table { font-size: 11px; } .tools { display: none; } details > summary::before { display: none; } }
 
             """);
         sb.Append("</style>\n</head>\n<body>\n<h1>").Append(E(d.Title)).Append("</h1>\n");
+        sb.Append("<div class=\"tools\"><button type=\"button\" onclick=\"setAll(true)\">Expand all</button><button type=\"button\" onclick=\"setAll(false)\">Collapse all</button></div>\n");
         if (d.Contents.Count > 0)
         {
             sb.Append("<nav><strong>Contents</strong><ol>\n");
@@ -344,10 +406,37 @@ public static class PlayersGuide
             sb.Append("</ol></nav>\n");
         }
 
+        // sections (h2) and their entries (h3) fold away; the contents links open what they point to
+        var inSection = false;
+        var inItem = false;
+        void CloseItem()
+        {
+            if (inItem)
+            {
+                sb.Append("</details>\n");
+                inItem = false;
+            }
+        }
+
         foreach (var b in d.Blocks)
         {
             switch (b)
             {
+                case GuideHeading { Level: 2 } h:
+                    CloseItem();
+                    if (inSection)
+                    {
+                        sb.Append("</details>\n");
+                    }
+
+                    sb.Append(CultureInfo.InvariantCulture, $"<details class=\"sec\" open{(h.Anchor is null ? "" : $" id=\"{h.Anchor}\"")}><summary><h2>{E(h.Text)}</h2></summary>\n");
+                    inSection = true;
+                    break;
+                case GuideHeading { Level: 3 } h:
+                    CloseItem();
+                    sb.Append(CultureInfo.InvariantCulture, $"<details class=\"item\" open{(h.Anchor is null ? "" : $" id=\"{h.Anchor}\"")}><summary><h3>{E(h.Text)}</h3></summary>\n");
+                    inItem = true;
+                    break;
                 case GuideHeading h:
                     sb.Append(CultureInfo.InvariantCulture, $"<h{h.Level}{(h.Anchor is null ? "" : $" id=\"{h.Anchor}\"")}>{E(h.Text)}</h{h.Level}>\n");
                     break;
@@ -390,6 +479,23 @@ public static class PlayersGuide
                     break;
             }
         }
+
+        CloseItem();
+        if (inSection)
+        {
+            sb.Append("</details>\n");
+        }
+
+        // expand/collapse all; a contents link opens its section; printing shows everything
+        sb.Append("""
+            <script>
+            function setAll(open) { document.querySelectorAll('details').forEach(function (d) { d.open = open; }); }
+            function reveal() { var t = location.hash && document.getElementById(location.hash.slice(1)); for (var e = t; e; e = e.parentElement) { if (e.tagName === 'DETAILS') e.open = true; } if (t) t.scrollIntoView(); }
+            window.addEventListener('hashchange', reveal); reveal();
+            window.addEventListener('beforeprint', function () { setAll(true); });
+            </script>
+
+            """);
 
         sb.Append("<footer>Made with Poke Studio.</footer>\n</body>\n</html>\n");
         return sb.ToString();

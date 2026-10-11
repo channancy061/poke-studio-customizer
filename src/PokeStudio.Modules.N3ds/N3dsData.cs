@@ -437,10 +437,12 @@ internal static class N3dsData
             Error("Learnsets", l.Key, "Only TM and HM moves can be taught in this game.", l.Key);
         }
 
-        foreach (var t in data.Trainers.Where(t => t.Party.Count is 0 or > 6 || t.HasAdaptiveSlot))
+        foreach (var t in data.Trainers.Where(t => t.Party.Count is 0 or > 6))
         {
-            Error("Trainers", t.Name, t.HasAdaptiveSlot ? "Adaptive boss slots need a project (decomp)." : "A trainer needs 1 to 6 Pokémon.", t.Key);
+            Error("Trainers", t.Name, "A trainer needs 1 to 6 Pokémon.", t.Key);
         }
+
+        issues.AddRange(data.Trainers.Where(t => t.HasAdaptiveSlot).Select(Core.ChampionLab.AdaptiveSlots.NotSupportedIssue));
 
         return issues;
     }

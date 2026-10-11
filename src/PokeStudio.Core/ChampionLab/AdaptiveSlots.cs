@@ -102,12 +102,44 @@ public static class AdaptiveSlots
         return new ValueChange<Trainer>("Trainers", description, v => data.Trainers[index] = v, before, after);
     }
 
+    /// <summary>Removes a trainer's adaptive slot (the team itself stays).</summary>
+    public static IChange? Remove(GameData data, string trainerKey)
+    {
+        var i = data.Trainers.FindIndex(t => t.Key == trainerKey);
+        if (i < 0 || !data.Trainers[i].HasAdaptiveSlot)
+        {
+            return null;
+        }
+
+        var before = data.Trainers[i];
+        return new ValueChange<Trainer>("Trainers", $"{before.Name}: adaptive slot removed", v => data.Trainers[i] = v, before,
+            before with { FlexIndex = null, FlexCandidates = [] });
+    }
+
+    /// <summary>
+    /// For games that can't run the adaptive slot (ROM files): a warning, not a blocker. The team saves as it is and
+    /// the slot's candidates are simply not written. "Fix it for me" removes the slot.
+    /// </summary>
+    public static Validation.ValidationIssue NotSupportedIssue(Trainer t) =>
+        new(Validation.IssueSeverity.Warning, "Trainers", t.Name,
+            "has an adaptive boss slot, which only works in decomp projects. The team is saved without it.",
+            "Remove the slot (Fix it for me), or keep it for a decomp version of this hack.")
+        {
+            TargetKey = t.Key,
+            Fix = d => Remove(d, t.Key) ?? new CompositeChange("Trainers", "nothing to remove", []),
+        };
+
     /// <summary>Gives every gym leader, rival and Elite Four member without one an adaptive slot, as one undo step.</summary>
     public static (IChange? Change, int Count) SuggestForAll(GameData data, LabSettings lab)
     {
         var parts = new List<IChange>();
         foreach (var t in data.Trainers.ToList())
         {
+            if (t.NeverFought)
+            {
+                continue; // nobody meets this trainer in the game
+            }
+
             if (t.LockedReason is not null || t.HasAdaptiveSlot || !Allowed(Lab.GroupOf(data, lab, t)))
             {
                 continue;

@@ -140,6 +140,9 @@ public sealed partial class ChampionLabPageViewModel : ViewModelBase
         set => Update(s => s with { RivalKeepsStarter = value }, value ? "Rule on: rivals keep their starter" : "Rule off: rivals keep their starter");
     }
 
+    /// <summary>Adaptive slots need new game code, so only decomp projects get them.</summary>
+    public bool AdaptiveSupported => _shell.Session.Module.SupportsGameOptions(Data);
+
     [RelayCommand]
     private void SuggestAdaptiveSlots()
     {

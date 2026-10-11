@@ -137,7 +137,7 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
         var (freshData, fresh) = Gen3Reader.Read(state.Rom, state.Tables);
         fresh.Path = state.Path;
         Gen3EggMoves.Read(fresh, freshData);
-        Gen3Dialogue.Load(fresh, new GameData()); // positions only: the edited text stays in data
+        Gen3Dialogue.Load(fresh, freshData); // positions and places only: the edited text stays in data
         _states.AddOrUpdate(data, fresh);
     }
 
@@ -229,7 +229,8 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
     }
 
     /// <summary>Where each trainer is fought isn't stored with the trainer in a ROM.</summary>
-    public IReadOnlyDictionary<string, string> TrainerPlaces(GameData data) => new Dictionary<string, string>();
+    public IReadOnlyDictionary<string, string> TrainerPlaces(GameData data) =>
+        _states.TryGetValue(data, out var s) ? new Dictionary<string, string>(s.TrainerPlaces) : new Dictionary<string, string>();
 
     internal sealed class State
     {
@@ -250,6 +251,7 @@ public sealed class Gen3RomModule : IGameModule, PokeStudio.Core.Graphics.ISprit
         public Dictionary<string, Item> Items { get; } = new(StringComparer.Ordinal);
         public List<string> TmMoves { get; } = [];
         public bool EggMovesFound { get; set; }
+        public Dictionary<string, string> TrainerPlaces { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, Gen3Dialogue.Message> Messages { get; set; } = new(StringComparer.Ordinal);
         public Dictionary<string, TextEntry> Texts { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, Mart> Marts { get; } = new(StringComparer.Ordinal);

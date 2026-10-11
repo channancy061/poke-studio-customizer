@@ -28,13 +28,17 @@ internal static class Gen3Dialogue
     private static readonly int[] FcArguments = [0, 1, 1, 1, 3, 1, 1, 0, 1, 0, 0, 2, 1, 1, 1, 0, 2, 1, 1, 1, 1, 0, 0, 0, 0];
 
     /// <summary>Finds every message the map scripts use (key = the first place that points to it, which never moves).</summary>
-    public static Dictionary<string, Message> Scan(RomImage rom, Gen3Tables t) => Scan(rom, t, out _);
+    public static Dictionary<string, Message> Scan(RomImage rom, Gen3Tables t) => Scan(rom, t, out _, out _);
 
     /// <summary>Also returns the shops: item lists the "pokemart" command shows (list offset → pointers to it, place).</summary>
-    public static Dictionary<string, Message> Scan(RomImage rom, Gen3Tables t, out Dictionary<int, (List<int> Refs, string Place)> marts)
+    /// <param name="trainers">Trainer numbers the scripts battle, with the place each is fought.</param>
+    public static Dictionary<string, Message> Scan(RomImage rom, Gen3Tables t, out Dictionary<int, (List<int> Refs, string Place)> marts,
+        out Dictionary<int, string> trainers)
     {
         var found = new Dictionary<int, (List<int> Refs, string Place)>();
         marts = [];
+        trainers = [];
+        var trainerSeen = new Dictionary<int, (string Place, int Distance)>();
         if (t.MapGroups < 0)
         {
             return [];
@@ -57,8 +61,13 @@ internal static class Gen3Dialogue
                     continue;
                 }
 
-                ScanScript(rom, t.ItemCount, start, place, found, marts, queue);
+                ScanScript(rom, t.ItemCount, t.TrainerCount, start, place, found, marts, trainerSeen, queue);
             }
+        }
+
+        foreach (var (trainer, (where, _)) in trainerSeen)
+        {
+            trainers[trainer] = where;
         }
 
         var result = new Dictionary<string, Message>(StringComparer.Ordinal);
@@ -173,8 +182,8 @@ internal static class Gen3Dialogue
     }
 
     /// <summary>Looks through a script for the commands that show text (and the ones that jump to more script).</summary>
-    private static void ScanScript(RomImage rom, int itemCount, int start, string place, Dictionary<int, (List<int> Refs, string Place)> found,
-        Dictionary<int, (List<int> Refs, string Place)> marts, Queue<int> queue)
+    private static void ScanScript(RomImage rom, int itemCount, int trainerCount, int start, string place, Dictionary<int, (List<int> Refs, string Place)> found,
+        Dictionary<int, (List<int> Refs, string Place)> marts, Dictionary<int, (string Place, int Distance)> trainers, Queue<int> queue)
     {
         void Mart(int pointerAt)
         {
@@ -245,6 +254,16 @@ internal static class Gen3Dialogue
                     if (type > 8)
                     {
                         break;
+                    }
+
+                    if (rom.U16(at + 2) is var trainer and > 0 && trainer < trainerCount && rom.Offset(at + 6) >= 0)
+                    {
+                        // the scan reads a stretch of bytes and can run into a neighbouring map's script: the place
+                        // whose script starts closest before the battle is the one that really holds it
+                        if (!trainers.TryGetValue(trainer, out var seen) || at - start < seen.Distance)
+                        {
+                            trainers[trainer] = (place, at - start);
+                        }
                     }
 
                     Text(at + 6);
@@ -490,14 +509,40 @@ internal static class Gen3Dialogue
 
     public static void Load(Gen3RomModule.State state, GameData data)
     {
-        state.Messages = Scan(state.Rom, state.Tables, out var marts);
+        state.Messages = Scan(state.Rom, state.Tables, out var marts, out var trainers);
         Gen3Marts.Load(state, data, marts);
+        MarkTrainers(state, data, trainers);
         foreach (var (key, m) in state.Messages)
         {
             var text = Read(state.Rom, m.Offset);
             var entry = new TextEntry { Key = key, Place = m.Place, Text = text, Original = text };
             data.Texts.Add(entry);
             state.Texts[key] = entry;
+        }
+    }
+
+    /// <summary>Where each trainer is fought; trainers no script battles are marked as never fought.</summary>
+    private static void MarkTrainers(Gen3RomModule.State state, GameData data, Dictionary<int, string> fought)
+    {
+        state.TrainerPlaces.Clear();
+        if (fought.Count < 50)
+        {
+            return; // too few found to trust (a hack with unusual scripts): mark nothing
+        }
+
+        for (var i = 0; i < data.Trainers.Count; i++)
+        {
+            var t = data.Trainers[i];
+            if (fought.TryGetValue(t.Id, out var place))
+            {
+                state.TrainerPlaces[t.Key] = place;
+            }
+            else if (!t.NeverFought && state.Trainers.TryGetValue(t.Key, out var entry) && ReferenceEquals(entry.Trainer, t))
+            {
+                var marked = t with { NeverFought = true };
+                data.Trainers[i] = marked;
+                state.Trainers[t.Key] = (marked, entry.Index);
+            }
         }
     }
 
