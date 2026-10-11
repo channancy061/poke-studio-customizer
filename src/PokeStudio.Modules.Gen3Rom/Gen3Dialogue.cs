@@ -17,6 +17,9 @@ internal static class Gen3Dialogue
     public sealed record Message(int Offset, int Size, List<int> References, string Place);
 
     private const int ScriptWindow = 0x180;
+
+    // how far a battle can be from its map's own script start (a long script, like the Champion's one battle per starter)
+    private const int MapScriptsSize = 0x1000;
     private const int MaxMessage = 1200;
 
     private static readonly Dictionary<int, string> Placeholders = new()
@@ -38,17 +41,28 @@ internal static class Gen3Dialogue
         var found = new Dictionary<int, (List<int> Refs, string Place)>();
         marts = [];
         trainers = [];
-        var trainerSeen = new Dictionary<int, (string Place, int Distance)>();
+        var trainerSeen = new Dictionary<int, (string Place, int Distance, int At)>();
         if (t.MapGroups < 0)
         {
             return [];
         }
 
+        // a script a map lists itself belongs to that map, even when another map's script reaches it first by a jump
+        var maps = MapHeaders(rom, t).Select(m => (m.Place, Scripts: MapScripts(rom, m.Header).ToList())).ToList();
+        var owner = new Dictionary<int, string>();
+        foreach (var (place, scripts) in maps)
+        {
+            foreach (var script in scripts)
+            {
+                owner.TryAdd(script, place);
+            }
+        }
+
         var visited = new HashSet<int>();
         var queue = new Queue<int>();
-        foreach (var (header, place) in MapHeaders(rom, t))
+        foreach (var (place, scripts) in maps)
         {
-            foreach (var script in MapScripts(rom, header))
+            foreach (var script in scripts)
             {
                 queue.Enqueue(script);
             }
@@ -61,13 +75,18 @@ internal static class Gen3Dialogue
                     continue;
                 }
 
-                ScanScript(rom, t.ItemCount, t.TrainerCount, start, place, found, marts, trainerSeen, queue);
+                ScanScript(rom, t.ItemCount, t.TrainerCount, start, owner.GetValueOrDefault(start, place), found, marts, trainerSeen, queue);
             }
         }
 
-        foreach (var (trainer, (where, _)) in trainerSeen)
+        // a map's scripts are stored together, so a battle belongs to the map whose own script starts closest before it;
+        // the place it was reached from can be wrong (bytes that only look like a jump lead into other maps' scripts)
+        var starts = owner.Keys.Order().ToArray();
+        foreach (var (trainer, (where, _, at)) in trainerSeen)
         {
-            trainers[trainer] = where;
+            var i = Array.BinarySearch(starts, at);
+            i = i >= 0 ? i : ~i - 1;
+            trainers[trainer] = i >= 0 && at - starts[i] <= MapScriptsSize ? owner[starts[i]] : where;
         }
 
         var result = new Dictionary<string, Message>(StringComparer.Ordinal);
@@ -183,7 +202,7 @@ internal static class Gen3Dialogue
 
     /// <summary>Looks through a script for the commands that show text (and the ones that jump to more script).</summary>
     private static void ScanScript(RomImage rom, int itemCount, int trainerCount, int start, string place, Dictionary<int, (List<int> Refs, string Place)> found,
-        Dictionary<int, (List<int> Refs, string Place)> marts, Dictionary<int, (string Place, int Distance)> trainers, Queue<int> queue)
+        Dictionary<int, (List<int> Refs, string Place)> marts, Dictionary<int, (string Place, int Distance, int At)> trainers, Queue<int> queue)
     {
         void Mart(int pointerAt)
         {
@@ -262,7 +281,7 @@ internal static class Gen3Dialogue
                         // whose script starts closest before the battle is the one that really holds it
                         if (!trainers.TryGetValue(trainer, out var seen) || at - start < seen.Distance)
                         {
-                            trainers[trainer] = (place, at - start);
+                            trainers[trainer] = (place, at - start, at);
                         }
                     }
 

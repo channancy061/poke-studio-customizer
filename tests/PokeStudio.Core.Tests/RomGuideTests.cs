@@ -24,6 +24,11 @@ public class RomGuideTests
         // trainers no map battles (FireRed's leftover Ruby/Sapphire placeholders) are marked and stay out of the guide
         var places = module.TrainerPlaces(data);
         Assert.True(places.Count > 100, $"only {places.Count} trainers placed");
+
+        // scripts reached by a jump from another map keep their own map's name (FireRed's Giovanni was on the S.S. Anne)
+        var giovanni = data.Trainers.Where(t => t.Name.Equals("Giovanni", StringComparison.OrdinalIgnoreCase) && places.ContainsKey(t.Key))
+            .Select(t => places[t.Key]).ToList();
+        Assert.DoesNotContain(giovanni, p => p.Contains("ANNE", StringComparison.OrdinalIgnoreCase));
         var lab = new LabSettings();
         var doc = PlayersGuide.Build(data, lab, places, new GuideOptions { Title = "Test" });
         var html = PlayersGuide.ToHtml(doc);
