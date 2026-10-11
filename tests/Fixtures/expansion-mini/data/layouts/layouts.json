@@ -1,0 +1,15 @@
+{
+  "layouts_table_label": "gMapLayouts",
+  "layouts": [
+    {
+      "id": "LAYOUT_MEADOW_TOWN",
+      "name": "MeadowTown_Layout",
+      "width": 10,
+      "height": 8,
+      "primary_tileset": "gTileset_General",
+      "secondary_tileset": "gTileset_Meadow",
+      "border_filepath": "data/layouts/MeadowTown/border.bin",
+      "blockdata_filepath": "data/layouts/MeadowTown/map.bin"
+    }
+  ]
+}

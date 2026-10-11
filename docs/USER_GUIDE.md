@@ -208,6 +208,18 @@ and in unmodified FireRed (US 1.0) and Emerald (US) ROMs.
 - item descriptions when found;
 - skip the battle slide-in.
 
+### Story battles (decomp projects)
+Add a battle the player can't skip. Pick a **map** and the **entrance** to guard: a gym door, a cave mouth, a building.
+The trainer stands a few tiles away and looks at the tile in front of the entrance, so everyone who goes in is spotted
+and has to fight. You can also guard the tile just outside an exit, for example Victory Road's way out. The app only
+offers spots where the trainer can see the entrance without blocking a path.
+
+Give the trainer a name, class, battle sprite and look. Tick **Major battle** to give the fight its own level cap,
+just before the battle you choose (for example just before Gym 1), so the level curve and the caps follow it. A team is
+suggested at that level. Edit it on the **Trainers** page or redesign it in **Champion Lab** like any other trainer. The
+battle uses the game's own "trainer spots you" rule and its "already beaten" flag, so it needs no new flags or
+variables. **Remove** takes the trainer, their script and their level cap out again, and Ctrl+Z undoes it.
+
 ### Fix evolutions
 Turns trade and day/night evolutions into ones anyone can do alone: a level, a stone, or (where the game supports it)
 levelling up while holding an item. You choose per evolution; clashes (Espeon/Umbreon) are handled.

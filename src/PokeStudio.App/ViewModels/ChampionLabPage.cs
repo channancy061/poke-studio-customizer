@@ -73,7 +73,7 @@ public sealed partial class ChampionLabPageViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void GenerateVersions()
+    private async Task GenerateVersionsAsync()
     {
         var versions = new List<Core.ChampionLab.Difficulty>();
         if (MakeEasy) { versions.Add(Core.ChampionLab.Difficulty.Easy); }
@@ -87,7 +87,8 @@ public sealed partial class ChampionLabPageViewModel : ViewModelBase
             return;
         }
 
-        if (DifficultyVersions.Generate(Data, Settings, keys, versions) is { } change)
+        var settings = Settings;
+        if (await _shell.RunBusyAsync($"Making difficulty versions for {keys.Count} trainers…", () => DifficultyVersions.Generate(Data, settings, keys, versions)) is { } change)
         {
             _shell.Execute(change);
             _shell.Toast = $"Made {versions.Count} version(s) for {keys.Count} trainers. One Undo removes them all.";
@@ -144,9 +145,10 @@ public sealed partial class ChampionLabPageViewModel : ViewModelBase
     public bool AdaptiveSupported => _shell.Session.Module.SupportsAdaptiveSlots(Data);
 
     [RelayCommand]
-    private void SuggestAdaptiveSlots()
+    private async Task SuggestAdaptiveSlotsAsync()
     {
-        var (change, count) = AdaptiveSlots.SuggestForAll(Data, Settings);
+        var settings = Settings;
+        var (change, count) = await _shell.RunBusyAsync("Choosing counter candidates for every boss…", () => AdaptiveSlots.SuggestForAll(Data, settings));
         if (change is null)
         {
             _shell.Toast = "Every gym leader, rival and Elite Four member already has an adaptive slot (or none fit).";

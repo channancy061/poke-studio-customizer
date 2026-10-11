@@ -36,7 +36,7 @@ public class RandomizerUiTests
         page.SelectedTrainers = page.TrainerChoices.Single(c => c.Value == TrainerRandomizing.SimilarStrength);
         page.Abilities = true;
         page.OfficialOnly = false; // the mini project's Pokémon are invented
-        page.RandomizeCommand.Execute(null);
+        await page.RandomizeCommand.ExecuteAsync(null);
         Assert.Contains("seed 777", page.Status, StringComparison.Ordinal);
         Assert.Equal(1, shell.UnsavedCount);
 

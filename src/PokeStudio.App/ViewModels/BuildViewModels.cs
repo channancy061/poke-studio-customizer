@@ -591,7 +591,7 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
             });
             var result = await _shell.Main.Builds.BuildAsync(Definition, _shell.Session.Project.WorkingSourcePath,
                 _shell.Session.Project.Directory, settings.BuildsKeepCount, progress, _cts.Token);
-            ShowResult(result);
+            await ShowResultAsync(result);
         }
         finally
         {
@@ -617,7 +617,7 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
             Step = "Making your game file…";
             var record = await Task.Run(() => _shell.Main.Builds.Keep(_shell.Session.Project.WorkingSourcePath, _shell.Session.Project.Directory,
                 _shell.Main.Settings.Current.BuildsKeepCount));
-            ShowResult(new BuildResult(BuildOutcome.Succeeded, "", [], record, []));
+            await ShowResultAsync(new BuildResult(BuildOutcome.Succeeded, "", [], record, []));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -630,14 +630,14 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
         }
     }
 
-    internal void ShowResult(BuildResult result)
+    internal async Task ShowResultAsync(BuildResult result)
     {
         Problems.Clear();
         switch (result.Outcome)
         {
             case BuildOutcome.Succeeded:
                 ResultIsSuccess = true;
-                var guide = WriteGuide(result.Output!);
+                var guide = await WriteGuideAsync(result.Output!);
                 Result = $"Your game is ready: {result.Output!.FileName}" + (guide is null ? "" : ". The Player's Guide is next to it.");
                 Progress = 100;
                 Step = "Done!";
@@ -733,7 +733,7 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
         try
         {
             var patch = BuildService.PatchPath(build.FilePath);
-            var (size, message) = await Task.Run(() =>
+            var (size, message) = await _shell.RunBusyAsync("Making the patch (comparing your build with the original game)…", () =>
             {
                 var source = File.ReadAllBytes(original);
                 var target = File.ReadAllBytes(build.FilePath);
@@ -783,27 +783,30 @@ public sealed partial class BuildPageViewModel : ViewModelBase, IDisposable
     internal void OpenFile(string file) => _shell.Main.OpenFile(file);
 
     /// <summary>The Player's Guide for this build, next to the game file. Returns null when it couldn't be written.</summary>
-    private string? WriteGuide(BuildRecord build)
+    private async Task<string?> WriteGuideAsync(BuildRecord build)
     {
         if (!_shell.Main.Settings.Current.GuideWithBuild)
         {
             return null;
         }
 
-        try
+        var (data, module) = (_shell.Session.Data, _shell.Session.Module);
+        var options = new Core.Guide.GuideOptions { Title = $"{_shell.Session.Project.Manifest.Name} — Player's Guide" };
+        return await _shell.RunBusyAsync("Writing the Player's Guide for this build…", () =>
         {
-            var data = _shell.Session.Data;
-            var options = new Core.Guide.GuideOptions { Title = $"{_shell.Session.Project.Manifest.Name} — Player's Guide" };
-            var doc = Core.Guide.PlayersGuide.Build(data, data.Lab ?? new Core.ChampionLab.LabSettings(), _shell.Session.Module.TrainerPlaces(data), options);
-            var (html, md) = BuildService.GuidePaths(build.FilePath);
-            File.WriteAllText(html, Core.Guide.PlayersGuide.ToHtml(doc));
-            File.WriteAllText(md, Core.Guide.PlayersGuide.ToMarkdown(doc));
-            return html;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
+            try
+            {
+                var doc = Core.Guide.PlayersGuide.Build(data, data.Lab ?? new Core.ChampionLab.LabSettings(), module.TrainerPlaces(data), options);
+                var (html, md) = BuildService.GuidePaths(build.FilePath);
+                File.WriteAllText(html, Core.Guide.PlayersGuide.ToHtml(doc));
+                File.WriteAllText(md, Core.Guide.PlayersGuide.ToMarkdown(doc));
+                return html;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return null;
+            }
+        });
     }
 
     [RelayCommand]

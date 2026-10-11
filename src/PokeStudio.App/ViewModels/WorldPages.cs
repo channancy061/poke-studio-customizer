@@ -961,12 +961,13 @@ public sealed partial class ProgressionPageViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Apply()
+    private async Task ApplyAsync()
     {
         var targets = Milestones.Select(m => (int)m.Target).ToList();
-        var change = LevelCurve.Apply(Data, Curve, targets,
-            new LevelCurve.Options(IncludeTrainers, IncludeWild, UpdateCaps, EvolveTrainers, (int)OtherEvolutionLevel),
-            _shell.Session.Module.Limits, $"Level curve: {Milestones[^1].Label} at {targets[^1]}");
+        var (data, curve, limits) = (Data, Curve, _shell.Session.Module.Limits);
+        var options = new LevelCurve.Options(IncludeTrainers, IncludeWild, UpdateCaps, EvolveTrainers, (int)OtherEvolutionLevel);
+        var description = $"Level curve: {Milestones[^1].Label} at {targets[^1]}";
+        var change = await _shell.RunBusyAsync("Moving every trainer and wild Pokémon onto the new curve…", () => LevelCurve.Apply(data, curve, targets, options, limits, description));
         if (change is null)
         {
             _shell.Toast = "Nothing to change.";

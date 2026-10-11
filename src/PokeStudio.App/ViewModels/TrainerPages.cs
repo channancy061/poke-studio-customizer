@@ -502,16 +502,17 @@ public sealed partial class TrainerEditorViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Suggest() => RunSuggest(0);
+    private Task SuggestAsync() => RunSuggestAsync(0);
 
     [RelayCommand]
-    private void TryAnother() => RunSuggest(++_variant);
+    private Task TryAnotherAsync() => RunSuggestAsync(++_variant);
 
-    private void RunSuggest(int variant)
+    private async Task RunSuggestAsync(int variant)
     {
         var d = SuggestDifficulty?.Difficulty ?? Core.ChampionLab.Difficulty.Normal;
-        _suggestion = Core.ChampionLab.TeamBuilder.Suggest(_shell.Session.Data, Lab, Model,
-            new Core.ChampionLab.TeamBuilder.Options(d, (int)Math.Clamp(SuggestSize, 1, Limits.MaxPartySize), Variant: variant));
+        var (data, lab, model) = (_shell.Session.Data, Lab, Model);
+        var options = new Core.ChampionLab.TeamBuilder.Options(d, (int)Math.Clamp(SuggestSize, 1, Limits.MaxPartySize), Variant: variant);
+        _suggestion = await _shell.RunBusyAsync("Building a team…", () => Core.ChampionLab.TeamBuilder.Suggest(data, lab, model, options));
         Suggestions.Clear();
         foreach (var m in _suggestion.Members)
         {
@@ -556,7 +557,11 @@ public sealed partial class TrainerEditorViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void MakeReport() => Report = Core.ChampionLab.ReportCard.For(_shell.Session.Data, Lab, Model);
+    private async Task MakeReportAsync()
+    {
+        var (data, lab, model) = (_shell.Session.Data, Lab, Model);
+        Report = await _shell.RunBusyAsync("Grading this team…", () => Core.ChampionLab.ReportCard.For(data, lab, model));
+    }
 
     // ---- adaptive boss slot ----
     // only games that can get the new game code (decomp projects) can run an adaptive slot
@@ -587,7 +592,7 @@ public sealed partial class TrainerEditorViewModel : ViewModelBase
 
 
     [RelayCommand]
-    private void SuggestCandidates()
+    private async Task SuggestCandidatesAsync()
     {
         var flex = Model.FlexIndex ?? Core.ChampionLab.AdaptiveSlots.FlexIndexFor(_shell.Session.Data, Lab, Model);
         if (flex < 0)
@@ -596,7 +601,8 @@ public sealed partial class TrainerEditorViewModel : ViewModelBase
             return;
         }
 
-        var candidates = Core.ChampionLab.AdaptiveSlots.SuggestCandidates(_shell.Session.Data, Lab, Model, flex);
+        var (data, lab, model) = (_shell.Session.Data, Lab, Model);
+        var candidates = await _shell.RunBusyAsync("Choosing counter candidates…", () => Core.ChampionLab.AdaptiveSlots.SuggestCandidates(data, lab, model, flex));
         if (candidates.Count == 0)
         {
             _shell.Toast = "No candidates fit this boss's theme and rules.";

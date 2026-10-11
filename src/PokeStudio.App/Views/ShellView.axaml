@@ -279,5 +279,16 @@
       </DockPanel>
     </Border>
   </Border>
+
+  <!-- "Working…" overlay for heavy work: shows what's happening and keeps clicks out until it's done -->
+  <Border IsVisible="{Binding IsBusy}" Background="#66000000" ZIndex="100">
+    <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center" MinWidth="320" MaxWidth="480" Padding="24,20">
+      <StackPanel Spacing="12">
+        <TextBlock Text="{Binding BusyText}" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Center" />
+        <ProgressBar IsIndeterminate="True" />
+        <TextBlock Text="This can take a little while on a big project." Classes="caption muted" HorizontalAlignment="Center" />
+      </StackPanel>
+    </Border>
+  </Border>
   </Panel>
 </UserControl>

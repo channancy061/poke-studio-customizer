@@ -92,14 +92,15 @@ public sealed partial class RandomizerPageViewModel : ViewModelBase
     private void NewSeed() => Seed = Randomizer.NewSeed();
 
     [RelayCommand]
-    private void Randomize()
+    private async Task RandomizeAsync()
     {
         if (Seed.Trim().Length == 0)
         {
             Seed = Randomizer.NewSeed();
         }
 
-        var (change, summary) = Randomizer.Build(_shell.Session.Data, Options);
+        var (data, options) = (_shell.Session.Data, Options);
+        var (change, summary) = await _shell.RunBusyAsync("Randomizing…", () => Randomizer.Build(data, options));
         if (change is null)
         {
             Status = "Nothing to change with these choices.";

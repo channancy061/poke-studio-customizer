@@ -15,7 +15,7 @@ namespace PokeStudio.App.ViewModels;
 public enum NavKey
 {
     Overview, Species, Moves, Learnsets, Evolutions, Trainers, TrainerAi, Graphics, Models3d,
-    Encounters, Items, Text, Randomizer, Build, Backups, Settings, About, Modernize, Progression, ChampionLab, GameOptions, EvolutionFixes, Guide,
+    Encounters, Items, Text, Randomizer, Build, Backups, Settings, About, Modernize, Progression, ChampionLab, GameOptions, EvolutionFixes, Guide, StoryBattles,
 }
 
 public sealed class NavItemViewModel(NavKey key, string label, string icon, bool enabled, string? reason, string section)
@@ -156,6 +156,62 @@ public sealed partial class ShellViewModel : ViewModelBase
     [ObservableProperty]
     public partial string? Toast { get; set; }
 
+    /// <summary>The "Working…" overlay: shown while something heavy runs; it also keeps clicks out until it's done.</summary>
+    [ObservableProperty]
+    public partial bool IsBusy { get; set; }
+
+    [ObservableProperty]
+    public partial string BusyText { get; set; } = "";
+
+    private int _busy;
+
+    private void BeginBusy(string text)
+    {
+        _busy++;
+        BusyText = text;
+        IsBusy = true;
+    }
+
+    private void EndBusy()
+    {
+        if (--_busy <= 0)
+        {
+            _busy = 0;
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>Runs a calculation in the background with the overlay up; the result comes back here to be applied.</summary>
+    internal async Task<T> RunBusyAsync<T>(string text, Func<T> work)
+    {
+        BeginBusy(text);
+        try
+        {
+            return await Task.Run(work);
+        }
+        finally
+        {
+            EndBusy();
+        }
+    }
+
+    /// <summary>
+    /// For work that has to stay on the UI thread (saving, writing files): the overlay is drawn first, then the work runs.
+    /// </summary>
+    internal async Task RunBusyHereAsync(string text, Func<Task> work)
+    {
+        BeginBusy(text);
+        try
+        {
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background);
+            await work();
+        }
+        finally
+        {
+            EndBusy();
+        }
+    }
+
     public int UnsavedCount => Session.Undo.UnsavedCount;
     public bool IsDirty => Session.Undo.IsDirty;
     public string UnsavedText => IsDirty ? $"{UnsavedCount} unsaved change{(UnsavedCount == 1 ? "" : "s")}" : "All changes saved";
@@ -208,6 +264,11 @@ public sealed partial class ShellViewModel : ViewModelBase
             NavItems.Add(new NavItemViewModel(NavKey.GameOptions, "Game options", "Icon.Settings", true, null, "Tools"));
         }
 
+        if (Session.Module.SupportsStoryBattles(Session.Data))
+        {
+            NavItems.Add(new NavItemViewModel(NavKey.StoryBattles, "Story battles", "Icon.Map", true, null, "Tools"));
+        }
+
         if ((Session.Data.Rules is { } rules && (rules.LevelCaps.Count > 0 || rules.PhysicalSpecialSplit is not null || rules.ReusableTms is not null))
             || Session.Data.Switches.Count > 0)
         {
@@ -254,6 +315,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             NavKey.Progression => new ProgressionPageViewModel(this),
             NavKey.ChampionLab => new ChampionLabPageViewModel(this),
             NavKey.GameOptions => new GameOptionsPageViewModel(this),
+            NavKey.StoryBattles => new StoryBattlesPageViewModel(this),
             NavKey.EvolutionFixes => new EvolutionFixPageViewModel(this),
             NavKey.Guide => new GuidePageViewModel(this),
             NavKey.Randomizer => new RandomizerPageViewModel(this),
@@ -469,7 +531,7 @@ public sealed partial class ShellViewModel : ViewModelBase
     [RelayCommand]
     private async Task SaveAsync()
     {
-        if (!RunValidation())
+        if (!await RunValidationAsync())
         {
             IsValidationOpen = true;
             return;
@@ -481,7 +543,7 @@ public sealed partial class ShellViewModel : ViewModelBase
     [RelayCommand]
     private async Task SaveAnywayAsync()
     {
-        RunValidation();
+        await RunValidationAsync();
         if (HasErrors)
         {
             return;
@@ -498,7 +560,7 @@ public sealed partial class ShellViewModel : ViewModelBase
     {
         try
         {
-            await Session.SaveAsync();
+            await RunBusyHereAsync("Saving your game…", () => Session.SaveAsync());
             RefreshChanges();
             Toast = "Saved.";
         }
@@ -510,10 +572,15 @@ public sealed partial class ShellViewModel : ViewModelBase
     }
 
     /// <returns>True when there is nothing to show.</returns>
-    internal bool RunValidation()
+    internal bool RunValidation() => ShowIssues(Session.Validate());
+
+    /// <summary>The checks run in the background (they can take a while on a big project).</summary>
+    internal async Task<bool> RunValidationAsync() => ShowIssues(await RunBusyAsync("Checking your changes…", () => Session.Validate()));
+
+    private bool ShowIssues(IEnumerable<Core.Validation.ValidationIssue> found)
     {
         Issues.Clear();
-        foreach (var issue in Session.Validate().OrderBy(i => i.Severity))
+        foreach (var issue in found.OrderBy(i => i.Severity))
         {
             Issues.Add(new IssueViewModel(issue, this));
         }

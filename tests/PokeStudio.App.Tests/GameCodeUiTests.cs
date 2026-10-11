@@ -68,7 +68,7 @@ public class GameCodeUiTests
         editor.AddPokemonCommand.Execute(null);
         Assert.True(editor.AdaptiveAllowed);
         Assert.True(editor.NoAdaptive);
-        editor.SuggestCandidatesCommand.Execute(null);
+        await editor.SuggestCandidatesCommand.ExecuteAsync(null);
         // the test project is tiny: everything else evolves into Fern's own Pokemon by her level, so nothing fits
         Assert.Equal("No candidates fit this boss's theme and rules.", shell.Toast);
         var fern = shell.Session.Data.Trainers.Single(t => t.Key == "TRAINER_LEADER_FERN");

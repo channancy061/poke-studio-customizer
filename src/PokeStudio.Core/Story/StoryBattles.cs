@@ -121,7 +121,7 @@ public static partial class StoryBattles
             parts.Add(new ValueChange<GameRules?>("Level caps", $"Level cap for {trainer.Name}", v => data.Rules = v, rules, rules with { LevelCaps = caps }));
         }
 
-        return new CompositeChange("Story battles", $"Story battle: {trainer.Name} at {battle.Entrance}", parts);
+        return new CompositeChange("Story battles", $"Story battle: {GameCatalog.Prettify(trainer.Name)} at {battle.Entrance}", parts);
     }
 
     /// <summary>Removes a story battle, its trainer and its level-cap step, as one undo step.</summary>
@@ -153,13 +153,23 @@ public static partial class StoryBattles
                 rules with { LevelCaps = rules.LevelCaps.Where(c => c.Milestone != battle.BeatFlag).ToList() }));
         }
 
-        var name = data.Trainers.FirstOrDefault(t => t.Key == trainerKey)?.Name ?? battle.Id;
+        var name = GameCatalog.Prettify(data.Trainers.FirstOrDefault(t => t.Key == trainerKey)?.Name ?? battle.Id);
         return new CompositeChange("Story battles", $"Story battle removed: {name}", parts);
     }
 
-    /// <summary>"MAP_PEWTER_CITY_GYM" → "Pewter City Gym".</summary>
-    public static string PlaceName(string mapConstant) =>
-        GameCatalog.Prettify(mapConstant.StartsWith("MAP_", StringComparison.Ordinal) ? mapConstant[4..] : mapConstant);
+    /// <summary>"MAP_PEWTER_CITY_GYM" or the map folder "PewterCity_Gym" → "Pewter City Gym".</summary>
+    public static string PlaceName(string map) => map.StartsWith("MAP_", StringComparison.Ordinal)
+        ? GameCatalog.Prettify(map[4..])
+        : Spaces().Replace(Words().Replace(map, " ").Replace('_', ' '), " ").Trim();
+
+    /// <summary>"OBJ_EVENT_GFX_COOLTRAINER_F" → "Cooltrainer F".</summary>
+    public static string LookName(string look) => GameCatalog.Prettify(look.Replace("OBJ_EVENT_GFX_", "", StringComparison.Ordinal));
+
+    [GeneratedRegex(@"(?<=[a-z])(?=[A-Z0-9])|(?<=[0-9])(?=[A-Z][a-z])")]
+    private static partial Regex Words();
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex Spaces();
 
     [GeneratedRegex(@"[^A-Z0-9]+")]
     private static partial Regex NonWord();

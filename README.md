@@ -43,6 +43,7 @@ undone, every save is backed up first, and your original game files are never ch
 | **Items & shops** | Prices, shop stock, stock that grows with badges, cheap Rare Candies |
 | **Text** | All dialogue, with a preview of how each line fits the text box |
 | **Graphics** | Replace front/back sprites and party icons from a PNG, edit normal and shiny colours |
+| **Story battles** | Trainers who guard a door or cave so the fight can't be skipped, as major battles with their own level cap |
 | **Levels & caps** | Level curve for the whole game, level caps per badge, reusable TMs, quality-of-life switches (types and move effectiveness in battle, IVs/EVs on the summary screen…) |
 | **Game options** (decomp projects) | A menu shown when a new game starts: difficulty, Nuzlocke rules (each one optional), hard level cap, no EVs/IVs, no items in battle, Infinite Candy, adaptive boss slot, a Pokémon Center helper who changes natures/IVs/EVs |
 | **Modernize** | Update movesets to a newer generation's |

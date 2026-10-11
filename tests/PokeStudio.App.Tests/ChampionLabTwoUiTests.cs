@@ -40,7 +40,7 @@ public class ChampionLabTwoUiTests
         Assert.True(editor.IsSuggestOpen);
         editor.SuggestDifficulty = editor.SuggestDifficulties.Single(d => d.Difficulty == Difficulty.Hard);
         editor.SuggestSize = 3;
-        editor.SuggestCommand.Execute(null);
+        await editor.SuggestCommand.ExecuteAsync(null);
         Assert.True(editor.HasSuggestion);
         Assert.All(editor.Suggestions, s => Assert.False(string.IsNullOrWhiteSpace(s.Reasons)));
         var names = editor.Suggestions.Select(s => s.Name).ToList();
@@ -61,7 +61,7 @@ public class ChampionLabTwoUiTests
         shell.GoToTrainer("TRAINER_LEADER_FERN");
         var editor = Assert.IsType<TrainersPageViewModel>(shell.CurrentPage).Editor!;
 
-        editor.MakeReportCommand.Execute(null);
+        await editor.MakeReportCommand.ExecuteAsync(null);
 
         Assert.True(editor.HasReport);
         Assert.Matches(@"^\d+/10 — ", editor.ReportTitle);
@@ -79,7 +79,7 @@ public class ChampionLabTwoUiTests
         lab.IsVersionsTab = true;
         Assert.Contains("1 important trainers", lab.VersionsSummary, StringComparison.Ordinal);
         lab.MakeEasy = false;
-        lab.GenerateVersionsCommand.Execute(null);
+        await lab.GenerateVersionsCommand.ExecuteAsync(null);
 
         Assert.Contains(shell.Session.Data.Trainers, t => t.Key == "TRAINER_LEADER_FERN@Hard");
         Assert.Contains(shell.Session.Data.Trainers, t => t.Key == "TRAINER_LEADER_FERN@Extra Hard");
@@ -144,8 +144,8 @@ public class ChampionLabTwoUiTests
         var editor = ((TrainersPageViewModel)shell.CurrentPage!).Editor!;
         editor.ToggleSuggestCommand.Execute(null);
         editor.SuggestSize = 3;
-        editor.SuggestCommand.Execute(null);
-        editor.MakeReportCommand.Execute(null);
+        await editor.SuggestCommand.ExecuteAsync(null);
+        await editor.MakeReportCommand.ExecuteAsync(null);
         Save("suggest-and-report");
 
         shell.SelectedNav = shell.NavItems.Single(n => n.Key == NavKey.TrainerAi);

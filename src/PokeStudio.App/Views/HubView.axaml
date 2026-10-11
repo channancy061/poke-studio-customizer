@@ -56,7 +56,10 @@
             <Button Classes="secondary lg" HorizontalAlignment="Stretch" Command="{Binding TryDemoCommand}" ToolTip.Tip="Create a project from the invented Demo Valley sample">
               <StackPanel Orientation="Horizontal" Spacing="10"><c:Icon Data="{StaticResource Icon.Sparkle}" Size="18" /><TextBlock Text="Try the demo game" /></StackPanel>
             </Button>
-            <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}" />
+            <StackPanel Spacing="4" IsVisible="{Binding IsBusy}">
+              <ProgressBar IsIndeterminate="True" />
+              <TextBlock Text="Opening your game… a big project can take a minute." Classes="small muted" HorizontalAlignment="Center" />
+            </StackPanel>
             <Border Classes="callout warning" IsVisible="{Binding Message, Converter={x:Static ObjectConverters.IsNotNull}}">
               <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
             </Border>

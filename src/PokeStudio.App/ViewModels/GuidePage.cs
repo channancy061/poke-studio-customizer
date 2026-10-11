@@ -79,8 +79,8 @@ public sealed partial class GuidePageViewModel : ViewModelBase
         };
         try
         {
-            var places = _shell.Session.Module.TrainerPlaces(data);
-            var doc = await Task.Run(() => PlayersGuide.Build(data, data.Lab ?? new LabSettings(), places, options));
+            var module = _shell.Session.Module;
+            var doc = await _shell.RunBusyAsync("Writing the Player's Guide…", () => PlayersGuide.Build(data, data.Lab ?? new LabSettings(), module.TrainerPlaces(data), options));
             Directory.CreateDirectory(GuideFolder);
             await File.WriteAllTextAsync(HtmlFile, PlayersGuide.ToHtml(doc));
             await File.WriteAllTextAsync(MarkdownFile, PlayersGuide.ToMarkdown(doc));

@@ -1,0 +1,104 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             xmlns:m="using:PokeStudio.Core.Models"
+             xmlns:s="using:PokeStudio.Core.Story"
+             x:Class="PokeStudio.App.Views.StoryBattlesPageView"
+             x:DataType="vm:StoryBattlesPageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="32,28" Spacing="16" MaxWidth="960" HorizontalAlignment="Left">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Story battles" Classes="title" />
+        <TextBlock Text="A trainer who guards an entrance: they stand next to a door or cave and look at the tile in front of it, so everyone who goes in is spotted and has to fight. Make it a major battle and it gets its own level cap."
+                   Classes="muted" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <Border Classes="card" IsVisible="{Binding HasBattles}">
+        <StackPanel Spacing="10">
+          <TextBlock Text="In your game" Classes="heading" />
+          <ItemsControl ItemsSource="{Binding Battles}">
+            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="10" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:StoryRowViewModel">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                  <StackPanel Spacing="2">
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Where}" Classes="small muted" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Major}" Classes="caption muted" TextWrapping="Wrap" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <Button Classes="ghost sm" Content="Edit team" Command="{Binding EditTeamCommand}" />
+                    <Button Classes="ghost sm" Content="Remove" Command="{Binding RemoveCommand}" />
+                  </StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Add a story battle" Classes="heading" />
+
+          <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="10">
+            <TextBlock Text="Name" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" Text="{Binding NewName}" Watermark="e.g. Roxanne" AutomationProperties.Name="Trainer name" />
+            <TextBlock Grid.Row="1" Text="Title (optional)" VerticalAlignment="Center" />
+            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding NewTitle}" Watermark="e.g. Gym Leader of Rustboro City" AutomationProperties.Name="Title" />
+            <TextBlock Grid.Row="2" Text="Class" VerticalAlignment="Center" />
+            <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding ClassOptions}" SelectedItem="{Binding SelectedClass}" HorizontalAlignment="Stretch" AutomationProperties.Name="Trainer class">
+              <ComboBox.ItemTemplate><DataTemplate x:DataType="m:CatalogEntry"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Grid.Row="3" Text="Battle sprite" VerticalAlignment="Center" />
+            <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding PicOptions}" SelectedItem="{Binding SelectedPic}" HorizontalAlignment="Stretch" AutomationProperties.Name="Battle sprite">
+              <ComboBox.ItemTemplate><DataTemplate x:DataType="m:CatalogEntry"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox>
+          </Grid>
+
+          <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="10">
+            <TextBlock Text="Map" VerticalAlignment="Center" />
+            <ComboBox Grid.Column="1" ItemsSource="{Binding Maps}" SelectedItem="{Binding SelectedMap}" HorizontalAlignment="Stretch" AutomationProperties.Name="Map">
+              <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:MapChoice"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Grid.Row="1" Text="Guards" VerticalAlignment="Center" />
+            <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Spots}" SelectedItem="{Binding SelectedSpot}" HorizontalAlignment="Stretch" AutomationProperties.Name="Entrance">
+              <ComboBox.ItemTemplate><DataTemplate x:DataType="s:StorySpot"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Grid.Row="2" Text="Looks like" VerticalAlignment="Center" />
+            <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding Looks}" SelectedItem="{Binding SelectedLook}" HorizontalAlignment="Stretch" AutomationProperties.Name="Overworld sprite">
+              <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:LookChoice"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox>
+          </Grid>
+          <TextBlock Text="No entrance on this map has a free spot where a trainer can see it without blocking a path." Classes="small" Foreground="{DynamicResource PL.WarningBrush}" TextWrapping="Wrap" IsVisible="{Binding NoSpots}" />
+
+          <StackPanel Spacing="6" IsVisible="{Binding HasMilestones}">
+            <CheckBox IsChecked="{Binding IsMajor}" Content="Major battle: it gets its own level cap" />
+            <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsMajor}" Margin="28,0,0,0">
+              <TextBlock Text="Comes before" VerticalAlignment="Center" />
+              <ComboBox ItemsSource="{Binding Milestones}" SelectedItem="{Binding SelectedMilestone}" Width="220" AutomationProperties.Name="Comes before">
+                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LevelCap"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
+              </ComboBox>
+            </StackPanel>
+          </StackPanel>
+
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Pokémon in the team" VerticalAlignment="Center" />
+            <ComboBox ItemsSource="{Binding TeamSizes}" SelectedItem="{Binding TeamSize}" Width="80" AutomationProperties.Name="Team size" />
+            <TextBlock Text="A team is suggested at the level of the battle it comes before. Change it afterwards like any other." Classes="caption muted" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="460" />
+          </StackPanel>
+
+          <StackPanel Spacing="6">
+            <TextBlock Text="What they say (leave empty for a standard line; \n starts a new line)" Classes="small muted" />
+            <TextBox Text="{Binding Intro}" Watermark="Before the battle" AutomationProperties.Name="Text before the battle" />
+            <TextBox Text="{Binding Defeat}" Watermark="When they lose" AutomationProperties.Name="Text when they lose" />
+            <TextBox Text="{Binding After}" Watermark="When you talk to them afterwards" AutomationProperties.Name="Text afterwards" />
+          </StackPanel>
+
+          <TextBlock Text="{Binding Message}" Foreground="{DynamicResource PL.WarningBrush}" TextWrapping="Wrap" IsVisible="{Binding Message, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          <Button Classes="primary" Content="Add story battle" Command="{Binding AddCommand}" HorizontalAlignment="Left" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

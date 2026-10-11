@@ -126,7 +126,7 @@ public sealed partial class BackupsPageViewModel : ViewModelBase
 
         try
         {
-            await _shell.Session.RestoreAsync(row.Manifest.Id);
+            await _shell.RunBusyHereAsync("Restoring the backup…", () => _shell.Session.RestoreAsync(row.Manifest.Id));
             Message = "Restored. A safety backup of your previous state was made first.";
         }
         catch (BackupCorruptException ex)

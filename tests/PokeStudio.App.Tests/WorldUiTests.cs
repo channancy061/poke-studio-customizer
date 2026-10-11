@@ -151,7 +151,7 @@ public class WorldUiTests
         Assert.Equal(["Gym 1", "Gym 2", "Gym 3", "Champion"], page.Milestones.Select(m => m.Label));
         page.UsePresetCommand.Execute(90);
         Assert.Equal([27, 41, 56, 90], page.Milestones.Select(m => (int)m.Target)); // same spacing, Champion at 90
-        page.ApplyCommand.Execute(null);
+        await page.ApplyCommand.ExecuteAsync(null);
 
         Assert.Equal([27, 41, 56, 90], shell.Session.Data.Rules!.LevelCaps.Select(c => c.Level));
         Assert.Single(shell.Changes);
