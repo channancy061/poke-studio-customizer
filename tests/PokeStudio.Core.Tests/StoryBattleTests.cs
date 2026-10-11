@@ -132,6 +132,11 @@ public class StoryBattleTests
         var looked = gym.Facing switch { Facing.Right => (gym.X + gym.Sight, gym.Y), Facing.Left => (gym.X - gym.Sight, gym.Y), _ => (gym.X, gym.Y - gym.Sight) };
         Assert.Equal((gym.FrontX, gym.FrontY), looked);
         Assert.Contains(StoryWriter.Maps(root), m => m.Map == "PewterCity");
+
+        // Wallace's spot: just outside Victory Road's exit, in the pocket that leads on to Indigo Plateau
+        var exit = Assert.Single(StoryWriter.Spots(root, "Route23"), s => s.Entrance == "Victory Road 2F");
+        Assert.Equal((18, 29), (exit.FrontX, exit.FrontY));
+        Assert.Equal(29, exit.Y);
         Assert.Contains("OBJ_EVENT_GFX_COOLTRAINER_F", StoryWriter.Looks(root));
     }
 }

@@ -107,8 +107,6 @@ internal static partial class StoryWriter
         }
 
         var fronts = warpTiles.Select(t => FrontOf(t.X, t.Y)).Where(f => f is not null).Select(f => f!.Value).ToHashSet();
-        var start = fronts.FirstOrDefault();
-        var reachable = fronts.Count == 0 ? [] : Reachable(g, start.X, start.Y, -1, -1);
         var result = new List<StorySpot>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var warp in warps)
@@ -119,6 +117,9 @@ internal static partial class StoryWriter
             {
                 continue;
             }
+
+            // a map can be split into areas (Route 23: the way into Victory Road and the way out): check this entrance's own
+            var reachable = Reachable(g, front.X, front.Y, -1, -1);
 
             // to the left or right of the front tile (looking along the row), or below it (looking up the path)
             var options = new List<(int X, int Y, Facing Facing, int Sight)>();
@@ -154,7 +155,7 @@ internal static partial class StoryWriter
                 }
 
                 // standing there must not cut off any part of the map
-                var after = Reachable(g, start.X, start.Y, sx, sy);
+                var after = Reachable(g, front.X, front.Y, sx, sy);
                 if (reachable.Any(t => !(t.X == sx && t.Y == sy) && !after.Contains(t)))
                 {
                     continue;
