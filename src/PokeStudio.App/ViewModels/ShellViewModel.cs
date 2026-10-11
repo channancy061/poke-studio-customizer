@@ -216,6 +216,11 @@ public sealed partial class ShellViewModel : ViewModelBase
             NavItems.Add(new NavItemViewModel(NavKey.Modernize, "Modernize", "Icon.Sparkle", true, null, "Tools"));
         }
 
+        if (Session.Data.Species.Count > 0)
+        {
+            NavItems.Add(new NavItemViewModel(NavKey.Randomizer, "Randomizer", "Icon.Shuffle", true, null, "Tools"));
+        }
+
         NavItems.Add(new NavItemViewModel(NavKey.Guide, "Player's Guide", "Icon.Text", true, null, "Tools"));
         NavItems.Add(new NavItemViewModel(NavKey.Build, "Build & test", "Icon.Build", true, null, "Tools"));
         NavItems.Add(new NavItemViewModel(NavKey.Backups, "Backups", "Icon.Archive", true, null, "Tools"));
@@ -248,6 +253,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             NavKey.GameOptions => new GameOptionsPageViewModel(this),
             NavKey.EvolutionFixes => new EvolutionFixPageViewModel(this),
             NavKey.Guide => new GuidePageViewModel(this),
+            NavKey.Randomizer => new RandomizerPageViewModel(this),
             NavKey.Graphics when item is { IsEnabled: true } && Session.Module is PokeStudio.Core.Graphics.ISpriteSource => new GraphicsPageViewModel(this),
             NavKey.Encounters when item is { IsEnabled: true } => new EncountersPageViewModel(this),
             NavKey.Items when item is { IsEnabled: true } => new ItemsPageViewModel(this),

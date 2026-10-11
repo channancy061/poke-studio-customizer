@@ -162,28 +162,31 @@ public static class TeamBuilder
     }
 
     /// <summary>Species reachable by this level: evolutions from level-up up to the level, item/trade ones from level 36.</summary>
+    // forms that only exist in battle, need a story event or special item, or aren't meant for trainers
+    private static readonly string[] BattleOnly =
+    [
+        "_GMAX", "_TOTEM", "_PRIMAL", "_MEGA", "_ASH", "_BATTLE_BOND", "_HERO", "_ETERNAMAX", "_CROWNED", "_ZEN", "_BLADE",
+        "_SCHOOL", "_COMPLETE", "_BUSTED", "_PIROUETTE", "_ULTRA", "_STELLAR", "_TERASTAL", "_NOICE", "_HANGRY", "_GULPING",
+        "_GORGING", "_CROWNED_SHIELD", "_CROWNED_SWORD", "_SUNSHINE", "_RAINY", "_SNOWY", "_SUNNY", "_STARTER", "_PARTNER",
+    ];
+
+    private static readonly string[] Novelty = ["_COSPLAY", "_ROCK_STAR", "_BELLE", "_POP_STAR", "_PH_D", "_LIBRE", "_CAP", "_SPIKY_EARED", "_ETERNAL_FLOWER", "_WORLD"];
+
+    /// <summary>Not a Mega or a form that only exists during battle.</summary>
+    public static bool IsRegularForm(Species s) => !s.Tags.HasFlag(SpeciesTags.Mega) && !BattleOnly.Any(b => s.Key.Contains(b, StringComparison.Ordinal));
+
+    /// <summary>A Pokémon of the main games (National Dex 1–1025), not a novelty or event form.</summary>
+    public static bool IsOfficial(Species s) => s.NationalDex is >= 1 and <= OfficialDexMax && !Novelty.Any(n => s.Key.Contains(n, StringComparison.Ordinal));
+
     private static IEnumerable<Species> Candidates(GameData data, LabSettings lab, int level, TypeTheme? theme, int milestone)
     {
-        // forms that only exist in battle, need a story event or special item, or aren't meant for trainers
-        string[] battleOnly =
-        [
-            "_GMAX", "_TOTEM", "_PRIMAL", "_MEGA", "_ASH", "_BATTLE_BOND", "_HERO", "_ETERNAMAX", "_CROWNED", "_ZEN", "_BLADE",
-            "_SCHOOL", "_COMPLETE", "_BUSTED", "_PIROUETTE", "_ULTRA", "_STELLAR", "_TERASTAL", "_NOICE", "_HANGRY", "_GULPING",
-            "_GORGING", "_CROWNED_SHIELD", "_CROWNED_SWORD", "_SUNSHINE", "_RAINY", "_SNOWY", "_SUNNY", "_STARTER", "_PARTNER",
-        ];
         // official Pokémon only: needs the game's National Dex numbers; novelty and event forms are left out too
         var officialOnly = lab.OfficialOnly && data.Species.Any(s => s.NationalDex is not null);
-        string[] novelty = ["_COSPLAY", "_ROCK_STAR", "_BELLE", "_POP_STAR", "_PH_D", "_LIBRE", "_CAP", "_SPIKY_EARED", "_ETERNAL_FLOWER", "_WORLD"];
-        foreach (var s in data.Species.Where(s => s.IsEnabled && !s.LockedFields.ContainsKey("*") && s.Stats.Total > 0 && !s.Tags.HasFlag(SpeciesTags.Mega)))
+        foreach (var s in data.Species.Where(s => s.IsEnabled && !s.LockedFields.ContainsKey("*") && s.Stats.Total > 0 && IsRegularForm(s)))
         {
-            if (officialOnly && (s.NationalDex is not (>= 1 and <= OfficialDexMax) || novelty.Any(n => s.Key.Contains(n, StringComparison.Ordinal))))
+            if (officialOnly && !IsOfficial(s))
             {
                 continue;
-            }
-
-            if (battleOnly.Any(b => s.Key.Contains(b, StringComparison.Ordinal)))
-            {
-                continue; // forms that only exist during battle
             }
 
             if (lab.StoryLocks.TryGetValue(s.Key, out var unlock) && milestone >= 0 && milestone < unlock)

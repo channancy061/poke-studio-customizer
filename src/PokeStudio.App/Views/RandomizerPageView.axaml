@@ -1,0 +1,71 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             x:Class="PokeStudio.App.Views.RandomizerPageView"
+             x:DataType="vm:RandomizerPageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="32,28" Spacing="16" MaxWidth="960" HorizontalAlignment="Left">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Randomizer" Classes="title" />
+        <TextBlock Text="Shuffle the game for a fresh run. The seed is the recipe: the same seed with the same choices always gives the same result, so you can share it with others."
+                   Classes="muted" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Seed" FontWeight="Bold" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBox Text="{Binding Seed}" Width="200" AutomationProperties.Name="Seed" />
+            <Button Classes="quiet" Content="New seed" Command="{Binding NewSeedCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card" IsVisible="{Binding HasWild}">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Wild Pokémon" FontWeight="Bold" />
+          <ComboBox ItemsSource="{Binding WildChoices}" SelectedItem="{Binding SelectedWild}" MinWidth="300" AutomationProperties.Name="Wild Pokémon">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:WildChoice">
+                <TextBlock Text="{Binding Label}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <CheckBox IsChecked="{Binding WildSameInArea}" Content="In each area, a Pokémon is always replaced by the same one" />
+          <CheckBox IsChecked="{Binding WildLegendaries}" Content="Allow legendary and mythical Pokémon in the wild" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card" IsVisible="{Binding HasTrainers}">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Trainers' teams" FontWeight="Bold" />
+          <ComboBox ItemsSource="{Binding TrainerChoices}" SelectedItem="{Binding SelectedTrainers}" MinWidth="300" AutomationProperties.Name="Trainers' teams">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:TrainerChoice">
+                <TextBlock Text="{Binding Label}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <CheckBox IsChecked="{Binding TrainerLegendaries}" Content="Allow legendary and mythical Pokémon on teams" />
+          <TextBlock Text="New team members use their normal moves and abilities at their level." Classes="small muted" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Pokémon" FontWeight="Bold" />
+          <CheckBox IsChecked="{Binding Abilities}" Content="Random abilities (abilities that break the game, like Wonder Guard, are never handed out)" />
+          <CheckBox IsChecked="{Binding Types}" Content="Random types (a Pokémon and its evolutions get the same new types)" />
+          <CheckBox IsChecked="{Binding LevelUpMoves}" Content="Random level-up moves (same levels; the first move is always a weak attack)" />
+          <CheckBox IsChecked="{Binding TmCompatibility}" Content="Random TM compatibility (about half of the TMs each)" />
+          <CheckBox IsChecked="{Binding OfficialOnly}" Content="Only official Pokémon from the main games" />
+        </StackPanel>
+      </Border>
+
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Classes="primary" Content="Randomize" Command="{Binding RandomizeCommand}" />
+      </StackPanel>
+      <TextBlock Text="{Binding Status}" IsVisible="{Binding Status, Converter={x:Static ObjectConverters.IsNotNull}}" Classes="small" TextWrapping="Wrap" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
