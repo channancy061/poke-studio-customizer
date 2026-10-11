@@ -20,7 +20,8 @@ public partial class App : Application
         {
             Services = AppServices.Build(AppServices.DefaultPaths());
             var settings = Services.GetRequiredService<SettingsStore>();
-            settings.LoadAsync().GetAwaiter().GetResult();
+            // read on a worker thread: waiting for it here on the UI thread would deadlock once settings.json exists
+            Task.Run(settings.LoadAsync).GetAwaiter().GetResult();
             Services.GetRequiredService<ThemeService>().Apply(settings.Current.Theme);
 
             var main = Services.GetRequiredService<MainWindowViewModel>();
