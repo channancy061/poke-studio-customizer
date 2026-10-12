@@ -39,8 +39,13 @@ public sealed partial class LegendRowViewModel(StoryBattlesPageViewModel page, S
 {
     public StoryLegend Legend { get; } = legend;
     public string Name { get; } = name;
-    public string Where => $"{Legend.Place} · level {Legend.Level}";
+    public string Where => Legend.Place;
     public string When { get; } = when;
+
+    [ObservableProperty]
+    public partial int Level { get; set; } = legend.Level;
+
+    partial void OnLevelChanged(int value) => page.SetLegendLevel(Legend, value);
 
     [RelayCommand]
     private void Remove() => page.RemoveLegend(Legend);
@@ -172,6 +177,14 @@ public sealed partial class StoryBattlesPageViewModel : ViewModelBase
         RefreshLegends();
         Message = notes.Count > 0 ? string.Join(" ", notes) : null;
         _shell.Toast = $"{added} legendary Pokémon added. Each one appears after its trainer is beaten. One Undo takes them all out.";
+    }
+
+    internal void SetLegendLevel(StoryLegend legend, int level)
+    {
+        if (Legends.SetLevel(Data, legend.Species, level) is { } change)
+        {
+            _shell.Execute(change);
+        }
     }
 
     internal void RemoveLegend(StoryLegend legend)

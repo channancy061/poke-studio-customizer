@@ -69,7 +69,11 @@
                     <TextBlock Text="{Binding Where}" Classes="small" />
                     <TextBlock Text="{Binding When}" Classes="caption muted" TextWrapping="Wrap" />
                   </StackPanel>
-                  <Button Grid.Column="1" Classes="ghost sm" Content="Remove" Command="{Binding RemoveCommand}" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="Level" VerticalAlignment="Center" />
+                    <NumericUpDown Value="{Binding Level}" Minimum="1" Maximum="100" Width="110" AutomationProperties.Name="Level" />
+                    <Button Classes="ghost sm" Content="Remove" Command="{Binding RemoveCommand}" />
+                  </StackPanel>
                 </Grid>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
