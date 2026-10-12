@@ -59,6 +59,91 @@ internal static partial class StoryWriter
 
     private sealed record Thing(int X, int Y);
 
+    /// <summary>A map's grid and the tiles its events use (null when the map or its layout is missing).</summary>
+    private sealed record MapView(CenterPlacement.Grid Grid, List<Thing> Taken, List<Thing> Warps, int Elevation);
+
+    private static MapView? View(string root, string map)
+    {
+        string? Read(string rel) => File.Exists(Path.Combine(root, rel)) ? File.ReadAllText(Path.Combine(root, rel)) : null;
+        byte[]? ReadBytes(string rel) => File.Exists(Path.Combine(root, rel)) ? File.ReadAllBytes(Path.Combine(root, rel)) : null;
+        if (Read($"data/maps/{map}/map.json") is not { } json)
+        {
+            return null;
+        }
+
+        using var doc = JsonDocument.Parse(json);
+        var rootEl = doc.RootElement;
+        if (!rootEl.TryGetProperty("layout", out var layoutId) || CenterPlacement.LoadGrid(Read, ReadBytes, layoutId.GetString()!) is not { } g)
+        {
+            return null;
+        }
+
+        List<Thing> Things(string name) => rootEl.TryGetProperty(name, out var arr) && arr.ValueKind == JsonValueKind.Array
+            ? arr.EnumerateArray().Where(o => o.TryGetProperty("x", out _) && o.TryGetProperty("y", out _))
+                .Select(o => new Thing(o.GetProperty("x").GetInt32(), o.GetProperty("y").GetInt32())).ToList()
+            : [];
+        var warps = Things("warp_events");
+        return new MapView(g, [.. Things("object_events"), .. Things("bg_events"), .. Things("coord_events"), .. warps], warps, 3);
+    }
+
+    /// <summary>The tile in front of a map's first entrance: where a player warped in by a script stands.</summary>
+    public static (int X, int Y)? Arrival(string root, string map)
+    {
+        if (View(root, map) is not { } v || v.Warps.Count == 0)
+        {
+            return null;
+        }
+
+        var g = v.Grid;
+        var w = v.Warps[0];
+        foreach (var (dx, dy) in new[] { (0, -1), (0, 1), (-1, 0), (1, 0) })
+        {
+            var (x, y) = (w.X + dx, w.Y + dy);
+            if (g.Inside(x, y) && g.At(g.Collision, x, y) == 0 && !v.Warps.Any(t => t.X == x && t.Y == y))
+            {
+                return (x, y);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// A free floor tile for someone to stand on, near <paramref name="near"/> (or the map's first entrance) but not right
+    /// next to an entrance, and not cutting off any part of the map.
+    /// </summary>
+    public static (int X, int Y, int Elevation)? FreeSpot(string root, string map, (int X, int Y)? near = null)
+    {
+        if (View(root, map) is not { } v)
+        {
+            return null;
+        }
+
+        var g = v.Grid;
+        bool Walkable(int x, int y) => g.Inside(x, y) && g.At(g.Collision, x, y) == 0;
+        var from = near ?? (v.Warps.Count > 0 ? (v.Warps[0].X, v.Warps[0].Y) : (g.Width / 2, g.Height / 2));
+        var start = Walkable(from.Item1, from.Item2) ? from
+            : new[] { (0, 1), (0, -1), (1, 0), (-1, 0) }.Select(d => (from.Item1 + d.Item1, from.Item2 + d.Item2)).FirstOrDefault(p => Walkable(p.Item1, p.Item2), from);
+        var reachable = Reachable(g, start.Item1, start.Item2, -1, -1);
+        foreach (var (x, y) in reachable.OrderBy(p => Math.Abs(p.X - from.Item1) + Math.Abs(p.Y - from.Item2)).ThenBy(p => p.Y).ThenBy(p => p.X))
+        {
+            var distance = Math.Abs(x - from.Item1) + Math.Abs(y - from.Item2);
+            if (distance < 2 || v.Taken.Any(t => t.X == x && t.Y == y)
+                || v.Warps.Any(t => Math.Abs(t.X - x) + Math.Abs(t.Y - y) <= 1))
+            {
+                continue;
+            }
+
+            var after = Reachable(g, start.Item1, start.Item2, x, y);
+            if (reachable.All(t => (t.X == x && t.Y == y) || after.Contains(t)))
+            {
+                return (x, y, g.At(g.Elevation, x, y));
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>
     /// Where a story battle can go on a map: for each entrance, the tile in front of it and a free spot 2–4 tiles to the
     /// side (or below) that sees it. Spots that would cut off part of the map are left out.
@@ -269,6 +354,8 @@ internal static partial class StoryWriter
             maps.Add(b.Map);
         }
 
+        maps.UnionWith(FinaleWriter.Maps(data));
+        maps.UnionWith(LegendWriter.Maps(data));
         maps.UnionWith(SavedMaps(root));
         return maps.Select(m => $"data/maps/{m}/map.json");
     }
@@ -297,6 +384,9 @@ internal static partial class StoryWriter
             }
         }
 
+        var original = read;
+        read = file => result.TryGetValue(file, out var planned) ? planned : original(file);
+
         var battles = (data.Story?.Battles ?? []).Where(b => data.Trainers.Any(t => t.Key == b.TrainerKey)).ToList();
         var storyTrainers = data.Trainers.Where(t => t.Key.StartsWith(StoryBattles.TrainerPrefix, StringComparison.Ordinal) && !t.Key.Contains('@', StringComparison.Ordinal))
             .Select(t => t.Key).Distinct(StringComparer.Ordinal).ToList();
@@ -311,25 +401,42 @@ internal static partial class StoryWriter
         var nl = "\n";
         var script = new StringBuilder();
         script.Append("@ Generated by Poke Studio: story battles. Edit them in the app (Story battles).").Append(nl);
-        script.Append(MapsLine).Append(string.Join(", ", battles.Select(b => b.Map).Distinct(StringComparer.Ordinal))).Append(nl);
+        script.Append(MapsLine).Append(string.Join(", ", battles.Select(b => b.Map).Concat(FinaleWriter.Maps(data)).Concat(LegendWriter.Maps(data)).Distinct(StringComparer.Ordinal))).Append(nl);
+        var legends = LegendWriter.Active(data, battles);
         foreach (var b in battles)
         {
             var label = ScriptPrefix + b.Id;
             script.Append(nl).Append(label).Append("::").Append(nl)
-                .Append(CultureInfo.InvariantCulture, $"\ttrainerbattle_single {b.TrainerKey}, {label}_Intro, {label}_Defeat{(b.Reward is null ? "" : $", {label}_Won")}").Append(nl)
-                .Append(CultureInfo.InvariantCulture, $"\tmsgbox {label}_After, MSGBOX_AUTOCLOSE").Append(nl)
+                .Append(CultureInfo.InvariantCulture, $"\ttrainerbattle_single {b.TrainerKey}, {label}_Intro, {label}_Defeat{(b.OnWin is { } won ? $", {won}" : b.Reward is null && !legends.Any(l => l.RevealedBy == b.TrainerKey) ? "" : $", {label}_Won")}").Append(nl)
+                .Append(b.AfterTalk is { } after ? $"\tgoto {after}" : $"\tmsgbox {label}_After, MSGBOX_AUTOCLOSE").Append(nl)
                 .Append("\tend").Append(nl);
             var texts = new List<(string Suffix, string Text)> { ("Intro", b.Intro), ("Defeat", b.Defeat), ("After", b.After) };
-            if (b.Reward is { } reward)
+            var reveals = legends.Where(l => l.RevealedBy == b.TrainerKey).ToList();
+            if (b.OnWin is null && (b.Reward is not null || reveals.Count > 0))
             {
-                // straight after the first win (later talks only get the "after" line): the reward TM
-                script.Append(nl).Append(label).Append("_Won::").Append(nl)
-                    .Append(CultureInfo.InvariantCulture, $"\tmsgbox {label}_Reward, MSGBOX_DEFAULT").Append(nl)
-                    .Append(CultureInfo.InvariantCulture, $"\tgiveitem {reward}").Append(nl)
-                    .Append(CultureInfo.InvariantCulture, $"\tmsgbox {label}_After, MSGBOX_DEFAULT").Append(nl)
+                // straight after the first win (later talks only get the "after" line): the reward TM, then the legends it reveals
+                script.Append(nl).Append(label).Append("_Won::").Append(nl);
+                if (b.Reward is { } reward)
+                {
+                    script.Append(CultureInfo.InvariantCulture, $"\tmsgbox {label}_Reward, MSGBOX_DEFAULT").Append(nl)
+                        .Append(CultureInfo.InvariantCulture, $"\tgiveitem {reward}").Append(nl);
+                    texts.Add(("Reward", "You've earned this.\\nTake it with you."));
+                }
+
+                foreach (var l in reveals)
+                {
+                    script.Append(CultureInfo.InvariantCulture, $"\tclearflag {Legends.FlagOf(l)}").Append(nl);
+                }
+
+                if (reveals.Count > 0)
+                {
+                    script.Append(CultureInfo.InvariantCulture, $"\tmsgbox {label}_Clue, MSGBOX_DEFAULT").Append(nl);
+                    texts.Add(("Clue", string.Join("\\p", reveals.Select(l => l.Clue))));
+                }
+
+                script.Append(CultureInfo.InvariantCulture, $"\tmsgbox {label}_After, MSGBOX_DEFAULT").Append(nl)
                     .Append("\trelease").Append(nl)
                     .Append("\tend").Append(nl);
-                texts.Add(("Reward", "You've earned this.\\nTake it with you."));
             }
 
             foreach (var (suffix, text) in texts)
@@ -337,6 +444,47 @@ internal static partial class StoryWriter
                 script.Append(nl).Append(label).Append('_').Append(suffix).Append(':').Append(nl)
                     .Append(TextScripts.Format(text.Length == 0 ? "…" : text, "\t", true, nl)).Append(nl);
             }
+        }
+
+        // the flags of the final chapter and the legends, in the header the new-game options share
+        var finale = data.Story?.Finale is { } fin && battles.Any(b => b.TrainerKey == fin.Guide) ? fin : null;
+        var storyFlags = (finale is null ? [] : Finale.Flags).Concat(legends.Select(Legends.FlagOf)).ToList();
+        if (storyFlags.Count > 0)
+        {
+            var ids = GameOptionsWriter.AllocateFor(root, read, storyFlags);
+            Put(GameOptionsWriter.Header, read(GameOptionsWriter.Header) ?? "", GameOptionsWriter.HeaderText(ids)); // created when missing
+            if (read(GameOptionsWriter.FlagsFile) is { } flags && GameOptionsWriter.WithHeaderInclude(flags) is { } withInclude)
+            {
+                Put(GameOptionsWriter.FlagsFile, flags, withInclude);
+            }
+        }
+
+        // legendary Pokémon: hidden from a new game until their trainer is beaten, then fought by talking to them
+        var people = new Dictionary<string, List<MapPerson>>(StringComparer.Ordinal);
+        if (read(FinaleWriter.NewGame) is { } newGame)
+        {
+            Put(FinaleWriter.NewGame, newGame, LegendWriter.NewGame(newGame, legends));
+        }
+
+        LegendWriter.Scripts(script, legends, s => data.Species.FirstOrDefault(x => x.Key == s)?.Name ?? s, FinaleWriter.WaitAfterLegendary(read));
+        foreach (var l in legends)
+        {
+            if (!people.TryGetValue(l.Map, out var onMap))
+            {
+                people[l.Map] = onMap = [];
+            }
+
+            onMap.Add(LegendWriter.PersonOf(l));
+        }
+
+        // the final chapter: its own scripts, game code and people (see FinaleWriter); its hooks come out when it's gone
+        if (finale is not null)
+        {
+            FinaleWriter.Plan(root, data, finale, read, Put, script, people);
+        }
+        else
+        {
+            FinaleWriter.Clean(root, read, Put);
         }
 
         Put(Script, read(Script) ?? "", script.ToString());
@@ -352,13 +500,16 @@ internal static partial class StoryWriter
             Put(CapsFiles.Source, caps, Caps(caps, battles, data));
         }
 
-        // 4. the trainers on the maps
-        foreach (var file in MapFiles(root, data))
+        // 4. the trainers on the maps (with a final chapter, the visiting challengers leave once it's over)
+        var goneFlag = finale is null ? null : Finale.Done;
+        foreach (var file in MapFiles(root, data).Concat(people.Keys.Select(m => $"data/maps/{m}/map.json")).Distinct(StringComparer.Ordinal))
         {
             if (read(file) is { } json)
             {
                 var map = file.Split('/')[2];
-                Put(file, json, MapObjects(json, battles.Where(b => b.Map == map).ToList()));
+                var onMap = battles.Where(b => b.Map == map).Select(b => PersonOf(b, b.TrainerKey == finale?.Guide ? null : goneFlag)).ToList();
+                onMap.AddRange(people.GetValueOrDefault(map) ?? []);
+                Put(file, json, MapObjects(json, onMap));
             }
         }
 
@@ -443,21 +594,57 @@ internal static partial class StoryWriter
         text = text.Insert(lastInclude is null ? 0 : lastInclude.Index + lastInclude.Length, defines.ToString());
         foreach (var b in major)
         {
-            var at = Regex.Match(text, $@"^([ \t]*)\{{\s*{b.Before}\s*,", RegexOptions.Multiline);
-            if (!at.Success)
+            int index;
+            string indent;
+            if (b.Before == StoryBattles.AfterLast)
             {
-                continue;
+                // after the table's last entry (the final chapter's battle comes after the Champion)
+                if (LastEntryEnd(text) is not { } end)
+                {
+                    continue;
+                }
+
+                (index, indent) = end;
+            }
+            else
+            {
+                var at = Regex.Match(text, $@"^([ \t]*)\{{\s*{b.Before}\s*,", RegexOptions.Multiline);
+                if (!at.Success)
+                {
+                    continue;
+                }
+
+                (index, indent) = (at.Index, at.Groups[1].Value);
             }
 
             var level = data.Rules?.LevelCaps.FirstOrDefault(c => c.Milestone == b.BeatFlag)?.Level
                 ?? data.Trainers.FirstOrDefault(t => t.Key == b.TrainerKey)?.Party.Select(p => p.Level).DefaultIfEmpty(1).Max() ?? 1;
-            text = text.Insert(at.Index, $"{at.Groups[1].Value}{{{b.BeatFlag}, {level.ToString(CultureInfo.InvariantCulture)}}}, // {Mark}{nl}");
+            text = text.Insert(index, $"{indent}{{{b.BeatFlag}, {level.ToString(CultureInfo.InvariantCulture)}}}, // {Mark}{nl}");
         }
 
         return text;
     }
 
-    internal static string MapObjects(string json, IReadOnlyList<StoryBattle> battles)
+    /// <summary>Someone the app puts on a map: a story trainer, or a person of the final chapter.</summary>
+    internal sealed record MapPerson(string Script, string Look, int X, int Y, int Elevation, Facing Facing, int Sight, string Flag);
+
+    internal static MapPerson PersonOf(StoryBattle b, string? goneFlag) =>
+        new(ScriptPrefix + b.Id, b.Look, b.X, b.Y, b.Elevation, b.Facing, b.Sight, b.Hidden ?? goneFlag ?? "0");
+
+    /// <summary>Just after the level-cap table's last entry, and that entry's indentation.</summary>
+    private static (int Index, string Indent)? LastEntryEnd(string text)
+    {
+        var start = text.IndexOf("sLevelCapFlagMap", StringComparison.Ordinal);
+        var open = start < 0 ? -1 : text.IndexOf('{', text.IndexOf('=', start));
+        var close = open < 0 ? -1 : CScanner.FindMatching(text, open);
+        var last = close < 0 ? null : Regex.Matches(text[..close], @"^([ \t]*)\{\s*\w+\s*,\s*\d+\s*\}[^\n]*\n", RegexOptions.Multiline).LastOrDefault(m => m.Index > open);
+        return last is null ? null : (last.Index + last.Length, last.Groups[1].Value);
+    }
+
+    internal static string MapObjects(string json, IReadOnlyList<StoryBattle> battles) =>
+        MapObjects(json, battles.Select(b => PersonOf(b, null)).ToList());
+
+    internal static string MapObjects(string json, IReadOnlyList<MapPerson> battles)
     {
         var nl = CScanner.LineEnding(json);
 
@@ -484,6 +671,8 @@ internal static partial class StoryWriter
             }
         }
 
+        // a list left with only blank lines goes back to "[]"
+        json = Regex.Replace(json, @"(""object_events"":\s*)\[\s*\]", "$1[]");
         if (battles.Count == 0)
         {
             return json;
@@ -508,10 +697,10 @@ internal static partial class StoryWriter
             $"  \"movement_type\": \"MOVEMENT_TYPE_FACE_{b.Facing.ToString().ToUpperInvariant()}\",",
             "  \"movement_range_x\": 0,",
             "  \"movement_range_y\": 0,",
-            "  \"trainer_type\": \"TRAINER_TYPE_NORMAL\",",
+            $"  \"trainer_type\": \"{(b.Sight > 0 ? "TRAINER_TYPE_NORMAL" : "TRAINER_TYPE_NONE")}\",",
             $"  \"trainer_sight_or_berry_tree_id\": \"{b.Sight.ToString(CultureInfo.InvariantCulture)}\",",
-            $"  \"script\": \"{ScriptPrefix}{b.Id}\",",
-            "  \"flag\": \"0\"",
+            $"  \"script\": \"{b.Script}\",",
+            $"  \"flag\": \"{b.Flag}\"",
             "}",
         }.Where(l => l is not null).Select(l => "    " + l)));
         var text = string.Join("," + nl, blocks);

@@ -38,6 +38,64 @@
         </StackPanel>
       </Border>
 
+      <Border Classes="card" IsVisible="{Binding HasLegendCard}">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Legendary Pokémon" Classes="heading" />
+          <TextBlock Text="A side story for each challenger: after the first win they tell the player about a legendary Pokémon they felt on the way, and it appears there. Talk to it to battle it. If it isn't caught, it comes back the next time the player enters that place. In a Nuzlocke, the new-game question about static encounters decides whether it counts."
+                     Classes="small muted" TextWrapping="Wrap" />
+          <ItemsControl ItemsSource="{Binding Trails}">
+            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="10" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:TrailRowViewModel">
+                <Border Classes="well">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <StackPanel Spacing="4">
+                      <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                      <TextBlock Text="{Binding Summary}" Classes="small" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Classes="secondary" Content="Add legends" Command="{Binding AddCommand}" VerticalAlignment="Center" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <ItemsControl ItemsSource="{Binding LegendRows}">
+            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="6" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:LegendRowViewModel">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                  <StackPanel Spacing="2">
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Where}" Classes="small" />
+                    <TextBlock Text="{Binding When}" Classes="caption muted" TextWrapping="Wrap" />
+                  </StackPanel>
+                  <Button Grid.Column="1" Classes="ghost sm" Content="Remove" Command="{Binding RemoveCommand}" VerticalAlignment="Center" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card" IsVisible="{Binding CanHaveFinale}">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Final chapter" Classes="heading" />
+          <TextBlock Text="After the Hall of Fame the game doesn't end: no credits yet. Steven calls the player, waits for a battle above the Champion's level, then takes them to Birth Island. Deoxys's four forms attack one after another without healing, in the order and with the moves that hurt the player's team most. It has to be caught to stop Kanto and Hoenn collapsing into each other. Then the visiting challengers go home and the credits roll. In a Nuzlocke, losing to Deoxys ends the run."
+                     Classes="small muted" TextWrapping="Wrap" />
+          <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding NoFinale}">
+            <TextBlock Text="Steven's level" VerticalAlignment="Center" />
+            <NumericUpDown Value="{Binding GuideLevel}" Minimum="1" Maximum="100" Width="120" AutomationProperties.Name="Steven's level" />
+            <TextBlock Text="Deoxys's forms" VerticalAlignment="Center" />
+            <NumericUpDown Value="{Binding BossLevel}" Minimum="1" Maximum="100" Width="120" AutomationProperties.Name="Deoxys's level" />
+            <Button Classes="primary" Content="Add final chapter" Command="{Binding AddFinaleCommand}" />
+          </StackPanel>
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding HasFinale}">
+            <TextBlock Text="{Binding FinaleSummary}" TextWrapping="Wrap" />
+            <Button Grid.Column="1" Classes="ghost sm" Content="Remove" Command="{Binding RemoveFinaleCommand}" VerticalAlignment="Center" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
       <Border Classes="card" IsVisible="{Binding HasBattles}">
         <StackPanel Spacing="10">
           <TextBlock Text="In your game" Classes="heading" />

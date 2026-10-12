@@ -30,6 +30,7 @@ public class StoryUiTests
         shell.SelectedNav = shell.NavItems.Single(n => n.Key == NavKey.StoryBattles);
         var page = Assert.IsType<StoryBattlesPageViewModel>(shell.CurrentPage);
         Assert.False(page.HasBattles);
+        Assert.False(page.CanHaveFinale); // the final chapter needs FireRed's or Emerald's maps
 
         // the town's gym door: a spot that sees the tile in front of it
         page.SelectedMap = Assert.Single(page.Maps, m => m.Map == "MeadowTown");

@@ -106,17 +106,19 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
     public IReadOnlyList<string> ManagedFiles(string workingSourcePath)
     {
         var layout = new ExpansionLayout(workingSourcePath);
-        return [.. layout.SpeciesFiles(), layout.LevelUpFile, ExpansionLayout.EggMovesFile, ExpansionLayout.LearnablesJson, MovesInfo.File, TrainerParty.File,
+        IEnumerable<string> files = [.. layout.SpeciesFiles(), layout.LevelUpFile, ExpansionLayout.EggMovesFile, ExpansionLayout.LearnablesJson, MovesInfo.File, TrainerParty.File,
             EncountersFile.File, ItemsInfo.File, CapsFiles.Source, CapsFiles.Config, BattleConfig, ShopsJson.File, ShopsJson.ShopC, DifficultyFile, AiConfig, ItemConfig,
-            "include/config/summary_screen.h", "include/config/overworld.h", StoryWriter.Opponents, StoryWriter.Script, .. ProjectImport.TextFiles,
+            "include/config/summary_screen.h", "include/config/overworld.h", StoryWriter.Opponents, StoryWriter.Script, .. ProjectImport.TextFiles, .. FinaleWriter.Files,
             .. GameOptionsWriter.Files(layout).Where(f => !f.EndsWith("/scripts.inc", StringComparison.Ordinal)), .. ScriptFiles(layout.Root)];
+        return files.Distinct(StringComparer.Ordinal).ToList(); // several features edit the same file (item_use.c, new_game.inc)
     }
 
     public IReadOnlyList<string> ManagedFiles(string workingSourcePath, GameData data) =>
-        [.. ManagedFiles(workingSourcePath),
+        ((IEnumerable<string>)[.. ManagedFiles(workingSourcePath),
             .. _states.TryGetValue(data, out var state) && !data.Graphics.IsEmpty ? ExpansionSprites.PendingFiles(state, data.Graphics).Distinct() : [],
             .. StoryWriter.MapFiles(new ExpansionLayout(workingSourcePath).Root, data),
-            .. ImportFiles(data)];
+            .. ImportFiles(data)])
+            .Distinct(StringComparer.Ordinal).ToList();
 
     // new pictures and palettes a pending import adds
     private IEnumerable<string> ImportFiles(GameData data)
@@ -144,6 +146,11 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
 
     public IReadOnlyList<StorySpot> StorySpots(GameData data, string map) =>
         _states.TryGetValue(data, out var state) ? StoryWriter.Spots(state.Layout.Root, map) : [];
+
+    public StorySpot? FreeSpot(GameData data, string map) =>
+        _states.TryGetValue(data, out var state) && StoryWriter.FreeSpot(state.Layout.Root, map) is { } s
+            ? new StorySpot(map, StoryBattles.PlaceName(map), s.X, s.Y, s.X, s.Y, s.X, s.Y, s.Elevation, Facing.Down, 0)
+            : null;
 
     public IReadOnlyCollection<string> GivenTms(GameData data) =>
         _states.TryGetValue(data, out var state) ? StoryWriter.GivenTms(state.Layout.Root, data.Catalog) : [];
@@ -351,7 +358,7 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
         }
 
         // story battles: trainer list, scripts, maps and level-cap steps (after the trainers and caps above)
-        if (data.Story is { Battles.Count: > 0 } || File.Exists(state.Layout.Full(StoryWriter.Script)))
+        if (data.Story is { Battles.Count: > 0 } or { Legends.Count: > 0 } || File.Exists(state.Layout.Full(StoryWriter.Script)))
         {
             string? ReadFile(string rel) => File.Exists(state.Layout.Full(rel)) ? File.ReadAllText(state.Layout.Full(rel)) : null;
             foreach (var (file, text) in StoryWriter.Plan(state.Layout.Root, data, ReadFile))

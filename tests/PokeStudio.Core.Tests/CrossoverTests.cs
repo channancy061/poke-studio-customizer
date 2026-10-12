@@ -136,6 +136,31 @@ public class CrossoverTests
         Assert.Contains("The whole battle is fought with:", guide, StringComparison.Ordinal);
         Assert.Contains("Win to get the", guide, StringComparison.Ordinal);
 
+        // the legend trail: every legendary of the pack finds a spot, hidden until its trainer's first win
+        var trail = Legends.TrailFor(pack);
+        var (legendChange, legendNotes, legendCount) = Legends.AddTrail(data, trail, map => module.FreeSpot(data, map));
+        Assert.Empty(legendNotes);
+        Assert.Equal(trail.Count, legendCount);
+        legendChange!.Apply();
+        string? Read(string rel) => File.Exists(Path.Combine(root, rel)) ? File.ReadAllText(Path.Combine(root, rel)) : null;
+        var files = StoryWriter.Plan(root, data, Read);
+        var script = files[StoryWriter.Script];
+        foreach (var l in data.Story.Legends)
+        {
+            var flag = Legends.FlagOf(l);
+            Assert.Contains($"\tsetflag {flag} @ Poke Studio legend\n", files["data/scripts/new_game.inc"], StringComparison.Ordinal);
+            Assert.Contains($"\tclearflag {flag}\n", script, StringComparison.Ordinal);
+            Assert.Contains($"\tsetwildbattle {l.Species}, {l.Level}\n", script, StringComparison.Ordinal);
+            Assert.Contains($"#define {flag} ", files[GameOptionsWriter.Header], StringComparison.Ordinal);
+            var map = files[$"data/maps/{l.Map}/map.json"];
+            Assert.Contains($"OBJ_EVENT_GFX_SPECIES({l.Id})", map, StringComparison.Ordinal);
+            Assert.Contains($"\"flag\": \"{flag}\"", map, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("Win and they tell you where to find", Guide.PlayersGuide.ToMarkdown(Guide.PlayersGuide.Build(data, data.Lab!, module.TrainerPlaces(data), new Guide.GuideOptions { Title = "T" })), StringComparison.Ordinal);
+        legendChange.Revert();
+        Assert.Empty(data.Story.Legends);
+
         change.Revert();
         Assert.True(data.Story is null || data.Story.Battles.Count == 0);
     }

@@ -24,6 +24,28 @@ public sealed partial class PackRowViewModel(StoryBattlesPageViewModel page, Cro
     private Task AddAsync() => page.AddPackAsync(Pack);
 }
 
+/// <summary>A legend trail that can be added: a pack's legendary Pokémon, each revealed by beating one of its trainers.</summary>
+public sealed partial class TrailRowViewModel(StoryBattlesPageViewModel page, CrossoverPack pack, IReadOnlyList<LegendEntry> trail, string summary) : ViewModelBase
+{
+    public string Title => $"Legends after {pack.Title}";
+    public string Summary { get; } = summary;
+
+    [RelayCommand]
+    private Task AddAsync() => page.AddTrailAsync(pack, trail);
+}
+
+/// <summary>One legendary Pokémon on a map.</summary>
+public sealed partial class LegendRowViewModel(StoryBattlesPageViewModel page, StoryLegend legend, string name, string when) : ViewModelBase
+{
+    public StoryLegend Legend { get; } = legend;
+    public string Name { get; } = name;
+    public string Where => $"{Legend.Place} · level {Legend.Level}";
+    public string When { get; } = when;
+
+    [RelayCommand]
+    private void Remove() => page.RemoveLegend(Legend);
+}
+
 /// <summary>One story battle in the list: its field effect and reward can be changed right here.</summary>
 public sealed partial class StoryRowViewModel(StoryBattlesPageViewModel page, StoryBattle battle, string name, string major, string? effect) : ViewModelBase
 {
@@ -96,6 +118,145 @@ public sealed partial class StoryBattlesPageViewModel : ViewModelBase
         Refresh();
         RefreshPacks();
         shell.DataChanged += (_, _) => Refresh();
+    }
+
+    // ---- legendary Pokémon ----
+    public ObservableCollection<TrailRowViewModel> Trails { get; } = [];
+    public ObservableCollection<LegendRowViewModel> LegendRows { get; } = [];
+    public bool HasLegendCard => Trails.Count > 0 || LegendRows.Count > 0;
+
+    private string SpeciesName(string key) => Data.Species.FirstOrDefault(s => s.Key == key)?.Name ?? key;
+
+    private void RefreshLegends()
+    {
+        Trails.Clear();
+        LegendRows.Clear();
+        var story = Data.Story;
+        foreach (var pack in CrossoverPacks.All.Where(p => Maps.Any(m => m.Map == p.NeedsMap)))
+        {
+            var trail = Legends.TrailFor(pack);
+            var ready = trail.Where(e => story?.Legends.Any(l => l.Species == e.Species) != true
+                && story?.Battles.Any(b => string.Equals(Data.Trainers.FirstOrDefault(t => t.Key == b.TrainerKey)?.Name, e.Revealer, StringComparison.OrdinalIgnoreCase)) == true).ToList();
+            if (ready.Count > 0)
+            {
+                var names = string.Join(", ", ready.Select(e => SpeciesName(e.Species)));
+                Trails.Add(new TrailRowViewModel(this, pack, trail, $"{ready.Count} legendary Pokémon: {names}."));
+            }
+        }
+
+        foreach (var l in story?.Legends ?? [])
+        {
+            var revealer = l.RevealedBy is null ? null : Data.Trainers.FirstOrDefault(t => t.Key == l.RevealedBy);
+            var when = l.RevealedBy is null ? "There from the start"
+                : revealer is null || story!.Battles.All(b => b.TrainerKey != l.RevealedBy) ? "Waiting: its trainer isn't in the story any more, so it isn't written"
+                : $"Appears after beating {GameCatalog.Prettify(revealer.Name)}, who tells the player where";
+            LegendRows.Add(new LegendRowViewModel(this, l, SpeciesName(l.Species), when));
+        }
+
+        OnPropertyChanged(nameof(HasLegendCard));
+    }
+
+    internal async Task AddTrailAsync(CrossoverPack pack, IReadOnlyList<LegendEntry> trail)
+    {
+        var module = _shell.Session.Module;
+        var data = Data;
+        var (change, notes, added) = await _shell.RunBusyAsync("Finding a spot for each legendary Pokémon…",
+            () => Legends.AddTrail(data, trail, map => module.FreeSpot(data, map)));
+        if (change is null)
+        {
+            Message = notes.Count > 0 ? string.Join(" ", notes) : "Nothing was added.";
+            return;
+        }
+
+        _shell.Execute(change);
+        RefreshLegends();
+        Message = notes.Count > 0 ? string.Join(" ", notes) : null;
+        _shell.Toast = $"{added} legendary Pokémon added. Each one appears after its trainer is beaten. One Undo takes them all out.";
+    }
+
+    internal void RemoveLegend(StoryLegend legend)
+    {
+        if (Legends.Remove(Data, legend.Species) is { } change)
+        {
+            _shell.Execute(change);
+            RefreshLegends();
+            _shell.Toast = change.Description + ". Ctrl+Z puts it back.";
+        }
+    }
+
+    // ---- final chapter ----
+    private (FinaleSettings Settings, string MeetMap)? FinalePreset =>
+        Maps.Any(m => m.Map == Finale.FireRed.MeetMap) && Maps.Any(m => m.Map == "PalletTown") ? Finale.FireRed
+        : Maps.Any(m => m.Map == "LittlerootTown") ? Finale.Emerald
+        : null;
+
+    public bool CanHaveFinale => FinalePreset is not null;
+    public bool HasFinale => Data.Story?.Finale is not null;
+    public bool NoFinale => CanHaveFinale && !HasFinale;
+
+    public string FinaleSummary => Data.Story?.Finale is { } f
+        ? $"{f.GuideName} calls you after the Hall of Fame, waits at {f.MeetName} (level cap after the Champion's), then takes you to {f.IslandName}: {f.BossName}'s {f.Forms.Count} forms at level {f.FormLevel}, then the catch at level {f.CatchLevel}. The credits roll once it's caught."
+        : "";
+
+    [ObservableProperty]
+    public partial int GuideLevel { get; set; } = 90;
+
+    [ObservableProperty]
+    public partial int BossLevel { get; set; } = 93;
+
+    [RelayCommand]
+    private async Task AddFinaleAsync()
+    {
+        if (FinalePreset is not { } preset)
+        {
+            return;
+        }
+
+        var module = _shell.Session.Module;
+        var data = Data;
+        if (module.FreeSpot(data, preset.MeetMap) is not { } spot)
+        {
+            Message = $"No free spot for {preset.Settings.GuideName} at {preset.Settings.MeetName}.";
+            return;
+        }
+
+        var settings = preset.Settings with { FormLevel = Math.Clamp(BossLevel, 1, 100) };
+        var trainerClass = data.Catalog.TrainerClasses.FirstOrDefault(c => c.Key == "TRAINER_CLASS_CHAMPION")?.Key ?? data.Catalog.TrainerClasses.FirstOrDefault()?.Key ?? "";
+        var pic = data.Catalog.TrainerPics.FirstOrDefault(p => p.Key == "TRAINER_PIC_STEVEN")?.Key ?? data.Catalog.TrainerPics.FirstOrDefault()?.Key ?? "";
+        var (level, limit) = (Math.Clamp(GuideLevel, 1, 100), module.Limits.TrainerNameLength);
+        var change = await _shell.RunBusyAsync($"Adding the final chapter (building {settings.GuideName}'s team)…",
+            () => Finale.Add(data, settings, spot, level, trainerClass, pic, limit));
+        if (change is null)
+        {
+            Message = "The final chapter couldn't be added (it's already there, or no team fits the Champion Lab rules).";
+            return;
+        }
+
+        _shell.Execute(change);
+        Refresh();
+        RefreshFinale();
+        Message = null;
+        _shell.Toast = change.Description + ". One Undo takes it out again.";
+    }
+
+    [RelayCommand]
+    private void RemoveFinale()
+    {
+        if (Finale.Remove(Data) is { } change)
+        {
+            _shell.Execute(change);
+            Refresh();
+            RefreshFinale();
+            _shell.Toast = change.Description + ". One Undo puts it back.";
+        }
+    }
+
+    private void RefreshFinale()
+    {
+        foreach (var name in new[] { nameof(CanHaveFinale), nameof(HasFinale), nameof(NoFinale), nameof(FinaleSummary) })
+        {
+            OnPropertyChanged(name);
+        }
     }
 
     // ---- crossover packs ----
@@ -300,6 +461,7 @@ public sealed partial class StoryBattlesPageViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(HasBattles));
+        RefreshLegends();
     }
 
     [RelayCommand]

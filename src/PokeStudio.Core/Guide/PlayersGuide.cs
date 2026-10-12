@@ -136,7 +136,10 @@ public static class PlayersGuide
                 var field = first.StartingStatus.Count > 0 ? $"The whole battle is fought with: {string.Join(", ", first.StartingStatus.Select(Story.StoryEffects.Label))}. " : "";
                 var reward = data.Story?.Battles.FirstOrDefault(b => b.TrainerKey == Lab.BaseKey(first))?.Reward is { } item
                     ? $"Win to get the {Name(item.Replace("ITEM_TM_", "MOVE_", StringComparison.Ordinal))} TM. " : "";
-                blocks.Add(new GuideText($"{Lab.Label(group)}. {where}{kind}{theme}{field}{reward}{variants}".Trim()));
+                var legends = data.Story?.Legends.Where(l => l.RevealedBy == Lab.BaseKey(first))
+                    .Select(l => $"{data.Species.FirstOrDefault(sp => sp.Key == l.Species)?.Name ?? l.Species} (level {l.Level}) in {l.Place}").ToList() ?? [];
+                var reveals = legends.Count > 0 ? $"Win and they tell you where to find {string.Join(" and ", legends)}. " : "";
+                blocks.Add(new GuideText($"{Lab.Label(group)}. {where}{kind}{theme}{field}{reward}{reveals}{variants}".Trim()));
                 foreach (var (t, _) in fight)
                 {
                     if (fight.Count > 1)

@@ -106,13 +106,13 @@ public class StoryBattleTests
 
         // saving again replaces ours; with none left, the map is as it was
         Assert.Equal(one, StoryWriter.MapObjects(one, [Battle("TRAINER_PS_ROXANNE")]));
-        Assert.Equal(json, StoryWriter.MapObjects(one, []));
+        Assert.Equal(json, StoryWriter.MapObjects(one, Array.Empty<StoryBattle>()));
 
         // ours first in the list, or alone
         const string empty = "{\n  \"object_events\": [],\n  \"warp_events\": []\n}\n";
         var alone = StoryWriter.MapObjects(empty, [Battle("TRAINER_PS_ROXANNE"), Battle("TRAINER_PS_BRAWLY")]);
         Assert.Equal(2, System.Text.Json.JsonDocument.Parse(alone).RootElement.GetProperty("object_events").GetArrayLength());
-        var cleared = StoryWriter.MapObjects(alone, []);
+        var cleared = StoryWriter.MapObjects(alone, Array.Empty<StoryBattle>());
         Assert.Equal(0, System.Text.Json.JsonDocument.Parse(cleared).RootElement.GetProperty("object_events").GetArrayLength());
     }
 

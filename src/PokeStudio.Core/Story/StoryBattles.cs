@@ -53,6 +53,15 @@ public sealed record StoryBattle
     /// <summary>An item the player gets after the first win (a TM of the trainer's type), or null.</summary>
     public string? Reward { get; init; }
 
+    /// <summary>A flag that hides the trainer while it's set (the final chapter's guide waits hidden until called).</summary>
+    public string? Hidden { get; init; }
+
+    /// <summary>Script run straight after the first win instead of the reward (the final chapter's guide).</summary>
+    public string? OnWin { get; init; }
+
+    /// <summary>Script run when the player talks to the trainer after the battle instead of the "after" line.</summary>
+    public string? AfterTalk { get; init; }
+
     /// <summary>The name used for the battle's flag and script labels, e.g. "ROXANNE".</summary>
     public string Id => StoryBattles.IdOf(TrainerKey);
 
@@ -68,6 +77,12 @@ public sealed record StorySettings
 
     /// <summary>Sprites to bring from another project on the next save (they are written into the game, then kept here).</summary>
     public IReadOnlyList<StoryImport> Imports { get; init; } = [];
+
+    /// <summary>The final chapter after the Champion, or null.</summary>
+    public FinaleSettings? Finale { get; init; }
+
+    /// <summary>Legendary and mythical Pokémon on the maps, revealed by story battles (see <see cref="Story.Legends"/>).</summary>
+    public IReadOnlyList<StoryLegend> Legends { get; init; } = [];
 }
 
 /// <summary>A place a story battle can go: the tile in front of an entrance and a spot that looks at it.</summary>
@@ -79,6 +94,9 @@ public sealed record StorySpot(string Map, string Entrance, int DoorX, int DoorY
 public static partial class StoryBattles
 {
     public const string TrainerPrefix = "TRAINER_PS_";
+
+    /// <summary>A <see cref="StoryBattle.Before"/> value: after every other level-cap step (the final chapter's battle).</summary>
+    public const string AfterLast = "@end";
 
     /// <summary>A new trainer's key from a name: "Tate & Liza" → TRAINER_PS_TATE_AND_LIZA (unique in the project).</summary>
     public static string NewTrainerKey(GameData data, string name)
@@ -118,10 +136,11 @@ public static partial class StoryBattles
         };
 
         // a major battle gets its own level-cap step, just before the step it comes before
-        if (battle.Before is { } next && data.Rules is { } rules && rules.LevelCaps.ToList().FindIndex(c => c.Milestone == next) is var at and >= 0
+        if (battle.Before is { } next && data.Rules is { } rules
+            && (next == AfterLast ? rules.LevelCaps.Count : rules.LevelCaps.ToList().FindIndex(c => c.Milestone == next)) is var at and >= 0
             && !rules.LevelCaps.Any(c => c.Milestone == battle.BeatFlag))
         {
-            var cap = new LevelCap(battle.BeatFlag, GameCatalog.Prettify(trainer.Name), capLevel ?? trainer.Party.Select(p => p.Level).DefaultIfEmpty(rules.LevelCaps[at].Level).Max());
+            var cap = new LevelCap(battle.BeatFlag, GameCatalog.Prettify(trainer.Name), capLevel ?? trainer.Party.Select(p => p.Level).DefaultIfEmpty(rules.LevelCaps.Count > 0 ? rules.LevelCaps[Math.Min(at, rules.LevelCaps.Count - 1)].Level : 50).Max());
             var caps = rules.LevelCaps.ToList();
             caps.Insert(at, cap);
             parts.Add(new ValueChange<GameRules?>("Level caps", $"Level cap for {trainer.Name}", v => data.Rules = v, rules, rules with { LevelCaps = caps }));

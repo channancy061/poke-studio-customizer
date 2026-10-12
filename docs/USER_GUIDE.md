@@ -249,6 +249,26 @@ pokeemerald-expansion folder and copies them in when you save. Emerald has room 
 space for "beaten" flags grows, so save files made before can't be used with the new version: start a new game to
 test. One Undo takes the whole pack out again.
 
+**Legendary Pokémon** (after a crossover pack). Each challenger gets a side story: after the first win they tell the
+player about a powerful Pokémon they felt on their way, and it appears there. In FireRed these are Hoenn's legendaries
+and Jirachi: Roxanne sends you to Regirock in Rock Tunnel, Flannery to Groudon deep in Mt. Ember, Drake to Rayquaza at
+the top of Victory Road, and so on. In Emerald they are Kanto's and Johto's: the birds, the beasts, Mewtwo, Mew and
+Celebi. Talk to the Pokémon to battle it. If it isn't caught, it comes back the next time the player enters that
+place. Its level is a little above the challenger's team, and you can remove any of them. The Player's Guide says
+which challenger reveals which Pokémon. In a Nuzlocke, the new-game question about static encounters decides whether
+they count.
+
+**Final chapter** (FireRed and Emerald). After the Hall of Fame the game doesn't end and the credits don't roll.
+Kanto and Hoenn are being pulled into each other. Steven calls the player at home and waits for them in Cerulean Cave
+(FireRed) or in his room in Granite Cave (Emerald), where he battles at level 90. The level cap goes up after the
+Champion's to match. Beat him and he takes the player to Birth Island. There the player can heal and change their
+team first, and then has to confirm they're ready. Then Deoxys's four forms (Normal, Attack, Defense and Speed) attack
+one after another with no healing in between. The order and their moves are picked against the player's team, so
+every form has moves that hit it hard. After the last form, Deoxys has to be **caught** to stop the collapse. Then the
+regions separate, the visiting challengers go home, and the credits roll. If the player loses, they start again from
+Steven. In a Nuzlocke, losing ends the run. You can set Steven's level and the forms' level before adding the
+chapter. **Remove** takes it out again, and Ctrl+Z undoes either.
+
 ### Fix evolutions
 Turns trade and day/night evolutions into ones anyone can do alone: a level, a stone, or (where the game supports it)
 levelling up while holding an item. You choose per evolution; clashes (Espeon/Umbreon) are handled.

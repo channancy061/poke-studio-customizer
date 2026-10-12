@@ -192,6 +192,9 @@ public interface IGameModule
     /// <summary>TMs the game's own scripts already give (ITEM_TM_…), so rewards don't repeat them.</summary>
     IReadOnlyCollection<string> GivenTms(GameData data) => [];
 
+    /// <summary>A free tile on a map for someone you talk to (the final chapter's guide), or null.</summary>
+    Story.StorySpot? FreeSpot(GameData data, string map) => null;
+
     /// <summary>The overworld sprites a story trainer can use.</summary>
     IReadOnlyList<string> StoryLooks(GameData data) => [];
 
