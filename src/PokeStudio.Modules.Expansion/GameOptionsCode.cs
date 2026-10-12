@@ -37,10 +37,13 @@ internal static partial class GameOptionsWriter
         public bool HasParties { get; init; }
     }
 
-    public static IReadOnlyList<string> CodeFiles => [CodeFile, CodeHeader, BattleSetup, BattleScripts, PoolsSource, PoolsHeader, WildConfig, ItemUse, DataSource];
+    public static IReadOnlyList<string> CodeFiles => [CodeFile, CodeHeader, BattleSetup, BattleScripts, PoolsSource, PoolsHeader, WildConfig, ItemUse, DataSource, Healing];
+
+    /// <summary>Where Pokémon Centers, healing NPCs and blacking out heal the party and the PC boxes.</summary>
+    public const string Healing = "src/script_pokemon_util.c";
 
     private static readonly string[] CodeFlagNames =
-        ["FLAG_PS_NUZ_FIRST", "FLAG_PS_NUZ_FAINT", "FLAG_PS_NUZ_DUPES", "FLAG_PS_NUZ_EEVEE", "FLAG_PS_NUZ_SHINY", "FLAG_PS_NUZ_NICK", "FLAG_PS_ADAPTIVE", "FLAG_PS_NO_CATCH"];
+        ["FLAG_PS_NUZ_FIRST", "FLAG_PS_NUZ_FAINT", "FLAG_PS_NUZ_DUPES", "FLAG_PS_NUZ_EEVEE", "FLAG_PS_NUZ_SHINY", "FLAG_PS_NUZ_NICK", "FLAG_PS_NUZ_STATIC", "FLAG_PS_ADAPTIVE", "FLAG_PS_NO_CATCH"];
 
     private static bool CodeUsed(GameOptionsSettings o) => o.NuzlockeUsed || o.AdaptiveSlot != OptionMode.NotUsed || o.CenterHelper.AnyService;
 
@@ -158,12 +161,25 @@ internal static partial class GameOptionsWriter
         }
 
         // battle_setup.c: before a wild battle and after every battle
-        if (read(BattleSetup) is { } setup && !setup.Contains("PokeStudio_", StringComparison.Ordinal))
+        if (read(BattleSetup) is { } setup)
         {
-            var updated = AddInclude(setup);
-            updated = InsertAtBodyStart(updated, "static void DoStandardWildBattle(bool32 isDouble)", "PokeStudio_BeforeWildBattle(); // Poke Studio: Nuzlocke area rules");
-            updated = InsertAfterFollowerBlock(updated, "static void CB2_EndWildBattle(void)");
-            updated = InsertAfterFollowerBlock(updated, "static void CB2_EndTrainerBattle(void)");
+            var updated = setup;
+            if (!setup.Contains("PokeStudio_", StringComparison.Ordinal))
+            {
+                updated = AddInclude(updated);
+                updated = InsertAtBodyStart(updated, "static void DoStandardWildBattle(bool32 isDouble)", "PokeStudio_BeforeWildBattle(); // Poke Studio: Nuzlocke area rules");
+                updated = InsertAfterFollowerBlock(updated, "static void CB2_EndWildBattle(void)");
+                updated = InsertAfterFollowerBlock(updated, "static void CB2_EndTrainerBattle(void)");
+            }
+
+            // static encounters (scripted and legendary battles) follow the area rules when the player chose so
+            if (!updated.Contains("Nuzlocke static encounters", StringComparison.Ordinal))
+            {
+                const string statement = "if (FlagGet(FLAG_PS_NUZ_STATIC)) PokeStudio_BeforeWildBattle(); // Poke Studio: Nuzlocke static encounters";
+                updated = InsertAtBodyStart(updated, "void BattleSetup_StartScriptedWildBattle(void)", statement);
+                updated = InsertAtBodyStart(updated, "void BattleSetup_StartLegendaryBattle(void)", statement);
+            }
+
             put(BattleSetup, setup, updated);
         }
 
@@ -178,6 +194,37 @@ internal static partial class GameOptionsWriter
             else
             {
                 notes.Add("The ball-throw check wasn't found, so the first-encounter rule applies to the first wild Pokémon only.");
+            }
+        }
+
+        // script_pokemon_util.c: a fainted Pokémon stays fainted in a Nuzlocke. Pokémon Centers, healing NPCs and blacking
+        // out all heal through HealPlayerParty (and the PC boxes through HealPlayerBoxes), so nothing brings it back.
+        if (read(Healing) is { } healing && !healing.Contains("stay fainted in a Nuzlocke", StringComparison.Ordinal))
+        {
+            var fn = healing.IndexOf("void HealPlayerParty(void)", StringComparison.Ordinal);
+            var party = fn < 0 ? Match.Empty : Regex.Match(healing[fn..], @"^([ \t]+)HealPokemon\((&[^;]+)\);[^\n]*\n", RegexOptions.Multiline);
+            var boxFn = healing.IndexOf("static void HealPlayerBoxes(void)", StringComparison.Ordinal);
+            var box = boxFn < 0 ? Match.Empty : Regex.Match(healing[boxFn..], @"^([ \t]+)HealBoxPokemon\((\w+)\);[^\n]*\n", RegexOptions.Multiline);
+            if (party.Success && box.Success)
+            {
+                var nl = CScanner.LineEnding(healing);
+                var (pi, pm) = (party.Groups[1].Value, party.Groups[2].Value);
+                var (bi, bm) = (box.Groups[1].Value, box.Groups[2].Value);
+                var boxText = string.Join(nl,
+                    $"{bi}{{ // {Mark}: fainted Pokémon stay fainted in a Nuzlocke",
+                    $"{bi}    struct Pokemon psMon;",
+                    $"{bi}    BoxMonToMon({bm}, &psMon);",
+                    $"{bi}    if (!FlagGet(FLAG_PS_NUZ_FAINT) || GetMonData(&psMon, MON_DATA_HP) != 0)",
+                    $"{bi}        HealBoxPokemon({bm});",
+                    $"{bi}}}") + nl;
+                var edited = healing.Remove(boxFn + box.Index, box.Length).Insert(boxFn + box.Index, boxText);
+                var partyText = $"{pi}if (!FlagGet(FLAG_PS_NUZ_FAINT) || GetMonData({pm}, MON_DATA_HP) != 0) // {Mark}: fainted Pokémon stay fainted in a Nuzlocke{nl}{pi}    HealPokemon({pm});{nl}";
+                edited = edited.Remove(fn + party.Index, party.Length).Insert(fn + party.Index, partyText);
+                put(Healing, healing, edited);
+            }
+            else
+            {
+                notes.Add("The party healing code wasn't found, so a Pokémon Center can still bring back a fainted Pokémon in a Nuzlocke.");
             }
         }
 

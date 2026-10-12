@@ -184,7 +184,9 @@ or **always on/off**:
 - **Difficulty:** Easy / Normal / Hard / Extra Hard (uses the difficulty versions).
 - **Nuzlocke**, each rule separately: only the first Pokémon met in each area can be caught (counting starts once you have Poké Balls); fainted Pokémon are
   released; duplicates clause (whole evolution families, plus an Eevee clause); shiny clause; nicknames required (the
-  species name doesn't count); no revives; respect the level cap.
+  species name doesn't count); no revives (no revive items or Revival Blessing; Pokémon Centers, healing people and the
+  PC never bring a fainted Pokémon back); respect the level cap; static encounters count (legendaries and Pokémon you
+  walk up to use the area's first encounter too: players who say yes are warned and asked again).
 - **Hard level cap**, **no EVs / perfect IVs**, **no items in battle**, **Infinite Candy** (a reusable Rare Candy).
 - **Adaptive boss slot:** gym leaders, the rival and the Elite Four (never the Champion) keep one flexible team member,
   chosen at the start of the battle to counter your current team.
@@ -207,6 +209,14 @@ and in unmodified FireRed (US 1.0) and Emerald (US) ROMs.
 - IVs and EVs on the summary screen;
 - item descriptions when found;
 - skip the battle slide-in.
+
+### Plan wild Pokémon
+Gives every area Pokémon that do well against the next major battles, so players have real answers to the bosses
+instead of hoping for luck. Choose how much of each area to replace (25–100%) and how many major battles to look
+ahead, then **Preview**. Each area shows the coming boss types and every swap with the reason ("hits Rock, Ground
+hard"). Untick areas to keep, then **Apply** (one undo step). Water slots stay Water types, rock smashing Rock and
+Ground, and grass keeps a type of its own Pokémon. Neighbouring areas get different families, legendaries never appear,
+and levels stay the same. An area's place in the story comes from its wild levels and the level caps.
 
 ### Story battles (decomp projects)
 Add a battle the player can't skip. Pick a **map** and the **entrance** to guard: a gym door, a cave mouth, a building.

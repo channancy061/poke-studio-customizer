@@ -86,6 +86,7 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
             new(this, "Eevee clause", "With the duplicates clause: Eevee never counts as a duplicate, so the player can catch one for each evolution.", rule, s => s.NuzEeveeException, (s, m) => s with { NuzEeveeException = m }),
             new(this, "Shiny clause", "Shiny Pokémon can always be caught and don't use up the area.", rule, s => s.NuzShiny, (s, m) => s with { NuzShiny = m }),
             new(this, "Nicknames required", "The naming screen opens straight away for every Pokémon caught, and opens again if the player keeps the species name.", rule, s => s.NuzNicknames, (s, m) => s with { NuzNicknames = m }),
+            new(this, "Static encounters count", "With the first-encounter rule: legendaries and other Pokémon met by walking up to them count as the area's first encounter too. The player is warned that a legendary can then be lost, and asked again.", rule, s => s.NuzStatic, (s, m) => s with { NuzStatic = m }),
             new(this, "Respect the level cap", "The hard level cap is on during the Nuzlocke (set the caps on Levels & caps).", rule, s => s.NuzLevelCap, (s, m) => s with { NuzLevelCap = m }),
         ];
         shell.DataChanged += (_, _) => Refresh();

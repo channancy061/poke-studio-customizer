@@ -15,7 +15,7 @@ namespace PokeStudio.App.ViewModels;
 public enum NavKey
 {
     Overview, Species, Moves, Learnsets, Evolutions, Trainers, TrainerAi, Graphics, Models3d,
-    Encounters, Items, Text, Randomizer, Build, Backups, Settings, About, Modernize, Progression, ChampionLab, GameOptions, EvolutionFixes, Guide, StoryBattles,
+    Encounters, Items, Text, Randomizer, Build, Backups, Settings, About, Modernize, Progression, ChampionLab, GameOptions, EvolutionFixes, Guide, StoryBattles, EncounterPlanner,
 }
 
 public sealed class NavItemViewModel(NavKey key, string label, string icon, bool enabled, string? reason, string section)
@@ -264,6 +264,11 @@ public sealed partial class ShellViewModel : ViewModelBase
             NavItems.Add(new NavItemViewModel(NavKey.GameOptions, "Game options", "Icon.Settings", true, null, "Tools"));
         }
 
+        if (Session.Data.Encounters.Count > 0)
+        {
+            NavItems.Add(new NavItemViewModel(NavKey.EncounterPlanner, "Plan wild Pokémon", "Icon.Map", true, null, "Tools"));
+        }
+
         if (Session.Module.SupportsStoryBattles(Session.Data))
         {
             NavItems.Add(new NavItemViewModel(NavKey.StoryBattles, "Story battles", "Icon.Map", true, null, "Tools"));
@@ -316,6 +321,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             NavKey.ChampionLab => new ChampionLabPageViewModel(this),
             NavKey.GameOptions => new GameOptionsPageViewModel(this),
             NavKey.StoryBattles => new StoryBattlesPageViewModel(this),
+            NavKey.EncounterPlanner => new EncounterPlannerPageViewModel(this),
             NavKey.EvolutionFixes => new EvolutionFixPageViewModel(this),
             NavKey.Guide => new GuidePageViewModel(this),
             NavKey.Randomizer => new RandomizerPageViewModel(this),

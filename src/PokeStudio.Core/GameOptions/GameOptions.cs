@@ -71,6 +71,12 @@ public sealed record GameOptionsSettings
     /// <summary>The hard level cap is on while playing a Nuzlocke.</summary>
     public OptionMode NuzLevelCap { get; init; } = OptionMode.PlayerChooses;
 
+    /// <summary>
+    /// Static encounters (legendaries and other Pokémon met by walking up to them) count as the area's first encounter.
+    /// Asked with a warning and a second confirmation, because a legendary can then be lost.
+    /// </summary>
+    public OptionMode NuzStatic { get; init; } = OptionMode.PlayerChooses;
+
     /// <summary>Adaptive boss slot: gym leaders, the rival and the Elite Four swap one Pokémon to counter the player's party.</summary>
     public OptionMode AdaptiveSlot { get; init; } = OptionMode.NotUsed;
 

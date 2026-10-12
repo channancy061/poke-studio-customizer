@@ -172,6 +172,8 @@ public static class TeamBuilder
 
     // ---------- helpers ----------
 
+    internal static string FamilyRoot(GameData data, string key) => Root(data, key);
+
     private static string Root(GameData data, string key)
     {
         var current = key;

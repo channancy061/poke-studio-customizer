@@ -197,6 +197,14 @@ internal static partial class GameOptionsWriter
             Put(BattleConfig, battle, updated);
         }
 
+        // a Nuzlocke: the PC mustn't heal Pokémon moved in and out of it (Gen 8+ behaviour)
+        if (o.NuzlockeUsed && read(OverworldConfig) is { } overworld && Define(overworld, "OW_PC_HEAL") is { } pcHeal
+            && pcHeal != "GEN_LATEST" && Regex.IsMatch(pcHeal, @"^GEN_[1-7]$"))
+        {
+            Put(OverworldConfig, overworld, SetDefine(overworld, "OW_PC_HEAL", "GEN_LATEST"));
+            notes?.Add("The PC healed Pokémon put in it; for the Nuzlocke it now doesn't (OW_PC_HEAL).");
+        }
+
         if (o.LevelCapCodeUsed && read(CapsConfig) is { } capsCfg)
         {
             var updated = capsCfg;
@@ -299,6 +307,7 @@ internal static partial class GameOptionsWriter
 
     private const string BattleConfig = "include/config/battle.h";
     private const string CapsConfig = "include/config/caps.h";
+    private const string OverworldConfig = "include/config/overworld.h";
     private const string CapsSource = "src/caps.c";
 
     private static string? Define(string text, string name) => CapsFiles.Define(text, name)?.Value;
@@ -439,7 +448,7 @@ internal static partial class GameOptionsWriter
         }
 
         var nuzlocke = o.Nuzlocke is OptionMode.PlayerChooses or OptionMode.AlwaysOn;
-        var nuzRules = new[] { o.NuzFirstEncounter, o.NuzFaintedGone, o.NuzDupes, o.NuzEeveeException, o.NuzShiny, o.NuzNicknames, o.NuzLevelCap };
+        var nuzRules = new[] { o.NuzFirstEncounter, o.NuzFaintedGone, o.NuzDupes, o.NuzEeveeException, o.NuzShiny, o.NuzStatic, o.NuzNicknames, o.NuzLevelCap };
         var asks = new[] { o.Difficulty, o.TrainingOff, o.LevelCap, o.NoItemsInBattle, o.InfiniteCandy, o.AdaptiveSlot, o.Nuzlocke }.Count(m => m == OptionMode.PlayerChooses)
             + (nuzlocke ? nuzRules.Count(m => m == OptionMode.PlayerChooses) : 0);
         if (asks > 0)
@@ -532,6 +541,20 @@ internal static partial class GameOptionsWriter
                 }
 
                 Rule(o.NuzShiny, "NuzShiny", "Shiny clause? Shinies can\\nalways be caught.", "\tsetflag FLAG_PS_NUZ_SHINY\n");
+
+                // static encounters: a "yes" is warned about and asked again (a legendary can be lost)
+                if (o.NuzStatic == OptionMode.AlwaysOn)
+                {
+                    L("\tsetflag FLAG_PS_NUZ_STATIC");
+                }
+
+                Ask(o.NuzStatic, "NuzStatic", "Do static encounters count\\nas the area's first?",
+                    "\tmsgbox PokeStudio_Text_StaticWarning, MSGBOX_YESNO\n\tcall_if_eq VAR_RESULT, YES, PokeStudio_EventScript_NuzStaticSure\n");
+                if (o.NuzStatic == OptionMode.PlayerChooses)
+                {
+                    Text("PokeStudio_Text_StaticWarning", "Careful: legendaries count too.\\nIf you already caught something\\pthere, or it faints, it's lost\\nfor this run. Are you sure?");
+                    subs.Append("PokeStudio_EventScript_NuzStaticSure::\n\tsetflag FLAG_PS_NUZ_STATIC\n\treturn\n\n");
+                }
                 L("PokeStudio_EventScript_NuzlockeClausesDone:");
             }
 
