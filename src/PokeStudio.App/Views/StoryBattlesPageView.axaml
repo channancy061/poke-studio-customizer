@@ -13,6 +13,31 @@
                    Classes="muted" TextWrapping="Wrap" />
       </StackPanel>
 
+      <Border Classes="card" IsVisible="{Binding HasPacks}">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Crossover packs" Classes="heading" />
+          <TextBlock Text="Another region's gym leaders, Elite Four and Champion, each as a major battle at the right point of your story, with level caps and Champion Lab teams in their type. Every battle can be moved, edited or removed afterwards."
+                     Classes="small muted" TextWrapping="Wrap" />
+          <ItemsControl ItemsSource="{Binding Packs}">
+            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="10" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:PackRowViewModel">
+                <Border Classes="well">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <StackPanel Spacing="4">
+                      <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                      <TextBlock Text="{Binding Description}" Classes="small" TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding Needs}" Classes="caption muted" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Classes="secondary" Content="Add pack" Command="{Binding AddCommand}" VerticalAlignment="Center" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
       <Border Classes="card" IsVisible="{Binding HasBattles}">
         <StackPanel Spacing="10">
           <TextBlock Text="In your game" Classes="heading" />

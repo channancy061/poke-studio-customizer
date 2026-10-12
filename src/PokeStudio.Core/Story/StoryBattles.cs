@@ -62,6 +62,9 @@ public sealed record StorySettings
 {
     public int SchemaVersion { get; init; } = 1;
     public IReadOnlyList<StoryBattle> Battles { get; init; } = [];
+
+    /// <summary>Sprites to bring from another project on the next save (they are written into the game, then kept here).</summary>
+    public IReadOnlyList<StoryImport> Imports { get; init; } = [];
 }
 
 /// <summary>A place a story battle can go: the tile in front of an entrance and a spot that looks at it.</summary>

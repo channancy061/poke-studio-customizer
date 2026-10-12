@@ -192,6 +192,12 @@ public interface IGameModule
     /// <summary>The overworld sprites a story trainer can use.</summary>
     IReadOnlyList<string> StoryLooks(GameData data) => [];
 
+    /// <summary>Of these battle sprites (TRAINER_PIC_…) and overworld sprites (OBJ_EVENT_GFX_…), the ones the game lacks.</summary>
+    (IReadOnlyList<string> Pics, IReadOnlyList<string> Looks) MissingSprites(GameData data, IEnumerable<string> pics, IEnumerable<string> looks) => (pics.ToList(), looks.ToList());
+
+    /// <summary>Null when another project's folder has these sprites to import; otherwise why not.</summary>
+    string? CheckImportSource(string folder, IEnumerable<string> pics, IEnumerable<string> looks) => "This game can't import sprites.";
+
     /// <summary>Whether bosses can get an adaptive slot in this game (decomp projects; some unmodified ROMs).</summary>
     bool SupportsAdaptiveSlots(GameData data) => SupportsGameOptions(data);
 

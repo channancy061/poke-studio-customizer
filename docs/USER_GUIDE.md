@@ -220,6 +220,19 @@ suggested at that level. Edit it on the **Trainers** page or redesign it in **Ch
 battle uses the game's own "trainer spots you" rule and its "already beaten" flag, so it needs no new flags or
 variables. **Remove** takes the trainer, their script and their level cap out again, and Ctrl+Z undoes it.
 
+**Crossover packs.** On the same page, one click adds another region's whole challenge to your story:
+- **Hoenn challengers in Kanto** (FireRed): each Hoenn gym leader guards the matching Kanto gym (Roxanne at Pewter
+  Gym, and so on), Sidney, Phoebe, Drake and Glacia guard Mt. Moon, Pokémon Tower, Silph Co. and the Pokémon Mansion,
+  and Wallace waits just outside Victory Road.
+- **Kanto challengers in Hoenn** (Emerald): Brock to Giovanni guard Hoenn's gyms, Lorelei, Bruno, Agatha and Lance
+  guard the cable car, the Weather Institute, Mt. Pyre and Sky Pillar, and Blue waits just outside Victory Road.
+
+Every battle is a major battle with its own level cap and a Champion Lab team in the trainer's type. FireRed has no
+Hoenn overworld sprites and no sprites for Juan or Champion Wallace, so the app asks for **your own**
+pokeemerald-expansion folder and copies them in when you save. Emerald has room for only 9 more trainers. With 13, the
+space for "beaten" flags grows, so save files made before can't be used with the new version: start a new game to
+test. One Undo takes the whole pack out again.
+
 ### Fix evolutions
 Turns trade and day/night evolutions into ones anyone can do alone: a level, a stone, or (where the game supports it)
 levelling up while holding an item. You choose per evolution; clashes (Espeon/Umbreon) are handled.

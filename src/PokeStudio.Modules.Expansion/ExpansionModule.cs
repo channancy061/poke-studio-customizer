@@ -108,14 +108,33 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
         var layout = new ExpansionLayout(workingSourcePath);
         return [.. layout.SpeciesFiles(), layout.LevelUpFile, ExpansionLayout.EggMovesFile, ExpansionLayout.LearnablesJson, MovesInfo.File, TrainerParty.File,
             EncountersFile.File, ItemsInfo.File, CapsFiles.Source, CapsFiles.Config, BattleConfig, ShopsJson.File, ShopsJson.ShopC, DifficultyFile, AiConfig, ItemConfig,
-            "include/config/summary_screen.h", "include/config/overworld.h", StoryWriter.Opponents, StoryWriter.Script,
+            "include/config/summary_screen.h", "include/config/overworld.h", StoryWriter.Opponents, StoryWriter.Script, .. ProjectImport.TextFiles,
             .. GameOptionsWriter.Files(layout).Where(f => !f.EndsWith("/scripts.inc", StringComparison.Ordinal)), .. ScriptFiles(layout.Root)];
     }
 
     public IReadOnlyList<string> ManagedFiles(string workingSourcePath, GameData data) =>
         [.. ManagedFiles(workingSourcePath),
             .. _states.TryGetValue(data, out var state) && !data.Graphics.IsEmpty ? ExpansionSprites.PendingFiles(state, data.Graphics).Distinct() : [],
-            .. StoryWriter.MapFiles(new ExpansionLayout(workingSourcePath).Root, data)];
+            .. StoryWriter.MapFiles(new ExpansionLayout(workingSourcePath).Root, data),
+            .. ImportFiles(data)];
+
+    // new pictures and palettes a pending import adds
+    private IEnumerable<string> ImportFiles(GameData data)
+    {
+        if (!_states.TryGetValue(data, out var state))
+        {
+            return [];
+        }
+
+        try
+        {
+            return PlanImports(state, data.Story) is { } plan ? [.. plan.Binary.Keys, .. plan.NewText.Keys] : [];
+        }
+        catch (InvalidOperationException)
+        {
+            return []; // reported by the checks; the save stops there
+        }
+    }
 
     public bool SupportsStoryBattles(GameData data) =>
         _states.TryGetValue(data, out var state) && File.Exists(state.Layout.Full(StoryWriter.Opponents)) && File.Exists(state.Layout.Full(GameOptionsWriter.EventScripts));
@@ -127,7 +146,9 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
         _states.TryGetValue(data, out var state) ? StoryWriter.Spots(state.Layout.Root, map) : [];
 
     public IReadOnlyList<string> StoryLooks(GameData data) =>
-        _states.TryGetValue(data, out var state) ? StoryWriter.Looks(state.Layout.Root) : [];
+        _states.TryGetValue(data, out var state)
+            ? [.. StoryWriter.Looks(state.Layout.Root), .. data.Story is { } s ? PendingImports(state, s, StoryImport.Look).Select(i => i.Key) : []]
+            : [];
 
     public SpriteRules? Rules(GameData data, string species, SpriteKind kind) =>
         _states.TryGetValue(data, out var state) ? ExpansionSprites.Rules(state, species, kind) : null;
@@ -310,6 +331,20 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
         if (learnablesChanged && state.Learnables is not null)
         {
             await context.Writer.WriteAllTextAsync(state.Layout.Full(ExpansionLayout.LearnablesJson), state.Learnables.Serialize(), cancellationToken);
+        }
+
+        // sprites brought from another project (before the story battles that use them)
+        if (PlanImports(state, data.Story) is { } imports)
+        {
+            foreach (var (file, text) in imports.Changed.Concat(imports.NewText))
+            {
+                await context.Writer.WriteAllTextAsync(state.Layout.Full(file), text, cancellationToken);
+            }
+
+            foreach (var (file, bytes) in imports.Binary)
+            {
+                await context.Writer.WriteAllBytesAsync(state.Layout.Full(file), bytes, cancellationToken);
+            }
         }
 
         // story battles: trainer list, scripts, maps and level-cap steps (after the trainers and caps above)
@@ -587,7 +622,115 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
             }
         }
 
+        issues.AddRange(StoryIssues(data));
         return issues;
+    }
+
+    /// <summary>Story battles: their trainer, sprites (in the game or coming from an import) and import sources exist.</summary>
+    private IEnumerable<ValidationIssue> StoryIssues(GameData data)
+    {
+        if (data.Story is not { } story || !_states.TryGetValue(data, out var state))
+        {
+            yield break;
+        }
+
+        var looks = StoryWriter.Looks(state.Layout.Root).Concat(PendingImports(state, story, StoryImport.Look).Select(i => i.Key)).ToHashSet(StringComparer.Ordinal);
+        var pics = data.Catalog.TrainerPics.Select(p => p.Key).Concat(PendingImports(state, story, StoryImport.Pic).Select(i => i.Key)).ToHashSet(StringComparer.Ordinal);
+        foreach (var b in story.Battles)
+        {
+            var trainer = data.Trainers.FirstOrDefault(t => t.Key == b.TrainerKey);
+            var name = trainer?.Name ?? b.Id;
+            if (trainer is null)
+            {
+                yield return new ValidationIssue(IssueSeverity.Error, "Story battles", name, "has no trainer any more.", "Remove the story battle and add it again.");
+                continue;
+            }
+
+            if (!looks.Contains(b.Look))
+            {
+                yield return new ValidationIssue(IssueSeverity.Error, "Story battles", name, $"looks like {b.Look}, which this game doesn't have.", "Pick another look, or import it from another project.");
+            }
+
+            if (pics.Count > 0 && !pics.Contains(trainer.Pic))
+            {
+                yield return new ValidationIssue(IssueSeverity.Error, "Story battles", name, $"uses the battle sprite {trainer.Pic}, which this game doesn't have.", "Pick another battle sprite on the Trainers page, or import it.") { TargetKey = trainer.Key };
+            }
+        }
+
+        // Emerald has room for only a few more trainers: past that, the "beaten" flags take more space and shift the flags
+        // after them, so saves made before can't be used with the new version
+        var storyTrainers = data.Trainers.Count(t => t.Key.StartsWith(StoryBattles.TrainerPrefix, StringComparison.Ordinal) && !t.Key.Contains('@', StringComparison.Ordinal));
+        if (storyTrainers > 0 && File.Exists(state.Layout.Full(StoryWriter.Opponents))
+            && StoryWriter.DefinedCounts(StoryWriter.Opponent(File.ReadAllText(state.Layout.Full(StoryWriter.Opponents)), [])) is { } counts
+            && counts.Count + storyTrainers > counts.Max)
+        {
+            yield return new ValidationIssue(IssueSeverity.Warning, "Story battles", "Room for trainers",
+                $"this game has room for {counts.Max - counts.Count} more trainers and the story battles add {storyTrainers}, so the space for \"beaten\" flags grows. Save files made before this change won't work with the new version of your hack.",
+                "Fine while you're still building the hack. Start a new game to test.");
+        }
+
+        foreach (var source in PendingImports(state, story, null).Select(i => i.Source).Distinct(StringComparer.Ordinal).Where(s => !Directory.Exists(s)))
+        {
+            yield return new ValidationIssue(IssueSeverity.Error, "Story battles", "Sprites to import", $"come from {source}, which isn't there any more.", "Put that project back, or remove the battles that need its sprites.");
+        }
+    }
+
+    /// <summary>Imports the game doesn't have yet (kind: pic, look or both).</summary>
+    private static IEnumerable<StoryImport> PendingImports(LoadedState state, StorySettings story, string? kind)
+    {
+        string? Read(string rel) => File.Exists(state.Layout.Full(rel)) ? File.ReadAllText(state.Layout.Full(rel)) : null;
+        return story.Imports.Where(i => (kind is null || i.Kind == kind)
+            && (i.Kind == StoryImport.Pic ? !ProjectImport.HasPic(Read, i.Key) : !ProjectImport.HasLook(Read, i.Key))).ToList();
+    }
+
+    /// <summary>Plans the pending imports against the files as they are now (null when there are none).</summary>
+    private static ProjectImport.Plan? PlanImports(LoadedState state, StorySettings? story)
+    {
+        if (story is null)
+        {
+            return null;
+        }
+
+        var pending = PendingImports(state, story, null).ToList();
+        if (pending.Count == 0)
+        {
+            return null;
+        }
+
+        var plan = new ProjectImport.Plan(rel => File.Exists(state.Layout.Full(rel)) ? File.ReadAllText(state.Layout.Full(rel)) : null, rel => File.Exists(state.Layout.Full(rel)));
+        foreach (var i in pending)
+        {
+            if (i.Kind == StoryImport.Pic)
+            {
+                ProjectImport.AddPic(plan, i.Source, i.Key);
+            }
+            else
+            {
+                ProjectImport.AddLook(plan, i.Source, i.Key);
+            }
+        }
+
+        return plan;
+    }
+
+    /// <summary>The sprites a crossover pack needs that this game lacks: (pics, looks).</summary>
+    public (IReadOnlyList<string> Pics, IReadOnlyList<string> Looks) MissingSprites(GameData data, IEnumerable<string> pics, IEnumerable<string> looks)
+    {
+        if (!_states.TryGetValue(data, out var state))
+        {
+            return ([], []);
+        }
+
+        string? Read(string rel) => File.Exists(state.Layout.Full(rel)) ? File.ReadAllText(state.Layout.Full(rel)) : null;
+        return (pics.Where(p => !ProjectImport.HasPic(Read, p)).ToList(), looks.Where(l => !ProjectImport.HasLook(Read, l)).ToList());
+    }
+
+    /// <summary>Null when a folder has these sprites (to import them from it), otherwise what's missing.</summary>
+    public string? CheckImportSource(string folder, IEnumerable<string> pics, IEnumerable<string> looks)
+    {
+        string? Read(string rel) => File.Exists(Path.Combine(folder, rel)) ? File.ReadAllText(Path.Combine(folder, rel)) : null;
+        var missing = pics.Where(p => !ProjectImport.HasPic(Read, p)).Concat(looks.Where(l => !ProjectImport.HasLook(Read, l))).ToList();
+        return missing.Count == 0 ? null : $"That folder doesn't have {string.Join(", ", missing.Take(4))}{(missing.Count > 4 ? $" and {missing.Count - 4} more" : "")}.";
     }
 
     // ---------- parsing ----------

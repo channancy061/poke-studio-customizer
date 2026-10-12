@@ -85,6 +85,13 @@ internal static partial class StoryWriter
             : [];
 
         var objects = Things("object_events");
+
+        // people that are always there; others (like a guard who leaves once a story event is done) have a flag
+        var alwaysThere = rootEl.TryGetProperty("object_events", out var objs) && objs.ValueKind == JsonValueKind.Array
+            ? objs.EnumerateArray().Where(o => o.TryGetProperty("x", out _) && o.TryGetProperty("y", out _)
+                    && (!o.TryGetProperty("flag", out var f) || f.ValueKind != JsonValueKind.String || f.GetString() is "0" or ""))
+                .Select(o => new Thing(o.GetProperty("x").GetInt32(), o.GetProperty("y").GetInt32())).ToList()
+            : [];
         var signs = Things("bg_events");
         var triggers = Things("coord_events");
         var warps = rootEl.TryGetProperty("warp_events", out var w) ? w.EnumerateArray().ToList() : [];
@@ -107,31 +114,53 @@ internal static partial class StoryWriter
         }
 
         var fronts = warpTiles.Select(t => FrontOf(t.X, t.Y)).Where(f => f is not null).Select(f => f!.Value).ToHashSet();
-        var result = new List<StorySpot>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
+        // entrances: warps to the same place whose front tiles sit side by side count as one (a door two tiles wide)
+        var entrances = new List<(int DoorX, int DoorY, string Dest, List<(int X, int Y)> Fronts)>();
         foreach (var warp in warps)
         {
             int wx = warp.GetProperty("x").GetInt32(), wy = warp.GetProperty("y").GetInt32();
             var dest = warp.TryGetProperty("dest_map", out var d) ? d.GetString() ?? "" : "";
-            if (FrontOf(wx, wy) is not { } front || dest.Length == 0 || !seen.Add($"{dest}|{front.X}|{front.Y}"))
+            if (FrontOf(wx, wy) is not { } front || dest.Length == 0)
             {
                 continue;
             }
 
+            var joined = entrances.FirstOrDefault(e => e.Dest == dest && e.Fronts.Any(f => f.Y == front.Y && Math.Abs(f.X - front.X) <= 1));
+            if (joined.Fronts is not null)
+            {
+                if (!joined.Fronts.Contains(front))
+                {
+                    joined.Fronts.Add(front);
+                }
+            }
+            else
+            {
+                entrances.Add((wx, wy, dest, [front]));
+            }
+        }
+
+        var result = new List<StorySpot>();
+        foreach (var (wx, wy, dest, row) in entrances)
+        {
+            int minX = row.Min(f => f.X), maxX = row.Max(f => f.X), fy = row[0].Y;
+            var front = (X: minX, Y: fy);
+            var width = maxX - minX;
+
             // a map can be split into areas (Route 23: the way into Victory Road and the way out): check this entrance's own
             var reachable = Reachable(g, front.X, front.Y, -1, -1);
 
-            // to the left or right of the front tile (looking along the row), or below it (looking up the path)
+            // to the left or right of the front tiles (looking along the row, so a wide door is covered too), or below a
+            // narrow one (looking up the path)
             var options = new List<(int X, int Y, Facing Facing, int Sight)>();
-            for (var sight = 2; sight <= MaxSight; sight++)
+            for (var gap = 2; gap <= MaxSight; gap++)
             {
-                options.Add((front.X - sight, front.Y, Facing.Right, sight));
-                options.Add((front.X + sight, front.Y, Facing.Left, sight));
+                options.Add((minX - gap, fy, Facing.Right, gap + width));
+                options.Add((maxX + gap, fy, Facing.Left, gap + width));
             }
 
-            for (var sight = 2; sight <= MaxSight; sight++)
+            for (var gap = 2; gap <= MaxSight && width == 0; gap++)
             {
-                options.Add((front.X, front.Y + sight, Facing.Up, sight));
+                options.Add((front.X, front.Y + gap, Facing.Up, gap));
             }
 
             foreach (var (sx, sy, facing, sight) in options)
@@ -141,12 +170,13 @@ internal static partial class StoryWriter
                     continue;
                 }
 
-                // nothing between the trainer and the front tile, so they can see it
+                // nothing between the trainer and the far end of the front tiles, so they see all of them
                 var (stepX, stepY) = facing switch { Facing.Right => (1, 0), Facing.Left => (-1, 0), _ => (0, -1) };
                 var clear = true;
-                for (var k = 1; k < sight && clear; k++)
+                for (var k = 1; k <= sight && clear; k++)
                 {
-                    clear = Walkable(sx + (stepX * k), sy + (stepY * k)) && !Occupied(sx + (stepX * k), sy + (stepY * k));
+                    // only walls and people block a trainer's view (step triggers and signs don't)
+                    clear = Walkable(sx + (stepX * k), sy + (stepY * k)) && !alwaysThere.Any(o => o.X == sx + (stepX * k) && o.Y == sy + (stepY * k));
                 }
 
                 if (!clear)
@@ -303,18 +333,59 @@ internal static partial class StoryWriter
         return result;
     }
 
+    /// <summary>
+    /// The trainer list with our trainers: FireRed's enum gets names before TRAINERS_COUNT; Emerald numbers its trainers
+    /// with #defines, so ours get the numbers after the last one and the count (and, when the room runs out, the maximum)
+    /// is raised by marked lines that leave the original lines as they were.
+    /// </summary>
     internal static string Opponent(string text, IReadOnlyList<string> keys)
     {
         var nl = CScanner.LineEnding(text);
-        var lines = Regex.Replace(text, $@"^[ \t]*{StoryBattles.TrainerPrefix}\w+,[ \t]*// {Mark}\r?\n", "", RegexOptions.Multiline);
-        var count = Regex.Match(lines, @"^([ \t]*)TRAINERS_COUNT,", RegexOptions.Multiline);
-        if (!count.Success || keys.Count == 0)
+        var lines = Regex.Replace(text, $@"^[^\n]*// {Mark}\r?\n", "", RegexOptions.Multiline);
+        if (keys.Count == 0)
         {
             return lines;
         }
 
-        var add = string.Concat(keys.Select(k => $"{count.Groups[1].Value}{k}, // {Mark}{nl}"));
-        return lines.Insert(count.Index, add);
+        var count = Regex.Match(lines, @"^([ \t]*)TRAINERS_COUNT,", RegexOptions.Multiline);
+        if (count.Success)
+        {
+            var add = string.Concat(keys.Select(k => $"{count.Groups[1].Value}{k}, // {Mark}{nl}"));
+            return lines.Insert(count.Index, add);
+        }
+
+        if (DefinedCounts(lines) is not { } d)
+        {
+            return lines;
+        }
+
+        var block = new System.Text.StringBuilder();
+        for (var i = 0; i < keys.Count; i++)
+        {
+            block.Append(System.Globalization.CultureInfo.InvariantCulture, $"#define {keys[i]} ({d.Count + i}) // {Mark}{nl}");
+        }
+
+        block.Append(System.Globalization.CultureInfo.InvariantCulture, $"#undef {d.CountName} // {Mark}{nl}#define {d.CountName} ({d.Count + keys.Count}) // {Mark}{nl}");
+        lines = lines.Insert(d.CountEnd, block.ToString());
+        if (d.Count + keys.Count > d.Max && DefinedCounts(lines) is { } after)
+        {
+            // more room for "beaten" flags (old saves of the hack won't match any more: the checks say so)
+            var max = ((d.Count + keys.Count + 7) / 8) * 8;
+            lines = lines.Insert(after.MaxEnd, $"#undef {d.MaxName} // {Mark}{nl}#define {d.MaxName} ({max}) // {Mark}{nl}");
+        }
+
+        return lines;
+    }
+
+    /// <summary>Emerald's "#define TRAINERS_COUNT_EMERALD 855" and "#define MAX_TRAINERS_COUNT_EMERALD 864" (null for other layouts).</summary>
+    internal static (string CountName, int Count, int CountEnd, string MaxName, int Max, int MaxEnd)? DefinedCounts(string text)
+    {
+        var count = Regex.Match(text, @"^#define[ \t]+(TRAINERS_COUNT\w*)[ \t]+(\d+)[^\n]*\n", RegexOptions.Multiline);
+        var max = Regex.Match(text, @"^#define[ \t]+(MAX_TRAINERS_COUNT\w*)[ \t]+(\d+)[^\n]*\n", RegexOptions.Multiline);
+        return count.Success && max.Success
+            ? (count.Groups[1].Value, int.Parse(count.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture), count.Index + count.Length,
+                max.Groups[1].Value, int.Parse(max.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture), max.Index + max.Length)
+            : null;
     }
 
     internal static string Caps(string text, IReadOnlyList<StoryBattle> battles, GameData data)

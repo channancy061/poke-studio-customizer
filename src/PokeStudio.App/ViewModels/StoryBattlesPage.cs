@@ -12,6 +12,18 @@ public sealed record MapChoice(string Map, string Name);
 
 public sealed record LookChoice(string Key, string Name);
 
+/// <summary>A crossover pack the open game can take.</summary>
+public sealed partial class PackRowViewModel(StoryBattlesPageViewModel page, CrossoverPack pack, string needs) : ViewModelBase
+{
+    public CrossoverPack Pack { get; } = pack;
+    public string Title => Pack.Title;
+    public string Description => Pack.Description;
+    public string Needs { get; } = needs;
+
+    [RelayCommand]
+    private Task AddAsync() => page.AddPackAsync(Pack);
+}
+
 /// <summary>One story battle in the list.</summary>
 public sealed partial class StoryRowViewModel(StoryBattlesPageViewModel page, StoryBattle battle, string name, string major) : ViewModelBase
 {
@@ -42,14 +54,78 @@ public sealed partial class StoryBattlesPageViewModel : ViewModelBase
         Maps = module.StoryMaps(Data).Select(m => new MapChoice(m.Map, m.Name)).ToList();
         Looks = module.StoryLooks(Data).Select(l => new LookChoice(l, StoryBattles.LookName(l))).ToList();
         ClassOptions = Data.Catalog.TrainerClasses;
-        PicOptions = Data.Catalog.TrainerPics;
+        PicOptions = [.. Data.Catalog.TrainerPics,
+            .. (Data.Story?.Imports ?? []).Where(i => i.Kind == StoryImport.Pic && Data.Catalog.TrainerPics.All(p => p.Key != i.Key))
+                .Select(i => new CatalogEntry(i.Key, GameCatalog.Prettify(i.Key.Replace("TRAINER_PIC_", "", StringComparison.Ordinal)) + " (imported on save)"))];
         SelectedClass = ClassOptions.FirstOrDefault(c => c.Key.EndsWith("_LEADER", StringComparison.Ordinal)) ?? ClassOptions.FirstOrDefault();
         SelectedLook = Looks.FirstOrDefault(l => l.Key == "OBJ_EVENT_GFX_COOLTRAINER_F") ?? Looks.FirstOrDefault();
         Milestones = Data.Rules?.LevelCaps.Where(c => !c.Milestone.StartsWith("FLAG_PS_BEAT_", StringComparison.Ordinal)).ToList() ?? [];
         SelectedMilestone = Milestones.FirstOrDefault();
         IsMajor = SelectedMilestone is not null;
         Refresh();
+        RefreshPacks();
         shell.DataChanged += (_, _) => Refresh();
+    }
+
+    // ---- crossover packs ----
+    public ObservableCollection<PackRowViewModel> Packs { get; } = [];
+    public bool HasPacks => Packs.Count > 0;
+
+    private void RefreshPacks()
+    {
+        Packs.Clear();
+        var module = _shell.Session.Module;
+        foreach (var pack in CrossoverPacks.All.Where(p => Maps.Any(m => m.Map == p.NeedsMap)))
+        {
+            var (pics, looks) = module.MissingSprites(Data, pack.Pics, pack.Looks);
+            var needs = pics.Count + looks.Count == 0
+                ? $"{pack.Entries.Count} battles. Everything they need is already in your game."
+                : $"{pack.Entries.Count} battles. {pics.Count} battle sprite(s) and {looks.Count} overworld sprite(s) come from your own {pack.SourceProject} folder (you'll be asked for it).";
+            Packs.Add(new PackRowViewModel(this, pack, needs));
+        }
+
+        OnPropertyChanged(nameof(HasPacks));
+    }
+
+    internal async Task AddPackAsync(CrossoverPack pack)
+    {
+        var module = _shell.Session.Module;
+        var (pics, looks) = module.MissingSprites(Data, pack.Pics, pack.Looks);
+        var imports = new List<StoryImport>();
+        if (pics.Count + looks.Count > 0)
+        {
+            var folder = await _shell.Main.Dialogs.PickFolderAsync($"Pick your {pack.SourceProject} folder (the sprites come from it)");
+            if (folder is null)
+            {
+                return;
+            }
+
+            if (module.CheckImportSource(folder, pics, looks) is { } problem)
+            {
+                Message = problem + $" Pick your {pack.SourceProject} folder.";
+                return;
+            }
+
+            imports.AddRange(pics.Select(p => new StoryImport(StoryImport.Pic, p, folder)));
+            imports.AddRange(looks.Select(l => new StoryImport(StoryImport.Look, l, folder)));
+        }
+
+        var data = Data;
+        var limit = module.Limits.TrainerNameLength;
+        var (change, notes, added) = await _shell.RunBusyAsync($"Adding {pack.Title} (building {pack.Entries.Count} teams)…",
+            () => CrossoverPacks.Build(data, pack, map => module.StorySpots(data, map), imports, limit));
+        if (change is null)
+        {
+            Message = notes.Count > 0 ? string.Join(" ", notes) : "Nothing was added.";
+            return;
+        }
+
+        _shell.Execute(change);
+        Refresh();
+        RefreshPacks();
+        Message = notes.Count > 0 ? string.Join(" ", notes) : null;
+        _shell.Toast = $"{pack.Title}: {added} story battles added, with level caps and Champion Lab teams. One Undo takes them all out."
+            + (imports.Count > 0 ? " The sprites are copied in when you save." : "");
     }
 
     private GameData Data => _shell.Session.Data;
