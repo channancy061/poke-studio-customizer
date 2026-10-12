@@ -34,6 +34,9 @@ public sealed class GameCatalog
     /// <summary>Moves taught by TM/HM, in machine order (label like "TM01").</summary>
     public List<(string Label, string Move)> Machines { get; } = [];
 
+    /// <summary>Effects a battle can start with for its whole length (STARTING_STATUS_…, the lasting ones only).</summary>
+    public List<CatalogEntry> StartingStatuses { get; } = [];
+
     private Dictionary<string, string>? _names;
 
     /// <summary>Display name for any key, falling back to a tidied version of the key.</summary>

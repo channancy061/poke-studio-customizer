@@ -145,6 +145,9 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
     public IReadOnlyList<StorySpot> StorySpots(GameData data, string map) =>
         _states.TryGetValue(data, out var state) ? StoryWriter.Spots(state.Layout.Root, map) : [];
 
+    public IReadOnlyCollection<string> GivenTms(GameData data) =>
+        _states.TryGetValue(data, out var state) ? StoryWriter.GivenTms(state.Layout.Root, data.Catalog) : [];
+
     public IReadOnlyList<string> StoryLooks(GameData data) =>
         _states.TryGetValue(data, out var state)
             ? [.. StoryWriter.Looks(state.Layout.Root), .. data.Story is { } s ? PendingImports(state, s, StoryImport.Look).Select(i => i.Key) : []]
@@ -1327,6 +1330,18 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
                 c.AlsoValid.Add($"ITEM_{(label.StartsWith("HM", StringComparison.Ordinal) ? "HM" : "TM")}_{move.Replace("MOVE_", "", StringComparison.Ordinal)}");
             }
         }
+        if (Read("include/constants/battle.h") is { } battleConstants)
+        {
+            // F(STARTING_STATUS_WEATHER_SUN, weatherSun, …): the field name is how trainers.party spells it ("Weather Sun")
+            foreach (Match m in Regex.Matches(battleConstants, @"F\((STARTING_STATUS_\w+),\s*(\w+)"))
+            {
+                if (!m.Groups[1].Value.EndsWith("_TEMPORARY", StringComparison.Ordinal))
+                {
+                    c.StartingStatuses.Add(new CatalogEntry(m.Groups[1].Value, StoryEffects.Label(m.Groups[1].Value), m.Groups[2].Value));
+                }
+            }
+        }
+
         c.EvolutionMethods.AddRange(Catalogs.EvolutionMethods.Select(m => new CatalogEntry(m.Key, m.Name, m.Description)));
         c.EvolutionConditions.AddRange(Catalogs.EvolutionConditions.Select(m => new CatalogEntry(m.Key, m.Name)));
         if (Read("include/constants/battle_move_effects.h") is { } effects)

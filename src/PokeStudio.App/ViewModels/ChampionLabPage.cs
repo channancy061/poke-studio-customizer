@@ -159,6 +159,12 @@ public sealed partial class ChampionLabPageViewModel : ViewModelBase
         _shell.Toast = $"Adaptive slots suggested for {count} bosses. One Undo removes them all.";
     }
 
+    public bool ChampionLegends
+    {
+        get => Settings.ChampionLegends;
+        set => Update(s => s with { ChampionLegends = value }, value ? "Rule on: the Champion has a legendary and a mythical" : "Rule off: the Champion has a legendary and a mythical");
+    }
+
     public bool OfficialOnly
     {
         get => Settings.OfficialOnly;
@@ -258,6 +264,7 @@ public sealed partial class ChampionLabPageViewModel : ViewModelBase
         OnPropertyChanged(nameof(RivalKeepsStarter));
         OnPropertyChanged(nameof(FairPlay));
         OnPropertyChanged(nameof(OfficialOnly));
+        OnPropertyChanged(nameof(ChampionLegends));
         OnPropertyChanged(nameof(UniqueTypeCombos));
     }
 

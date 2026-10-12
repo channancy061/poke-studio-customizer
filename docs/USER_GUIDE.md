@@ -227,7 +227,13 @@ variables. **Remove** takes the trainer, their script and their level cap out ag
 - **Kanto challengers in Hoenn** (Emerald): Brock to Giovanni guard Hoenn's gyms, Lorelei, Bruno, Agatha and Lance
   guard the cable car, the Weather Institute, Mt. Pyre and Sky Pillar, and Blue waits just outside Victory Road.
 
-Every battle is a major battle with its own level cap and a Champion Lab team in the trainer's type. FireRed has no
+Every battle is a major battle with its own level cap and a Champion Lab team in the trainer's type. Each
+challenger fights with a **field effect for the whole battle** that suits their type: Erika's rain weakens Fire moves,
+Flannery's sun (or, in FireRed, a sea of fire on your side) weakens Water, and so on. After the first win they give
+you a **TM of their type**. You can change both for every battle on the page. The Player's Guide tells players about
+the effect and the reward. The Champion always has at least one legendary and one mythical Pokémon (a Champion Lab
+rule you can switch off). FireRed's expansion is older and has no weather effects, so its challengers use terrains,
+hazards and Tailwind instead. FireRed has no
 Hoenn overworld sprites and no sprites for Juan or Champion Wallace, so the app asks for **your own**
 pokeemerald-expansion folder and copies them in when you save. Emerald has room for only 9 more trainers. With 13, the
 space for "beaten" flags grows, so save files made before can't be used with the new version: start a new game to

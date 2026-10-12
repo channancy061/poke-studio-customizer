@@ -220,6 +220,25 @@ internal static partial class StoryWriter
         return seen;
     }
 
+    /// <summary>TMs the scripts give with giveitem (ITEM_TM39 is written ITEM_TM_ROCK_TOMB, like the catalog).</summary>
+    public static IReadOnlyCollection<string> GivenTms(string root, GameCatalog catalog)
+    {
+        var byNumber = catalog.Machines.ToDictionary(m => "ITEM_" + m.Label, m => "ITEM_TM_" + m.Move.Replace("MOVE_", "", StringComparison.Ordinal), StringComparer.Ordinal);
+        var found = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var dir in new[] { Path.Combine(root, "data", "maps"), Path.Combine(root, "data", "scripts") }.Where(Directory.Exists))
+        {
+            foreach (var file in Directory.EnumerateFiles(dir, "*.inc", SearchOption.AllDirectories))
+            {
+                foreach (Match m in Regex.Matches(File.ReadAllText(file), @"\bgiveitem\w*\s+[^\n]*?\b(ITEM_TM\w+)"))
+                {
+                    found.Add(byNumber.GetValueOrDefault(m.Groups[1].Value, m.Groups[1].Value));
+                }
+            }
+        }
+
+        return found;
+    }
+
     /// <summary>The overworld sprites the project has (OBJ_EVENT_GFX_…), people first.</summary>
     public static IReadOnlyList<string> Looks(string root)
     {
@@ -297,10 +316,23 @@ internal static partial class StoryWriter
         {
             var label = ScriptPrefix + b.Id;
             script.Append(nl).Append(label).Append("::").Append(nl)
-                .Append(CultureInfo.InvariantCulture, $"\ttrainerbattle_single {b.TrainerKey}, {label}_Intro, {label}_Defeat").Append(nl)
+                .Append(CultureInfo.InvariantCulture, $"\ttrainerbattle_single {b.TrainerKey}, {label}_Intro, {label}_Defeat{(b.Reward is null ? "" : $", {label}_Won")}").Append(nl)
                 .Append(CultureInfo.InvariantCulture, $"\tmsgbox {label}_After, MSGBOX_AUTOCLOSE").Append(nl)
                 .Append("\tend").Append(nl);
-            foreach (var (suffix, text) in new[] { ("Intro", b.Intro), ("Defeat", b.Defeat), ("After", b.After) })
+            var texts = new List<(string Suffix, string Text)> { ("Intro", b.Intro), ("Defeat", b.Defeat), ("After", b.After) };
+            if (b.Reward is { } reward)
+            {
+                // straight after the first win (later talks only get the "after" line): the reward TM
+                script.Append(nl).Append(label).Append("_Won::").Append(nl)
+                    .Append(CultureInfo.InvariantCulture, $"\tmsgbox {label}_Reward, MSGBOX_DEFAULT").Append(nl)
+                    .Append(CultureInfo.InvariantCulture, $"\tgiveitem {reward}").Append(nl)
+                    .Append(CultureInfo.InvariantCulture, $"\tmsgbox {label}_After, MSGBOX_DEFAULT").Append(nl)
+                    .Append("\trelease").Append(nl)
+                    .Append("\tend").Append(nl);
+                texts.Add(("Reward", "You've earned this.\\nTake it with you."));
+            }
+
+            foreach (var (suffix, text) in texts)
             {
                 script.Append(nl).Append(label).Append('_').Append(suffix).Append(':').Append(nl)
                     .Append(TextScripts.Format(text.Length == 0 ? "…" : text, "\t", true, nl)).Append(nl);

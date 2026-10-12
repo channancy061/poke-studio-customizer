@@ -189,6 +189,9 @@ public interface IGameModule
     /// <summary>Where a story battle can go on a map: one spot per entrance.</summary>
     IReadOnlyList<Story.StorySpot> StorySpots(GameData data, string map) => [];
 
+    /// <summary>TMs the game's own scripts already give (ITEM_TM_…), so rewards don't repeat them.</summary>
+    IReadOnlyCollection<string> GivenTms(GameData data) => [];
+
     /// <summary>The overworld sprites a story trainer can use.</summary>
     IReadOnlyList<string> StoryLooks(GameData data) => [];
 

@@ -23,6 +23,21 @@ public class CrossoverTests
         Assert.Equal(text, StoryWriter.Opponent(thirteen, []));
     }
 
+    [Fact]
+    public void Starting_status_is_written_the_way_trainerproc_reads_it_and_reads_back()
+    {
+        var c = new Models.GameCatalog();
+        c.StartingStatuses.Add(new Models.CatalogEntry("STARTING_STATUS_WEATHER_SUN", "Harsh sun", "weatherSun"));
+        c.StartingStatuses.Add(new Models.CatalogEntry("STARTING_STATUS_SPIKES_PLAYER_L1", "Spikes", "spikesPlayerL1"));
+        var t = new Models.Trainer { Id = 1, Key = "TRAINER_PS_FLANNERY", Name = "FLANNERY", Pic = "TRAINER_PIC_LEADER_FLANNERY",
+            StartingStatus = ["STARTING_STATUS_WEATHER_SUN", "STARTING_STATUS_SPIKES_PLAYER_L1"],
+            Party = [new Models.TrainerPokemon { Species = "SPECIES_TORKOAL", Level = 28 }] };
+        var text = TrainerParty.FormatTrainer(t, c, new Dictionary<string, string>(), "\n");
+        Assert.Contains("Starting Status: Weather Sun / Spikes Player L1\n", text, StringComparison.Ordinal);
+        var (_, back) = TrainerParty.Parse(text, TrainerParty.SpeciesConstant).Single();
+        Assert.Equal(t.StartingStatus, back.StartingStatus);
+    }
+
     private static string? Dir(string name) => Environment.GetEnvironmentVariable(name) is { Length: > 0 } d && Directory.Exists(d) ? d : null;
 
     [Fact]
@@ -101,6 +116,25 @@ public class CrossoverTests
         Assert.All(data.Story.Battles, b => Assert.NotEmpty(data.Trainers.Single(t => t.Key == b.TrainerKey).Party));
         Assert.All(data.Trainers.Where(t => t.Key.StartsWith(StoryBattles.TrainerPrefix, StringComparison.Ordinal)), t => Assert.True(t.Name.Length <= module.Limits.TrainerNameLength, t.Name));
         Assert.DoesNotContain(module.Validate(data), i => i.Severity == Validation.IssueSeverity.Error);
+
+        // the challengers fight on their own terms and give a TM of their type, never the same one twice
+        var trainers = data.Story.Battles.Select(b => (Battle: b, Trainer: data.Trainers.Single(t => t.Key == b.TrainerKey))).ToList();
+        Assert.True(trainers.Count(x => x.Trainer.StartingStatus.Count > 0) >= 10, "most challengers get a field effect");
+        Assert.All(trainers.SelectMany(x => x.Trainer.StartingStatus), s => Assert.Contains(data.Catalog.StartingStatuses, c => c.Key == s));
+        var rewards = trainers.Select(x => x.Battle.Reward).OfType<string>().ToList();
+        Assert.Equal(pack.Entries.Count(e => e.Role != PackRole.Champion), rewards.Count);
+        Assert.Equal(rewards.Count, rewards.Distinct().Count());
+
+        // the Champion is above everyone: at least one legendary and one mythical
+        var champion = trainers.Single(x => pack.Entries.Single(e => e.Role == PackRole.Champion).Name.Equals(x.Trainer.Name, StringComparison.OrdinalIgnoreCase)).Trainer;
+        var tags = champion.Party.Select(p => data.Species.Single(s => s.Key == p.Species).Tags).ToList();
+        Assert.Contains(tags, t => (t & (Models.SpeciesTags.RestrictedLegendary | Models.SpeciesTags.SubLegendary)) != 0);
+        Assert.Contains(tags, t => t.HasFlag(Models.SpeciesTags.Mythical));
+
+        // and the Player's Guide warns about the effect and says what winning gives
+        var guide = Guide.PlayersGuide.ToMarkdown(Guide.PlayersGuide.Build(data, data.Lab!, module.TrainerPlaces(data), new Guide.GuideOptions { Title = "T" }));
+        Assert.Contains("The whole battle is fought with:", guide, StringComparison.Ordinal);
+        Assert.Contains("Win to get the", guide, StringComparison.Ordinal);
 
         change.Revert();
         Assert.True(data.Story is null || data.Story.Battles.Count == 0);

@@ -50,6 +50,9 @@ public sealed record StoryBattle
     /// </summary>
     public string? Before { get; init; }
 
+    /// <summary>An item the player gets after the first win (a TM of the trainer's type), or null.</summary>
+    public string? Reward { get; init; }
+
     /// <summary>The name used for the battle's flag and script labels, e.g. "ROXANNE".</summary>
     public string Id => StoryBattles.IdOf(TrainerKey);
 

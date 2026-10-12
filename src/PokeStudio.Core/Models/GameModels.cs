@@ -267,6 +267,9 @@ public sealed record Trainer
     /// <summary>Enemy AI flags, e.g. AI_FLAG_BASIC_TRAINER.</summary>
     public IReadOnlyList<string> AiFlags { get; init; } = [];
 
+    /// <summary>Effects on the field for the whole battle (STARTING_STATUS_WEATHER_RAIN, …); expansion projects only.</summary>
+    public IReadOnlyList<string> StartingStatus { get; init; } = [];
+
     public IReadOnlyList<TrainerPokemon> Party { get; init; } = [];
 
     /// <summary>

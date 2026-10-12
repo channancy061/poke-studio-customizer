@@ -132,7 +132,11 @@ public static class PlayersGuide
                 var kind = first.Battle == BattleType.Double ? "Double battle. " : "";
                 var theme = lab.Themes.TryGetValue(Lab.BaseKey(first), out var th) ? $"Type: {TypeName(th.Type)}. " : "";
                 var variants = fight.Count > 1 ? $"Their team depends on the starter you picked: they take the one that's strong against yours ({fight.Count} versions below). " : "";
-                blocks.Add(new GuideText($"{Lab.Label(group)}. {where}{kind}{theme}{variants}".Trim()));
+                // story battles: the field effect that lasts the whole fight, and what winning gives
+                var field = first.StartingStatus.Count > 0 ? $"The whole battle is fought with: {string.Join(", ", first.StartingStatus.Select(Story.StoryEffects.Label))}. " : "";
+                var reward = data.Story?.Battles.FirstOrDefault(b => b.TrainerKey == Lab.BaseKey(first))?.Reward is { } item
+                    ? $"Win to get the {Name(item.Replace("ITEM_TM_", "MOVE_", StringComparison.Ordinal))} TM. " : "";
+                blocks.Add(new GuideText($"{Lab.Label(group)}. {where}{kind}{theme}{field}{reward}{variants}".Trim()));
                 foreach (var (t, _) in fight)
                 {
                     if (fight.Count > 1)

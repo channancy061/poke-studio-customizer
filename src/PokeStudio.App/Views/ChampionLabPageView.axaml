@@ -69,6 +69,7 @@
               <Button Classes="secondary sm" Content="Suggest adaptive slots for all bosses" Command="{Binding SuggestAdaptiveSlotsCommand}" />
               <TextBlock Text="Gym leaders, rival and Elite Four with 3+ Pokémon (never the Champion; a rival's starter always stays) get 3 candidates each." Classes="small muted" VerticalAlignment="Center" />
             </StackPanel>
+            <ToggleSwitch IsChecked="{Binding ChampionLegends}" Content="The Champion has at least one legendary and one mythical (they're above everyone before them)" />
             <ToggleSwitch IsChecked="{Binding OfficialOnly}" Content="Official Pokémon only: suggested teams use main-series Pokémon (National Dex 1–1025, no novelty forms)" />
             <ToggleSwitch IsChecked="{Binding FairPlay}" Content="Fair play: bosses only use as many legendaries as the player could own by then" />
             <ToggleSwitch IsChecked="{Binding UniqueTypeCombos}" Content="Themed teams use varied second types (no two Water/Ground Pokémon)" />

@@ -76,6 +76,41 @@ public static class TeamBuilder
             }
         }
 
+        // the Champion is above everyone before them: at least one legendary and one mythical, the strongest that fit
+        // (their own type first), with the limits raised just enough for them
+        if (group == TrainerGroup.Champion && lab.ChampionLegends)
+        {
+            foreach (var (tags, label) in new[] { (SpeciesTags.RestrictedLegendary | SpeciesTags.SubLegendary, "legendary"), (SpeciesTags.Mythical, "mythical") })
+            {
+                if (picked.Count >= size || picked.Any(p => (p.Tags & tags) != 0))
+                {
+                    continue;
+                }
+
+                var best = pool.Where(s => (s.Tags & tags) != 0 && picked.All(p => p.Key != s.Key))
+                    .OrderByDescending(s => theme is not null && s.Types.Contains(theme.Type))
+                    .ThenByDescending(s => Score(s, picked, threats))
+                    .FirstOrDefault();
+                if (best is null)
+                {
+                    notes.Add($"No {label} Pokémon is available at level {level} for the Champion (check the story locks).");
+                    continue;
+                }
+
+                picked.Add(best);
+                rules = rules with
+                {
+                    MaxRestricted = Raise(rules.MaxRestricted, best.Tags.HasFlag(SpeciesTags.RestrictedLegendary)),
+                    MaxSubLegendary = Raise(rules.MaxSubLegendary, best.Tags.HasFlag(SpeciesTags.SubLegendary)),
+                    MaxMythical = Raise(rules.MaxMythical, best.Tags.HasFlag(SpeciesTags.Mythical)),
+                    RestrictedOrSub = false,
+                };
+                notes.Add($"{best.DisplayName} is the Champion's {label}.");
+            }
+
+            static int Raise(int max, bool needed) => !needed || max < 0 ? max : Math.Max(max, 1);
+        }
+
         while (picked.Count < size)
         {
             var offTypeLeft = theme is null ? int.MaxValue : theme.OffTypeAllowed - picked.Count(p => !p.Types.Contains(theme.Type));

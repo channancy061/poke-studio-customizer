@@ -64,6 +64,9 @@ public sealed record LabSettings
     public bool FairPlay { get; init; } = true;
     public bool UniqueTypeCombos { get; init; } = true;
 
+    /// <summary>The Champion's team has at least one legendary and one mythical: they're above everyone before them.</summary>
+    public bool ChampionLegends { get; init; } = true;
+
     public GroupRules RulesFor(TrainerGroup group, Difficulty difficulty) =>
         Rules.FirstOrDefault(r => r.Group == group && r.Difficulty == difficulty)
         ?? Rules.FirstOrDefault(r => r.Group == group && r.Difficulty == Difficulty.Normal)

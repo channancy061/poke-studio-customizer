@@ -50,6 +50,16 @@
                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
                     <TextBlock Text="{Binding Where}" Classes="small muted" TextWrapping="Wrap" />
                     <TextBlock Text="{Binding Major}" Classes="caption muted" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                      <ComboBox ItemsSource="{Binding EffectOptions}" SelectedItem="{Binding Effect}" Width="300" AutomationProperties.Name="Field effect for the whole battle"
+                                ToolTip.Tip="Lasts the whole battle">
+                        <ComboBox.ItemTemplate><DataTemplate x:DataType="m:CatalogEntry"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
+                      </ComboBox>
+                      <ComboBox ItemsSource="{Binding RewardOptions}" SelectedItem="{Binding Reward}" Width="220" AutomationProperties.Name="Reward after the first win"
+                                ToolTip.Tip="Given after the first win">
+                        <ComboBox.ItemTemplate><DataTemplate x:DataType="m:CatalogEntry"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
+                      </ComboBox>
+                    </StackPanel>
                   </StackPanel>
                   <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                     <Button Classes="ghost sm" Content="Edit team" Command="{Binding EditTeamCommand}" />
@@ -106,6 +116,19 @@
               </ComboBox>
             </StackPanel>
           </StackPanel>
+
+          <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="10">
+            <TextBlock Text="Field effect" VerticalAlignment="Center" />
+            <ComboBox Grid.Column="1" ItemsSource="{Binding EffectOptions}" SelectedItem="{Binding SelectedEffect}" HorizontalAlignment="Stretch" AutomationProperties.Name="Field effect for the whole battle"
+                      ToolTip.Tip="Lasts the whole battle, e.g. harsh sun for a Fire trainer so Water moves are weaker">
+              <ComboBox.ItemTemplate><DataTemplate x:DataType="m:CatalogEntry"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Grid.Row="1" Text="Reward" VerticalAlignment="Center" />
+            <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding RewardOptions}" SelectedItem="{Binding SelectedReward}" HorizontalAlignment="Stretch" AutomationProperties.Name="Reward after the first win"
+                      ToolTip.Tip="A TM the player gets after the first win">
+              <ComboBox.ItemTemplate><DataTemplate x:DataType="m:CatalogEntry"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox>
+          </Grid>
 
           <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Text="Pokémon in the team" VerticalAlignment="Center" />

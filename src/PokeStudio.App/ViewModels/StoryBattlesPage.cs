@@ -24,13 +24,39 @@ public sealed partial class PackRowViewModel(StoryBattlesPageViewModel page, Cro
     private Task AddAsync() => page.AddPackAsync(Pack);
 }
 
-/// <summary>One story battle in the list.</summary>
-public sealed partial class StoryRowViewModel(StoryBattlesPageViewModel page, StoryBattle battle, string name, string major) : ViewModelBase
+/// <summary>One story battle in the list: its field effect and reward can be changed right here.</summary>
+public sealed partial class StoryRowViewModel(StoryBattlesPageViewModel page, StoryBattle battle, string name, string major, string? effect) : ViewModelBase
 {
     public StoryBattle Battle { get; } = battle;
     public string Name { get; } = name;
     public string Where => $"{StoryBattles.PlaceName(Battle.Map)} · in front of {Battle.Entrance}";
     public string Major { get; } = major;
+    public IReadOnlyList<CatalogEntry> EffectOptions => page.EffectOptions;
+    public IReadOnlyList<CatalogEntry> RewardOptions => page.RewardOptions;
+
+    public CatalogEntry? Effect
+    {
+        get => page.EffectOptions.FirstOrDefault(o => o.Key == (effect ?? ""));
+        set
+        {
+            if (value is not null && value.Key != (effect ?? ""))
+            {
+                page.SetEffect(Battle.TrainerKey, value.Key);
+            }
+        }
+    }
+
+    public CatalogEntry? Reward
+    {
+        get => page.RewardOptions.FirstOrDefault(o => o.Key == (Battle.Reward ?? ""));
+        set
+        {
+            if (value is not null && value.Key != (Battle.Reward ?? ""))
+            {
+                page.SetReward(Battle.TrainerKey, value.Key);
+            }
+        }
+    }
 
     [RelayCommand]
     private void EditTeam() => page.EditTeam(Battle.TrainerKey);
@@ -58,6 +84,11 @@ public sealed partial class StoryBattlesPageViewModel : ViewModelBase
             .. (Data.Story?.Imports ?? []).Where(i => i.Kind == StoryImport.Pic && Data.Catalog.TrainerPics.All(p => p.Key != i.Key))
                 .Select(i => new CatalogEntry(i.Key, GameCatalog.Prettify(i.Key.Replace("TRAINER_PIC_", "", StringComparison.Ordinal)) + " (imported on save)"))];
         SelectedClass = ClassOptions.FirstOrDefault(c => c.Key.EndsWith("_LEADER", StringComparison.Ordinal)) ?? ClassOptions.FirstOrDefault();
+        EffectOptions = [new CatalogEntry("", "None"), .. Data.Catalog.StartingStatuses];
+        RewardOptions = [new CatalogEntry("", "None"), .. Data.Catalog.Machines.Where(m => m.Label.StartsWith("TM", StringComparison.Ordinal))
+            .Select(m => new CatalogEntry("ITEM_TM_" + m.Move.Replace("MOVE_", "", StringComparison.Ordinal), $"{m.Label} {Data.Catalog.NameOf(m.Move)}"))];
+        SelectedEffect = EffectOptions[0];
+        SelectedReward = RewardOptions[0];
         SelectedLook = Looks.FirstOrDefault(l => l.Key == "OBJ_EVENT_GFX_COOLTRAINER_F") ?? Looks.FirstOrDefault();
         Milestones = Data.Rules?.LevelCaps.Where(c => !c.Milestone.StartsWith("FLAG_PS_BEAT_", StringComparison.Ordinal)).ToList() ?? [];
         SelectedMilestone = Milestones.FirstOrDefault();
@@ -113,7 +144,7 @@ public sealed partial class StoryBattlesPageViewModel : ViewModelBase
         var data = Data;
         var limit = module.Limits.TrainerNameLength;
         var (change, notes, added) = await _shell.RunBusyAsync($"Adding {pack.Title} (building {pack.Entries.Count} teams)…",
-            () => CrossoverPacks.Build(data, pack, map => module.StorySpots(data, map), imports, limit));
+            () => CrossoverPacks.Build(data, pack, map => module.StorySpots(data, map), imports, limit, module.GivenTms(data)));
         if (change is null)
         {
             Message = notes.Count > 0 ? string.Join(" ", notes) : "Nothing was added.";
@@ -139,6 +170,45 @@ public sealed partial class StoryBattlesPageViewModel : ViewModelBase
     public IReadOnlyList<LevelCap> Milestones { get; }
     public bool HasMilestones => Milestones.Count > 0;
     public IReadOnlyList<int> TeamSizes { get; } = [1, 2, 3, 4, 5, 6];
+
+    /// <summary>Lasting field effects this game has ("None" first) and TMs to give as a reward ("None" first).</summary>
+    public IReadOnlyList<CatalogEntry> EffectOptions { get; }
+    public IReadOnlyList<CatalogEntry> RewardOptions { get; }
+    public bool HasEffects => EffectOptions.Count > 1;
+
+    [ObservableProperty]
+    public partial CatalogEntry? SelectedEffect { get; set; }
+
+    [ObservableProperty]
+    public partial CatalogEntry? SelectedReward { get; set; }
+
+    internal void SetEffect(string trainerKey, string effect)
+    {
+        var i = Data.Trainers.FindIndex(t => t.Key == trainerKey);
+        if (i < 0)
+        {
+            return;
+        }
+
+        var before = Data.Trainers[i];
+        var label = effect.Length == 0 ? "no field effect" : StoryEffects.Label(effect);
+        _shell.Execute(new Core.Changes.ValueChange<Trainer>("Story battles", $"{GameCatalog.Prettify(before.Name)}: {label}",
+            v => Data.Trainers[Data.Trainers.FindIndex(t => t.Key == trainerKey)] = v, before, before with { StartingStatus = effect.Length == 0 ? [] : [effect] }));
+        Refresh();
+    }
+
+    internal void SetReward(string trainerKey, string reward)
+    {
+        if (Data.Story is not { } story)
+        {
+            return;
+        }
+
+        var after = story with { Battles = story.Battles.Select(b => b.TrainerKey == trainerKey ? b with { Reward = reward.Length == 0 ? null : reward } : b).ToList() };
+        _shell.Execute(new Core.Changes.ValueChange<StorySettings?>("Story battles", reward.Length == 0 ? "No reward" : $"Reward: {Data.Catalog.NameOf(reward.Replace("ITEM_TM_", "MOVE_", StringComparison.Ordinal))} TM",
+            v => Data.Story = v, story, after));
+        Refresh();
+    }
 
     [ObservableProperty]
     public partial string NewName { get; set; } = "";
@@ -225,7 +295,8 @@ public sealed partial class StoryBattlesPageViewModel : ViewModelBase
             var before = b.Before is null ? null : Data.Rules?.LevelCaps.FirstOrDefault(c => c.Milestone == b.Before);
             var cap = Data.Rules?.LevelCaps.FirstOrDefault(c => c.Milestone == b.BeatFlag);
             var major = before is null ? "Ordinary battle" : $"Major battle before {before.Label}" + (cap is null ? "" : $" · level cap {cap.Level}");
-            Battles.Add(new StoryRowViewModel(this, b, GameCatalog.Prettify(name), major));
+            var effect = Data.Trainers.FirstOrDefault(t => t.Key == b.TrainerKey)?.StartingStatus.FirstOrDefault();
+            Battles.Add(new StoryRowViewModel(this, b, GameCatalog.Prettify(name), major, effect));
         }
 
         OnPropertyChanged(nameof(HasBattles));
@@ -270,6 +341,7 @@ public sealed partial class StoryBattlesPageViewModel : ViewModelBase
             Gender = female ? "Female" : "Male",
             Music = sameClass?.Music ?? "",
             AiFlags = sameClass?.AiFlags ?? [],
+            StartingStatus = SelectedEffect is { Key.Length: > 0 } effect ? [effect.Key] : [],
         };
         var lab = Data.Lab ?? new LabSettings();
         var (data, draft, options) = (Data, trainer, new TeamBuilder.Options(Difficulty.Normal, TeamSize, level));
@@ -306,6 +378,7 @@ public sealed partial class StoryBattlesPageViewModel : ViewModelBase
             Defeat = Defeat.Trim().Length > 0 ? Defeat.Trim() : StoryBattles.DefaultDefeat(name),
             After = After.Trim().Length > 0 ? After.Trim() : StoryBattles.DefaultAfter(name),
             Before = IsMajor ? SelectedMilestone?.Milestone : null,
+            Reward = SelectedReward is { Key.Length: > 0 } reward ? reward.Key : null,
         };
         _shell.Execute(StoryBattles.Add(Data, battle, trainer, level));
         Refresh();

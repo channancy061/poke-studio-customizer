@@ -114,8 +114,14 @@ public static class CrossoverPacks
     /// </summary>
     /// <param name="spots">The spots of a map (from the game module).</param>
     /// <param name="imports">Sprites this game lacks and the source project to take them from.</param>
-    public static (IChange? Change, List<string> Notes, int Added) Build(GameData data, CrossoverPack pack, Func<string, IReadOnlyList<StorySpot>> spots, IReadOnlyList<StoryImport> imports, int nameLimit = 10)
+    public static (IChange? Change, List<string> Notes, int Added) Build(GameData data, CrossoverPack pack, Func<string, IReadOnlyList<StorySpot>> spots, IReadOnlyList<StoryImport> imports, int nameLimit = 10, IReadOnlyCollection<string>? givenTms = null)
     {
+        var rewarded = new HashSet<string>(givenTms ?? [], StringComparer.Ordinal);
+        foreach (var r in data.Story?.Battles.Select(b => b.Reward).OfType<string>() ?? [])
+        {
+            rewarded.Add(r);
+        }
+
         var notes = new List<string>();
         var parts = new List<IChange>();
         void Do(IChange change)
@@ -184,6 +190,9 @@ public static class CrossoverPacks
                     Music = sameClass?.Music ?? "",
                     AiFlags = sameClass?.AiFlags ?? [],
                     Battle = e.Double ? BattleType.Double : BattleType.Single,
+
+                    // the whole battle on their terms: a lasting effect of their type (Flannery's sun, Juan's rain…)
+                    StartingStatus = e.Type.Length > 0 && StoryEffects.ForType(data, e.Type) is { } effect ? [effect] : [],
                 };
 
                 // Champion Lab team in the trainer's type (the Champion has no single type)
@@ -225,7 +234,18 @@ public static class CrossoverPacks
                     Defeat = StoryBattles.DefaultDefeat(e.Name),
                     After = StoryBattles.DefaultAfter(e.Name),
                     Before = before,
+
+                    // a TM of their type for the player, like a gym leader gives
+                    // (old games have few TMs per type: when the gyms already give them all, one of theirs, never another challenger's)
+                    Reward = e.Type.Length > 0 && e.Role != PackRole.Champion
+                        ? StoryEffects.RewardFor(data, e.Type, level, rewarded) ?? StoryEffects.RewardFor(data, e.Type, level, rewarded.Except(givenTms ?? []))
+                        : null,
                 };
+                if (battle.Reward is { } reward)
+                {
+                    rewarded.Add(reward);
+                }
+
                 Do(StoryBattles.Add(data, battle, trainer, level));
                 added++;
             }

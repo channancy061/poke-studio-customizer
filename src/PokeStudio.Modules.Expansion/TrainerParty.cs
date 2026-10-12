@@ -208,6 +208,7 @@ internal static partial class TrainerParty
             Items = SplitList(V("Items")).Select(x => ToConstant("ITEM", x)).ToList(),
             Battle = battle,
             AiFlags = SplitList(V("AI")).Select(x => ToConstant("AI_FLAG", x)).ToList(),
+            StartingStatus = SplitList(V("Starting Status")).Select(x => ToConstant("STARTING_STATUS", x)).ToList(),
             Party = mons,
             FlexIndex = flexIndex,
             FlexCandidates = candidates,
@@ -422,6 +423,16 @@ internal static partial class TrainerParty
     }
 
     /// <summary>The friendly name when it converts back to the same constant, otherwise the constant itself.</summary>
+    /// <summary>A starting status as trainers.party writes it: its field name in words (weatherSun → "Weather Sun").</summary>
+    private static string StatusWords(string constant, GameCatalog catalog)
+    {
+        var field = catalog.StartingStatuses.FirstOrDefault(s => s.Key == constant)?.Description;
+        return field is null
+            ? GameCatalog.Prettify(constant.Replace("STARTING_STATUS_", "", StringComparison.Ordinal))
+            : string.Concat(System.Text.RegularExpressions.Regex.Split(field, "(?<=[a-z0-9])(?=[A-Z])|(?<=[a-z])(?=[0-9])")
+                .Select(w => char.ToUpperInvariant(w[0]) + w[1..]).Select((w, i) => i == 0 ? w : " " + w));
+    }
+
     private static string Token(string prefix, string constant, GameCatalog catalog)
     {
         var name = catalog.NameOf(constant);
@@ -581,6 +592,11 @@ internal static partial class TrainerParty
             Set("AI", string.Join(" / ", after.AiFlags.Select(f => Token("AI_FLAG", f, c))));
         }
 
+        if (!before.StartingStatus.SequenceEqual(after.StartingStatus))
+        {
+            Set("Starting Status", string.Join(" / ", after.StartingStatus.Select(s => StatusWords(s, c))));
+        }
+
         // adaptive slot: a pool with our pick function (party size = the team; candidates after it)
         if (before.HasAdaptiveSlot != after.HasAdaptiveSlot || (after.HasAdaptiveSlot && before.Party.Count != after.Party.Count))
         {
@@ -632,6 +648,11 @@ internal static partial class TrainerParty
         if (t.AiFlags.Count > 0)
         {
             Line("AI", string.Join(" / ", t.AiFlags.Select(f => Token("AI_FLAG", f, c))));
+        }
+
+        if (t.StartingStatus.Count > 0)
+        {
+            Line("Starting Status", string.Join(" / ", t.StartingStatus.Select(s => StatusWords(s, c))));
         }
 
         if (difficulty is not null)
