@@ -24,7 +24,37 @@ internal static partial class GameOptionsWriter
     public const string Mark = "Poke Studio";
 
     public static IReadOnlyList<string> Files(ExpansionLayout layout) =>
-        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. CenterPlacement.CenterMaps(layout.Root)];
+        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root)];
+
+    /// <summary>The scripts the game runs after blacking out (Pokémon Center, or home before any Center).</summary>
+    public static IReadOnlyList<string> WhiteOutFiles { get; } = ["data/event_scripts.s", "data/scripts/white_out.inc", "data/scripts/pkmn_center_nurse_frlg.inc"];
+
+    private static readonly string[] WhiteOutLabels = ["EventScript_AfterWhiteOutHeal", "EventScript_AfterWhiteOutHeal_Frlg", "EventScript_AfterWhiteOutMomHeal"];
+
+    /// <summary>Whether blacking out is handled by the Nuzlocke code (the "fainted are gone" rule exists).</summary>
+    private static bool WipeHandled(GameOptionsSettings o) => CodeUsed(o) && o.NuzRuleUsed(o.NuzFaintedGone);
+
+    /// <summary>A whiteout script that goes to our handler first in a Nuzlocke (or, with handled false, as it was).</summary>
+    internal static string WhiteOutScript(string text, bool handled)
+    {
+        var clean = Regex.Replace(text, $@"^[^\n]*@ {Mark}: Nuzlocke wipe[^\n]*\r?\n", "", RegexOptions.Multiline);
+        if (!handled)
+        {
+            return clean;
+        }
+
+        var nl = CScanner.LineEnding(clean);
+        foreach (var label in WhiteOutLabels)
+        {
+            var at = Regex.Match(clean, $@"^{label}::[^\n]*\n", RegexOptions.Multiline);
+            if (at.Success)
+            {
+                clean = clean.Insert(at.Index + at.Length, $"\tgoto_if_set FLAG_PS_NUZ_FAINT, PokeStudio_EventScript_NuzWipe @ {Mark}: Nuzlocke wipe{nl}");
+            }
+        }
+
+        return clean;
+    }
 
     /// <summary>The map a new game starts on (Emerald: the truck; FireRed: the player's room).</summary>
     public static string StartMapScripts(ExpansionLayout layout) =>
@@ -186,6 +216,15 @@ internal static partial class GameOptionsWriter
         {
             var nl = CScanner.LineEnding(events);
             Put(EventScripts, events, events.TrimEnd('\r', '\n') + nl + nl + $"\t.include \"{Script}\" @ {Mark}" + nl);
+        }
+
+        // after blacking out in a Nuzlocke: the wipe handler first (the run goes on from the PC, or it's over)
+        foreach (var file in WhiteOutFiles)
+        {
+            if ((result.TryGetValue(file, out var planned) ? planned : read(file)) is { } whiteOut) // event_scripts.s also gets the include above
+            {
+                Put(file, whiteOut, WhiteOutScript(whiteOut, WipeHandled(o)));
+            }
         }
 
         // 4. the start map runs the options once (when VAR_PS_OPTIONS_STATE is still 0)
@@ -544,6 +583,16 @@ internal static partial class GameOptionsWriter
 
             Rule(o.NuzFirstEncounter, "NuzFirst", "Catch only the first\\nPokémon in each area?", "\tsetflag FLAG_PS_NUZ_FIRST\n");
             Rule(o.NuzFaintedGone, "NuzFaint", "Fainted Pokémon are\\ngone for good?", "\tsetflag FLAG_PS_NUZ_FAINT\n");
+            if (o.NuzRuleUsed(o.NuzFaintedGone))
+            {
+                // the whole team fainted: go on with healthy Pokémon from the PC, or the run is over
+                L("\tgoto_if_unset FLAG_PS_NUZ_FAINT, PokeStudio_EventScript_NuzWipeAsked");
+                L("\tmsgbox PokeStudio_Text_AskNuzWipe, MSGBOX_YESNO");
+                L("\tcall_if_eq VAR_RESULT, NO, PokeStudio_EventScript_NuzWipeEnds");
+                L("PokeStudio_EventScript_NuzWipeAsked:");
+                Text("PokeStudio_Text_AskNuzWipe", "If your whole team faints,\\ngo on with PC Pokémon?\\pNo: the run is over then.");
+                subs.Append("PokeStudio_EventScript_NuzWipeEnds::\n\tsetflag FLAG_PS_NUZ_WIPE_ENDS\n\treturn\n\n");
+            }
             if (o.NuzFirstEncounter != OptionMode.NotUsed && o.NuzFirstEncounter != OptionMode.AlwaysOff)
             {
                 L("\tgoto_if_unset FLAG_PS_NUZ_FIRST, PokeStudio_EventScript_NuzlockeClausesDone");
@@ -594,6 +643,27 @@ internal static partial class GameOptionsWriter
         if (o.CenterHelper.AnyService)
         {
             CenterHelperScript(o.CenterHelper, fireRed, L, Text);
+        }
+
+        if (WipeHandled(o))
+        {
+            // after blacking out (see WhiteOutScripts): fainted Pokémon can't be healed
+            L("PokeStudio_EventScript_NuzWipe::");
+            L("\tlockall");
+            L("\tcallnative PokeStudio_NuzAfterWipe");
+            L("\tgoto_if_eq VAR_RESULT, FALSE, PokeStudio_EventScript_NuzRunOver");
+            L("\tmsgbox PokeStudio_Text_NuzWipe, MSGBOX_DEFAULT");
+            L("\tfadedefaultbgm");
+            L("\treleaseall");
+            L("\tend");
+            L("PokeStudio_EventScript_NuzRunOver::");
+            L("\tmsgbox PokeStudio_Text_NuzRunOver, MSGBOX_DEFAULT");
+            L("\tfadedefaultbgm");
+            L("\treleaseall");
+            L("\tend");
+            L("");
+            Text("PokeStudio_Text_NuzWipe", "Your whole team fainted.\\nFainted Pokémon can't be healed\\lin a Nuzlocke.\\pTake a healthy Pokémon from\\nthe PC to go on.");
+            Text("PokeStudio_Text_NuzRunOver", "Your whole team fainted.\\nYour Nuzlocke run is over.\\pNo more battles can start in\\nthis save. Start a new game to\\ltry again.");
         }
 
         sb.Append(subs).Append(texts);

@@ -325,6 +325,14 @@ public class GameOptionsCodeTests
         Assert.Contains("no Revival Blessing in a Nuzlocke", battleScripts, StringComparison.Ordinal);
         Assert.Contains("no revives in a Nuzlocke", ReadRel(GameOptionsWriter.Pokemon), StringComparison.Ordinal);
         Assert.Contains("PokeStudio_UpdateCatchFlag();", ReadRel(GameOptionsWriter.ItemUse), StringComparison.Ordinal);
+
+        // a wiped-out Nuzlocke team can't start battles, and blacking out goes to the wipe handler first
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Count(ReadRel(GameOptionsWriter.WildEncounters), @"if \(!PokeStudio_NuzCanBattle\(\)\)"));
+        Assert.Contains("if (!PokeStudio_NuzCanBattle())", ReadRel(GameOptionsWriter.TrainerSee), StringComparison.Ordinal);
+        Assert.Contains(GameOptionsWriter.WhiteOutFiles.Where(f => File.Exists(Path.Combine(root, f))).Select(ReadRel),
+            t => t.Contains("EventScript_AfterWhiteOutHeal::\n\tgoto_if_set FLAG_PS_NUZ_FAINT, PokeStudio_EventScript_NuzWipe", StringComparison.Ordinal));
+        Assert.Contains("PokeStudio_EventScript_NuzWipe::", ReadRel(GameOptionsWriter.Script), StringComparison.Ordinal);
+        Assert.Contains("void PokeStudio_NuzAfterWipe(void)", ReadRel(GameOptionsWriter.CodeFile), StringComparison.Ordinal);
         Assert.Contains("IMPORTANT: read each question.", ReadRel(GameOptionsWriter.Script), StringComparison.Ordinal);
         Assert.Contains("POOL_PICK_POKE_STUDIO_ADAPTIVE", ReadRel(GameOptionsWriter.PoolsHeader), StringComparison.Ordinal);
         Assert.Contains("case POOL_PICK_POKE_STUDIO_ADAPTIVE:", ReadRel(GameOptionsWriter.PoolsSource), StringComparison.Ordinal);

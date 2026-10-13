@@ -37,13 +37,16 @@ internal static partial class GameOptionsWriter
         public bool HasParties { get; init; }
     }
 
-    public static IReadOnlyList<string> CodeFiles => [CodeFile, CodeHeader, BattleSetup, BattleScripts, PoolsSource, PoolsHeader, WildConfig, ItemUse, DataSource, Healing];
+    public static IReadOnlyList<string> CodeFiles => [CodeFile, CodeHeader, BattleSetup, BattleScripts, PoolsSource, PoolsHeader, WildConfig, ItemUse, DataSource, Healing, WildEncounters, TrainerSee];
+
+    public const string WildEncounters = "src/wild_encounter.c";
+    public const string TrainerSee = "src/trainer_see.c";
 
     /// <summary>Where Pokémon Centers, healing NPCs and blacking out heal the party and the PC boxes.</summary>
     public const string Healing = "src/script_pokemon_util.c";
 
     private static readonly string[] CodeFlagNames =
-        ["FLAG_PS_NUZ_FIRST", "FLAG_PS_NUZ_FAINT", "FLAG_PS_NUZ_DUPES", "FLAG_PS_NUZ_EEVEE", "FLAG_PS_NUZ_SHINY", "FLAG_PS_NUZ_NICK", "FLAG_PS_NUZ_STATIC", "FLAG_PS_ADAPTIVE", "FLAG_PS_NO_CATCH"];
+        ["FLAG_PS_NUZ_FIRST", "FLAG_PS_NUZ_FAINT", "FLAG_PS_NUZ_DUPES", "FLAG_PS_NUZ_EEVEE", "FLAG_PS_NUZ_SHINY", "FLAG_PS_NUZ_NICK", "FLAG_PS_NUZ_STATIC", "FLAG_PS_ADAPTIVE", "FLAG_PS_NO_CATCH", "FLAG_PS_NUZ_WIPE_ENDS", "FLAG_PS_NUZ_OVER"];
 
     private static bool CodeUsed(GameOptionsSettings o) => o.NuzlockeUsed || o.AdaptiveSlot != OptionMode.NotUsed || o.CenterHelper.AnyService;
 
@@ -228,6 +231,31 @@ internal static partial class GameOptionsWriter
             }
         }
 
+        // wild_encounter.c and trainer_see.c: no battle starts while a Nuzlocke party has nobody left standing
+        // (after a wipe the fainted team stays fainted; the player has to take a healthy one from the PC first)
+        foreach (var (file, functions) in new[] { (WildEncounters, new[] { "StandardWildEncounter", "SweetScentWildEncounter" }), (TrainerSee, new[] { "CheckForTrainersWantingBattle" }) })
+        {
+            if (read(file) is not { } c || c.Contains("nobody left to battle", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var updated = c;
+            foreach (var name in functions)
+            {
+                var head = Regex.Match(updated, $@"^[\w ]+\b{name}\([^)\n]*\)\r?\n\{{[^\n]*\n", RegexOptions.Multiline);
+                if (head.Success)
+                {
+                    updated = updated.Insert(head.Index + head.Length, $"    if (!PokeStudio_NuzCanBattle()) // {Mark}: Nuzlocke, nobody left to battle{CScanner.LineEnding(c)}        return FALSE;{CScanner.LineEnding(c)}");
+                }
+            }
+
+            if (updated != c)
+            {
+                put(file, c, AddInclude(updated));
+            }
+        }
+
         // pokemon.c: no revive items in a Nuzlocke (Revive, Max Revive, Revival Herb, Sacred Ash all go through here)
         if (read(Pokemon) is { } pokemonC && !pokemonC.Contains("no revives in a Nuzlocke", StringComparison.Ordinal))
         {
@@ -392,7 +420,9 @@ internal static partial class GameOptionsWriter
         }
 
         var nl = CScanner.LineEnding(c);
-        var last = Regex.Matches(c, @"^#include [""<][^\n]*\n", RegexOptions.Multiline).LastOrDefault();
+        // after the includes at the top (some files include data tables further down, after code that needs our header)
+        var firstBody = c.IndexOf("\n{", StringComparison.Ordinal) is var b and >= 0 ? b : c.Length;
+        var last = Regex.Matches(c, @"^#include [""<][^\n]*\n", RegexOptions.Multiline).LastOrDefault(m => m.Index < firstBody);
         return last is null ? c : c.Insert(last.Index + last.Length, $"#include \"poke_studio.h\" // {Mark}{nl}");
     }
 
@@ -445,6 +475,8 @@ internal static partial class GameOptionsWriter
         void PokeStudio_BeforeWildBattle(void);
         void PokeStudio_UpdateCatchFlag(void);
         void PokeStudio_AfterBattle(void);
+        bool32 PokeStudio_NuzCanBattle(void);
+        void PokeStudio_NuzAfterWipe(void);
         u32 PokeStudio_PickNone(const struct Trainer *trainer, u8 *poolIndexArray, u32 partyIndex, u32 monsCount, u32 battleTypeFlags, struct PoolRules *rules);
         u32 PokeStudio_PickAdaptive(const struct Trainer *trainer, u8 *poolIndexArray, u32 partyIndex, u32 monsCount, u32 battleTypeFlags, struct PoolRules *rules);
         void PokeStudio_MaxIvs(void);
@@ -637,6 +669,53 @@ internal static partial class GameOptionsWriter
                     CompactPartySlots();
                     CalculatePlayerPartyCount();
                 }
+            }
+
+            static bool32 IsStandingMon(struct Pokemon *mon)
+            {
+                return IsUsableMon(mon) && GetMonData(mon, MON_DATA_HP) != 0;
+            }
+
+            // Whether a battle may start: in a Nuzlocke, not while nobody in the party can fight, and never once the run is over.
+            bool32 PokeStudio_NuzCanBattle(void)
+            {
+                if (!FlagGet(FLAG_PS_NUZ_FAINT))
+                    return TRUE;
+                if (FlagGet(FLAG_PS_NUZ_OVER))
+                    return FALSE;
+                for (u32 i = 0; i < PARTY_SIZE; i++)
+                {
+                    if (IsStandingMon(&PS_PLAYER_PARTY[i]))
+                        return TRUE;
+                }
+                return FALSE;
+            }
+
+            // After the whole team fainted: VAR_RESULT is TRUE when the run goes on (the player chose so and a healthy
+            // Pokémon is left in the PC); otherwise the run is over.
+            void PokeStudio_NuzAfterWipe(void)
+            {
+                gSpecialVar_Result = FALSE;
+                if (!FlagGet(FLAG_PS_NUZ_WIPE_ENDS) && !FlagGet(FLAG_PS_NUZ_OVER))
+                {
+                    for (u32 box = 0; box < TOTAL_BOXES_COUNT && !gSpecialVar_Result; box++)
+                    {
+                        for (u32 pos = 0; pos < IN_BOX_COUNT; pos++)
+                        {
+                            struct Pokemon mon;
+                            if (GetBoxMonDataAt(box, pos, MON_DATA_SPECIES) == SPECIES_NONE)
+                                continue;
+                            BoxMonToMon(GetBoxedMonPtr(box, pos), &mon);
+                            if (IsStandingMon(&mon))
+                            {
+                                gSpecialVar_Result = TRUE;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (!gSpecialVar_Result)
+                    FlagSet(FLAG_PS_NUZ_OVER);
             }
 
             // Adaptive boss slot: the team stays in order; the flexible member (tag 7) and its candidates compete for one slot.
