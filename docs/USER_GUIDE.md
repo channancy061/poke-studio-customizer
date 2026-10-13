@@ -186,7 +186,10 @@ or **always on/off**:
   released; duplicates clause (whole evolution families, plus an Eevee clause); shiny clause; nicknames required (the
   species name doesn't count); no revives (no revive items or Revival Blessing; Pokémon Centers, healing people and the
   PC never bring a fainted Pokémon back); respect the level cap; static encounters count (legendaries and Pokémon you
-  walk up to use the area's first encounter too: players who say yes are warned and asked again).
+  walk up to use the area's first encounter too: players who say yes are warned and asked again). With the
+  fainted-Pokémon rule, the player also chooses what a **whole-team wipe** means. Either they go on with healthy
+  Pokémon from the PC, or the run is over. After blacking out, the Pokémon Center explains which one applies. No wild
+  or trainer battle starts while nobody in the party can fight, and none starts at all once the run is over.
 - **Hard level cap**, **no EVs / perfect IVs**, **no items in battle**, **Infinite Candy** (a reusable Rare Candy).
 - **Adaptive boss slot:** gym leaders, the rival and the Elite Four (never the Champion) keep one flexible team member,
   chosen at the start of the battle to counter your current team.
