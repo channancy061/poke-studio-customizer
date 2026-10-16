@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using PokeStudio.Core.ChampionLab;
 using PokeStudio.Core.Changes;
 using PokeStudio.Core.Models;
@@ -7,6 +8,12 @@ namespace PokeStudio.Core.Progression;
 
 /// <summary>One wild Pokémon swapped for another in an area (every slot it had, levels kept).</summary>
 public sealed record EncounterSwap(string Method, string From, string To, string Why);
+
+/// <summary>A major battle, its bosses' main types and the wild Pokémon that answer them before it (species, area).</summary>
+public sealed record BattleReadiness(int Index, string Label, IReadOnlyList<string> Bosses, IReadOnlyList<string> MainTypes, IReadOnlyList<(string Species, string Area)> Counters)
+{
+    public bool Ready => Counters.Count >= EncounterPlanner.EnoughCounters;
+}
 
 /// <summary>What the planner would change in one area.</summary>
 public sealed record EncounterPlanRow(IReadOnlyList<string> TableKeys, string Title, string Before, IReadOnlyList<string> Threats, IReadOnlyList<EncounterSwap> Swaps);
@@ -39,36 +46,8 @@ public static class EncounterPlanner
         // a family by its first member's name, so a species' forms (Deerling's seasons, Pumpkaboo's sizes…) count once
         string Family(string key) => species.TryGetValue(Root(key), out var r) ? r.Name.ToUpperInvariant() : Root(key);
 
-        // the bosses of each milestone: each counts once (a rival's versions merge by name), with the types of their team
-        // (the leaders, Elite Four, Champions and story battles weigh most; a rival's team follows the player's starter)
-        var bosses = new List<Dictionary<string, Dictionary<string, double>>>();
-        for (var i = 0; i < caps.Count; i++)
-        {
-            bosses.Add(new Dictionary<string, Dictionary<string, double>>(StringComparer.Ordinal));
-        }
-
-        foreach (var t in data.Trainers.Where(t => !t.Key.Contains('@', StringComparison.Ordinal) && t.Party.Count > 0 && !t.NeverFought
-                     && (Lab.GroupOf(data, lab, t) != TrainerGroup.Regular || t.Key.StartsWith(Story.StoryBattles.TrainerPrefix, StringComparison.Ordinal))))
-        {
-            var m = Lab.MilestoneOf(data, t);
-            if (m < 0)
-            {
-                continue;
-            }
-
-            if (!bosses[m].TryGetValue(t.Name, out var types))
-            {
-                bosses[m][t.Name] = types = new Dictionary<string, double>(StringComparer.Ordinal);
-            }
-
-            var group = Lab.GroupOf(data, lab, t);
-            var weight = group == TrainerGroup.Rival ? 1.0 : 3.0;
-            foreach (var type in t.Party.SelectMany(p => species.TryGetValue(p.Species, out var s) ? s.Types.Distinct() : []))
-            {
-                // a share of the team: a mono-type leader's type weighs its full weight
-                types[type] = Math.Max(types.GetValueOrDefault(type), weight * t.Party.Count(p => species.TryGetValue(p.Species, out var s) && s.Types.Contains(type)) / t.Party.Count);
-            }
-        }
+        var bosses = Bosses(data, lab, species);
+        var next = NextBattles(data);
 
         // candidates: ordinary official Pokémon in their main or regional form, one family each (the stage comes from the level)
         var officialOnly = lab.OfficialOnly && data.Species.Any(s => s.NationalDex is not null);
@@ -86,18 +65,12 @@ public static class EncounterPlanner
         string FormAt(string root, int level) =>
             forms.TryGetValue((root, level), out var f) ? f : forms[(root, level)] = EvolutionPaths.EvolvedForm(data, root, level, 99);
 
-        // a map's tables (FireRed and LeafGreen versions, for example) are planned once; battle facilities aren't areas
-        // (Emerald's project also has FireRed/LeafGreen's areas for its FireRed build: not part of an Emerald game)
-        var hoenn = data.Encounters.Any(t => t.Map == "MAP_ROUTE101");
-        var areas = data.Encounters.Where(t => t.LockedReason is null && t.Map.Length > 0 && t.Methods.Any(m => m.Slots.Count > 0)
-                && !(hoenn && (t.Key.EndsWith("_FireRed", StringComparison.Ordinal) || t.Key.EndsWith("_LeafGreen", StringComparison.Ordinal))))
-            .GroupBy(t => t.Map)
-            .Select(g => (Map: g.Key, Tables: g.ToList(), Level: g.SelectMany(t => t.Methods).SelectMany(m => m.Slots).Max(s => s.MaxLevel)))
-            .OrderBy(a => a.Level).ThenBy(a => a.Map, StringComparer.Ordinal).ToList();
+        // a map's tables (FireRed and LeafGreen versions, for example) are planned once, in playthrough order
+        var areas = Areas(data);
 
         var rows = new List<EncounterPlanRow>();
-        var usedNearby = new Dictionary<int, HashSet<string>>(); // families placed per milestone stretch, for variety
-        foreach (var (map, group, areaLevel) in areas)
+        var usedNearby = new Dictionary<int, HashSet<string>>(); // families placed per stretch before a major battle, for variety
+        foreach (var (map, group, _, position) in areas)
         {
             var table = group.OrderByDescending(t => t.Methods.Sum(m => m.Slots.Count)).First();
             var inArea = group.SelectMany(t => t.Methods).SelectMany(m => m.Slots).Select(s => Family(s.Species)).ToHashSet(StringComparer.Ordinal);
@@ -106,21 +79,11 @@ public static class EncounterPlanner
             var firstThreats = new List<string>();
             foreach (var method in table.Methods.Where(m => m.Slots.Count > 0))
             {
-                // each way of meeting Pokémon has its own levels (a Super Rod finds much stronger ones than the grass)
-                var methodLevel = method.Slots.Max(s => s.MaxLevel);
-                var next = Enumerable.Range(0, caps.Count).FirstOrDefault(i => caps[i].Level >= methodLevel, caps.Count - 1);
-
-                // the types most of the coming bosses use, the very next battle counting double
-                var weights = new Dictionary<string, double>(StringComparer.Ordinal);
-                for (var i = next; i < Math.Min(caps.Count, next + options.Lookahead); i++)
-                {
-                    foreach (var (type, w) in bosses[i].Values.SelectMany(x => x))
-                    {
-                        weights[type] = weights.GetValueOrDefault(type) + (w * (i == next ? 2 : 1));
-                    }
-                }
-
-                var threats = weights.OrderByDescending(w => w.Value).ThenBy(w => w.Key, StringComparer.Ordinal).Select(w => w.Key).Take(4).ToList();
+                // the next major battle in the playthrough (a Super Rod's stronger Pokémon can only lead to a later one)
+                var methodNext = next(map, method.Slots.Max(s => s.MaxLevel), method.Type, 0);
+                var threats = new List<string>();
+                var weights = Threats(bosses, methodNext, options.Lookahead);
+                threats.AddRange(weights.OrderByDescending(w => w.Value).ThenBy(w => w.Key, StringComparer.Ordinal).Select(w => w.Key).Take(4));
                 if (threats.Count == 0)
                 {
                     continue;
@@ -128,12 +91,12 @@ public static class EncounterPlanner
 
                 if (firstNext < 0)
                 {
-                    (firstNext, firstThreats) = (next, threats);
+                    (firstNext, firstThreats) = (methodNext, threats);
                 }
 
-                if (!usedNearby.TryGetValue(next, out var used))
+                if (!usedNearby.TryGetValue(methodNext, out var used))
                 {
-                    usedNearby[next] = used = [];
+                    usedNearby[methodNext] = used = [];
                 }
 
                 var weighed = threats.Select(t => (Type: t, Weight: weights[t])).ToList();
@@ -149,7 +112,7 @@ public static class EncounterPlanner
                     var maxTotal = Math.Max(species.TryGetValue(old, out var o) ? o.Stats.Total : 0, 260 + (7 * level));
                     var pick = roots
                         .Where(r => !inArea.Contains(Family(r)) && !used.Contains(Family(r)) && !starterFamilies.Contains(Family(r))
-                            && !(lab.StoryLocks.TryGetValue(r, out var unlock) && next < unlock))
+                            && !(lab.StoryLocks.TryGetValue(r, out var unlock) && methodNext < unlock))
                         .Select(r => (Root: r, Form: FormAt(r, level)))
                         .Where(x => species.TryGetValue(x.Form, out var s) && habitat(s.Types) && s.Stats.Total <= maxTotal)
                         .Select(x => (x.Root, x.Form, Score: Value(x.Form)))
@@ -176,6 +139,150 @@ public static class EncounterPlanner
         }
 
         return rows;
+    }
+
+    /// <summary>The types most of the coming bosses use (the very next battle counting double), weighed.</summary>
+    private static Dictionary<string, double> Threats(List<Dictionary<string, Dictionary<string, double>>> bosses, int next, int lookahead)
+    {
+        var weights = new Dictionary<string, double>(StringComparer.Ordinal);
+        for (var i = next; i < Math.Min(bosses.Count, next + lookahead); i++)
+        {
+            foreach (var (type, w) in bosses[i].Values.SelectMany(x => x))
+            {
+                weights[type] = weights.GetValueOrDefault(type) + (w * (i == next ? 2 : 1));
+            }
+        }
+
+        return weights;
+    }
+
+    /// <summary>
+    /// The bosses of each milestone: each counts once (a rival's versions merge by name), with the types of their team
+    /// (the leaders, Elite Four, Champions and story battles weigh most; a rival's team follows the player's starter).
+    /// </summary>
+    private static List<Dictionary<string, Dictionary<string, double>>> Bosses(GameData data, LabSettings lab, Dictionary<string, Species> species)
+    {
+        var caps = data.Rules?.LevelCaps ?? [];
+        var bosses = new List<Dictionary<string, Dictionary<string, double>>>();
+        for (var i = 0; i < caps.Count; i++)
+        {
+            bosses.Add(new Dictionary<string, Dictionary<string, double>>(StringComparer.Ordinal));
+        }
+
+        // rematches (Emerald's TRAINER_ROXANNE_2…5) come after the League: they don't shape the way there
+        var keys = data.Trainers.Select(t => t.Key).ToHashSet(StringComparer.Ordinal);
+        bool Rematch(Trainer t) => Regex.Match(t.Key, @"^(.*)_([2-9])$") is { Success: true } m && keys.Contains(m.Groups[1].Value + "_1");
+        foreach (var t in data.Trainers.Where(t => !t.Key.Contains('@', StringComparison.Ordinal) && t.Party.Count > 0 && !t.NeverFought && !Rematch(t)
+                     && (Lab.GroupOf(data, lab, t) != TrainerGroup.Regular || t.Key.StartsWith(Story.StoryBattles.TrainerPrefix, StringComparison.Ordinal))))
+        {
+            var m = Lab.MilestoneOf(data, t);
+            if (m < 0)
+            {
+                continue;
+            }
+
+            if (!bosses[m].TryGetValue(t.Name, out var types))
+            {
+                bosses[m][t.Name] = types = new Dictionary<string, double>(StringComparer.Ordinal);
+            }
+
+            var group = Lab.GroupOf(data, lab, t);
+            var weight = group == TrainerGroup.Rival ? 1.0 : 3.0;
+            foreach (var type in t.Party.SelectMany(p => species.TryGetValue(p.Species, out var s) ? s.Types.Distinct() : []))
+            {
+                // a share of the team: a mono-type leader's type weighs its full weight
+                types[type] = Math.Max(types.GetValueOrDefault(type), weight * t.Party.Count(p => species.TryGetValue(p.Species, out var s) && s.Types.Contains(type)) / t.Party.Count);
+            }
+        }
+
+        return bosses;
+    }
+
+    /// <summary>
+    /// The wild areas, one per map (FireRed and LeafGreen versions of a table together), in playthrough order when the
+    /// game has one (otherwise by level). Battle facilities aren't areas, nor Emerald's copies of FireRed's areas.
+    /// </summary>
+    public static IReadOnlyList<(string Map, IReadOnlyList<EncounterTable> Tables, int Level, double Position)> Areas(GameData data)
+    {
+        var hoenn = data.Encounters.Any(t => t.Map == "MAP_ROUTE101");
+        var order = StoryOrder.For(data);
+        return data.Encounters.Where(t => t.LockedReason is null && t.Map.Length > 0 && t.Methods.Any(m => m.Slots.Count > 0)
+                && !(hoenn && (t.Key.EndsWith("_FireRed", StringComparison.Ordinal) || t.Key.EndsWith("_LeafGreen", StringComparison.Ordinal))))
+            .GroupBy(t => t.Map)
+            .Select(g => (Map: g.Key, Tables: (IReadOnlyList<EncounterTable>)g.ToList(), Level: g.SelectMany(t => t.Methods).SelectMany(m => m.Slots).Max(s => s.MaxLevel)))
+            .Select(a => (a.Map, a.Tables, a.Level, Position: order is null ? a.Level : StoryOrder.AreaPosition(order, a.Map)!.Value))
+            .OrderBy(a => a.Position).ThenBy(a => a.Level).ThenBy(a => a.Map, StringComparer.Ordinal).ToList();
+    }
+
+    /// <summary>
+    /// The next major battle (a level-cap index) after meeting a wild Pokémon of a level on a map: from the playthrough
+    /// order when the game has one (never earlier than its level allows), otherwise from the level alone.
+    /// </summary>
+    public static Func<string, int, string, int, int> NextBattles(GameData data)
+    {
+        var caps = data.Rules?.LevelCaps ?? [];
+        var order = StoryOrder.For(data);
+        var positions = StoryOrder.CapPositions(data);
+        int ByLevel(int level) => Enumerable.Range(0, caps.Count).FirstOrDefault(i => caps[i].Level >= level, caps.Count - 1);
+
+        // the area's place, or later when the way of meeting it (a rod, Surf, Rock Smash) opens up later
+        return (map, level, method, slot) => order is null || positions is null
+            ? ByLevel(level)
+            : Math.Max(StoryOrder.NextBattle(positions, Math.Max(StoryOrder.AreaPosition(order, map)!.Value, StoryOrder.Gate(order, method, slot))), ByLevel(level));
+    }
+
+    /// <summary>The fewest different families that should answer a major battle's main type before the player gets there.</summary>
+    public const int EnoughCounters = 2;
+
+    /// <summary>
+    /// The playthrough battle by battle: for each major battle, its bosses' main types and the wild Pokémon a player can
+    /// catch on the way there (any earlier area) that hit one of those types hard, one per family, in the order they're met.
+    /// </summary>
+    public static IReadOnlyList<BattleReadiness> Check(GameData data, LabSettings lab)
+    {
+        var caps = data.Rules?.LevelCaps ?? [];
+        if (caps.Count == 0)
+        {
+            return [];
+        }
+
+        var species = data.Species.ToDictionary(s => s.Key, StringComparer.Ordinal);
+        var bosses = Bosses(data, lab, species);
+        var next = NextBattles(data);
+        string Family(string key) => species.TryGetValue(TeamBuilder.FamilyRoot(data, key), out var r) ? r.Name.ToUpperInvariant() : key;
+
+        // every wild Pokémon with the first battle it can help in, in playthrough order
+        var met = new List<(string Species, string Area, int From)>();
+        foreach (var (map, tables, _, _) in Areas(data))
+        {
+            foreach (var method in tables.SelectMany(t => t.Methods).Where(m => m.Slots.Count > 0))
+            {
+                // a Pokémon counts from its earliest slot (the Old Rod's before the Super Rod's)
+                for (var slot = 0; slot < method.Slots.Count; slot++)
+                {
+                    met.Add((method.Slots[slot].Species, Title(tables[0]), next(map, method.Slots[slot].MinLevel, method.Type, slot)));
+                }
+            }
+        }
+
+        var result = new List<BattleReadiness>();
+        for (var i = 0; i < caps.Count; i++)
+        {
+            var weights = Threats(bosses, i, 1);
+            if (weights.Count == 0)
+            {
+                continue;
+            }
+
+            var top = weights.Values.Max();
+            var main = weights.Where(w => w.Value >= top * 0.6).OrderByDescending(w => w.Value).ThenBy(w => w.Key, StringComparer.Ordinal).Select(w => w.Key).ToList();
+            var counters = met.OrderBy(m => m.From).Where(m => m.From <= i && species.TryGetValue(m.Species, out var s) && main.Any(t => s.Types.Any(a => TypeChart.Multiplier(a, [t]) > 1)))
+                .DistinctBy(m => Family(m.Species)).Select(m => (m.Species, m.Area)).ToList();
+            var names = bosses[i].Keys.Select(GameCatalog.Prettify).ToList();
+            result.Add(new BattleReadiness(i, caps[i].Label, names, main, counters));
+        }
+
+        return result;
     }
 
     /// <summary>One undo step for the chosen areas.</summary>
@@ -256,6 +363,5 @@ public static class EncounterPlanner
 
     private static string Short(string type) => GameCatalog.Prettify(type.Replace("TYPE_", "", StringComparison.Ordinal));
 
-    private static string Title(EncounterTable t) =>
-        t.Map.Length > 0 ? GameCatalog.Prettify(t.Map.Replace("MAP_", "", StringComparison.Ordinal)) : t.Key;
+    private static string Title(EncounterTable t) => t.Map.Length > 0 ? StoryOrder.AreaName(t.Map) : t.Key;
 }

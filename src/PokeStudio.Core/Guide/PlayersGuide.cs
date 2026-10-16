@@ -188,30 +188,57 @@ public static class PlayersGuide
             ]));
         }
 
-        // ---- where to catch ----
+        // ---- where to catch: in playthrough order, chapter by chapter up to each major battle ----
         if (o.Wild && data.Encounters.Count > 0)
         {
             Section("Where to catch Pokémon", "wild");
-            blocks.Add(new GuideText("Every place with wild Pokémon, how you meet them and how often (the chance of each Pokémon when you meet one)."));
-            foreach (var table in data.Encounters.OrderBy(e => Validation.GameValidator.PlaceName(e), StringComparer.Ordinal))
+            var next = EncounterPlanner.NextBattles(data);
+            var areas = EncounterPlanner.Areas(data);
+            var ordered = StoryOrder.For(data) is not null;
+            blocks.Add(new GuideText(ordered
+                ? "In the order you reach each place, chapter by chapter up to each important battle. Each chapter starts with good catches for that battle. A way of meeting Pokémon marked \"later\" opens up further on (a fishing rod, Surf or Rock Smash)."
+                : "Every place with wild Pokémon, how you meet them and how often (the chance of each Pokémon when you meet one)."));
+            var readiness = caps.Count > 0 ? EncounterPlanner.Check(data, lab).ToDictionary(r => r.Index) : [];
+
+            // the chapter of each place: the first important battle after it (from the grass, before any rod or Surf);
+            // a chapter leads up to every battle until the next chapter's places (Roxanne and Brock both in Pewter City)
+            int ChapterOf(IReadOnlyList<EncounterTable> t, string m) =>
+                caps.Count > 0 ? next(m, t.SelectMany(x => x.Methods).Where(x => x.Slots.Count > 0).Min(x => x.Slots.Min(y => y.MinLevel)), "land", 0) : -1;
+            var chapters = areas.Select(a => ChapterOf(a.Tables, a.Map)).ToList();
+            var chapter = -2;
+            for (var ai = 0; ai < areas.Count; ai++)
             {
-                if (!table.Methods.Any(m => m.Slots.Count > 0))
+                var (map, tables, level, _) = areas[ai];
+                var here = chapters[ai];
+                if (here != chapter && caps.Count > 0)
                 {
-                    continue;
+                    chapter = here;
+                    var until = chapters.Skip(ai).FirstOrDefault(c => c > here, caps.Count);
+                    var battles = Enumerable.Range(here, Math.Max(1, until - here)).Select(i =>
+                        readiness.TryGetValue(i, out var b) && b.Bosses.Count > 0 && caps[i].Label is var l && !b.Bosses.Contains(l, StringComparer.OrdinalIgnoreCase)
+                            ? $"{l} ({string.Join(", ", b.Bosses)})" : caps[i].Label).ToList();
+                    blocks.Add(new GuideHeading(3, "Before " + (battles.Count == 1 ? battles[0] : string.Join(", ", battles[..^1]) + " and " + battles[^1])));
+                    if (readiness.TryGetValue(here, out var r) && r.Counters.Count > 0)
+                    {
+                        blocks.Add(new GuideTip($"Good catches for {caps[here].Label} ({string.Join("/", r.MainTypes.Select(TypeName))}): " + string.Join(", ", r.Counters.Take(8).Select(c => $"{Species(c.Species)} ({c.Area})")) + "."));
+                    }
                 }
 
-                blocks.Add(new GuideHeading(3, Validation.GameValidator.PlaceName(table)));
+                var table = tables.OrderByDescending(t => t.Methods.Sum(m => m.Slots.Count)).First();
+                blocks.Add(new GuideHeading(caps.Count > 0 ? 4 : 3, StoryOrder.For(data) is null ? Validation.GameValidator.PlaceName(table) : StoryOrder.AreaName(map)));
                 var rows = new List<IReadOnlyList<string>>();
                 foreach (var method in table.Methods.Where(m => m.Slots.Count > 0))
                 {
                     var chances = data.EncounterChances.FirstOrDefault(c => c.Type == method.Type)?.Percent ?? [];
-                    var bySpecies = method.Slots.Select((s, i) => (s, chance: i < chances.Count ? chances[i] : 0))
+                    var slots = method.Slots.Select((s, i) => (s, i, chance: i < chances.Count ? chances[i] : 0)).ToList();
+                    var bySpecies = slots
                         .GroupBy(x => x.s.Species)
-                        .Select(g => (Species: g.Key, Min: g.Min(x => x.s.MinLevel), Max: g.Max(x => x.s.MaxLevel), Chance: g.Sum(x => x.chance)))
+                        .Select(g => (Species: g.Key, Min: g.Min(x => x.s.MinLevel), Max: g.Max(x => x.s.MaxLevel), Chance: g.Sum(x => x.chance),
+                            Later: caps.Count > 0 && g.Min(x => next(map, x.s.MinLevel, method.Type, x.i)) > here))
                         .OrderByDescending(x => x.Chance).ThenBy(x => x.Species, StringComparer.Ordinal);
-                    foreach (var s in bySpecies)
+                    foreach (var x in bySpecies)
                     {
-                        rows.Add([MethodName(method.Type), Species(s.Species), Types(s.Species), s.Min == s.Max ? $"{s.Min}" : $"{s.Min}–{s.Max}", s.Chance > 0 ? $"{s.Chance}%" : ""]);
+                        rows.Add([MethodName(method.Type) + (x.Later ? " (later)" : ""), Species(x.Species), Types(x.Species), x.Min == x.Max ? $"{x.Min}" : $"{x.Min}–{x.Max}", x.Chance > 0 ? $"{x.Chance}%" : ""]);
                     }
                 }
 

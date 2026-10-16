@@ -68,5 +68,39 @@ public class EncounterPlannerTests
     }
 
     [Fact]
+    public async Task Real_firered_follows_the_playthrough_and_every_gym_gets_answers_when_available()
+    {
+        var root = Environment.GetEnvironmentVariable("POKESTUDIO_FIRERED_DIR");
+        if (string.IsNullOrEmpty(root) || !Directory.Exists(root))
+        {
+            return;
+        }
+
+        using var tmp = new TempDir();
+        var data = await new ExpansionModule().LoadDataAsync(root, tmp.Combine("data"));
+        var caps = data.Rules!.LevelCaps;
+        int Gym(int n) => caps.Select((c, i) => (c, i)).First(x => x.c.Milestone == $"FLAG_BADGE0{n}_GET").i;
+        var next = EncounterPlanner.NextBattles(data);
+
+        // Route 3 is after Pewter City: it leads to Misty, not Brock, even though its levels are low
+        Assert.Equal(Gym(1), next("MAP_ROUTE1", 3, "land_mons", 0));
+        Assert.Equal(Gym(2), next("MAP_ROUTE3", 6, "land_mons", 0));
+
+        // surfing and fishing open up later: Pallet Town's water only after the 5th badge, the Old Rod in Vermilion
+        Assert.True(next("MAP_PALLET_TOWN", 5, "water_mons", 0) > Gym(5) - 1);
+        Assert.True(next("MAP_PALLET_TOWN", 5, "fishing_mons", 0) >= Gym(3));
+        Assert.True(next("MAP_PALLET_TOWN", 5, "fishing_mons", 6) > next("MAP_PALLET_TOWN", 5, "fishing_mons", 0)); // the Super Rod
+
+        // the check finds the original game's gap (only Mankey answers Brock before Pewter), and the plan fills it
+        var lab = new LabSettings();
+        Assert.False(EncounterPlanner.Check(data, lab).Single(r => r.Index == Gym(1)).Ready);
+        EncounterPlanner.ToChange(data, EncounterPlanner.Plan(data, lab, new EncounterPlanner.Options()))!.Apply();
+        var after = EncounterPlanner.Check(data, lab);
+        Assert.All(after, r => Assert.True(r.Ready, $"{r.Label}: {r.Counters.Count} counters"));
+        Assert.Equal("Route 1", StoryOrder.AreaName("MAP_ROUTE1"));
+        Assert.Equal("S.S. Anne Exterior", StoryOrder.AreaName("MAP_SSANNE_EXTERIOR"));
+    }
+
+    [Fact]
     public Task Real_emerald_wild_pokemon_fit_the_story_when_available() => Plan(Environment.GetEnvironmentVariable("POKESTUDIO_EXPANSION_DIR"), "emerald.txt");
 }

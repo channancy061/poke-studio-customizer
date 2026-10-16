@@ -18,6 +18,12 @@ public class EncounterPlannerUiTests
         var page = Assert.IsType<EncounterPlannerPageViewModel>(shell.CurrentPage);
         Assert.True(page.HasCaps);
 
+        // the battle check lists every major battle with its main types
+        await page.CheckCommand.ExecuteAsync(null);
+        Assert.True(page.HasChecks);
+        Assert.NotNull(page.CheckSummary);
+        Assert.All(page.Checks, c => Assert.StartsWith("Main types: ", c.Types, StringComparison.Ordinal));
+
         page.Share = 100;
         await page.PreviewCommand.ExecuteAsync(null);
         Assert.NotNull(page.Status);

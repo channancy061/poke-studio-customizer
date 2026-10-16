@@ -30,6 +30,30 @@
         </StackPanel>
       </Border>
 
+      <Border Classes="card" IsVisible="{Binding HasCaps}">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="Battle check" Classes="heading" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Classes="secondary" Content="Check every battle" Command="{Binding CheckCommand}" />
+          </Grid>
+          <TextBlock Text="Goes through the playthrough battle by battle and lists the wild Pokémon a player can catch before each one that hit its main types hard. FireRed and Emerald use their real story order (and when fishing rods, Surf and Rock Smash become available); other games use the wild levels."
+                     Classes="small muted" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding CheckSummary}" TextWrapping="Wrap" IsVisible="{Binding CheckSummary, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          <ItemsControl ItemsSource="{Binding Checks}">
+            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="8" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:BattleCheckViewModel">
+                <StackPanel Spacing="2">
+                  <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding Types}" Classes="caption muted" />
+                  <TextBlock Text="{Binding Counters}" Classes="small" TextWrapping="Wrap" />
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
       <Border Classes="card" IsVisible="{Binding HasAreas}">
         <StackPanel Spacing="10">
           <Grid ColumnDefinitions="*,Auto">

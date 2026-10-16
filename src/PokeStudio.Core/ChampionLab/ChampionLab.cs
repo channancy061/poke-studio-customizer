@@ -191,6 +191,14 @@ public static partial class Lab
             return -1;
         }
 
+        // a story battle has its own step; a gym leader of FireRed or Emerald the step of their badge
+        var key = BaseKey(t);
+        var own = data.Story?.Battles.FirstOrDefault(b => b.TrainerKey == key)?.BeatFlag ?? Progression.StoryOrder.BadgeOf(key);
+        if (own is not null && caps.Select((c, i) => (c, i)).FirstOrDefault(x => x.c.Milestone == own) is { c: not null } found)
+        {
+            return found.i;
+        }
+
         var ace = t.Party.Max(p => p.Level);
         for (var i = 0; i < caps.Count; i++)
         {

@@ -219,8 +219,18 @@ instead of hoping for luck. Choose how much of each area to replace (25–100%) 
 ahead (75% replaced by default), then **Preview**. Each area shows the coming boss types and every swap with the
 reason ("hits Rock, Ground hard"). Untick areas to keep, then **Apply** (one undo step). Every new Pokémon hits at
 least one coming boss type hard. Water slots stay Water types, rock smashing Rock and Ground, and land never gets pure
-Water types. Neighbouring areas get different families, legendaries never appear,
-and levels stay the same. An area's place in the story comes from its wild levels and the level caps.
+Water types. Neighbouring areas get different families, other regions' starters and legendaries never appear,
+and levels stay the same.
+
+Which battle an area leads up to comes from the real playthrough order in FireRed and Emerald. Every area is
+placed in the order you reach it, with each badge where you win it. A crossover challenger comes just before the
+place they guard. Surfing, fishing and Rock Smash count only from when they open up: the Old, Good and Super Rods
+where they're given, and Surf and Rock Smash with their badges. So Route 3 (after Pewter City) is planned against
+Misty, not Brock. Other games use the wild levels and the level caps.
+
+**Battle check.** **Check every battle** goes through the playthrough battle by battle. For each major battle it
+lists the bosses' main types and the different wild Pokémon a player can catch before it that hit those types
+hard. Battles with fewer than two are marked ⚠. The original FireRed, for example, has only Mankey for Brock.
 
 ### Story battles (decomp projects)
 Add a battle the player can't skip. Pick a **map** and the **entrance** to guard: a gym door, a cave mouth, a building.
@@ -313,7 +323,10 @@ same game.
 Creates `guide/players-guide.html` (open it in any browser, prints well) and a Markdown copy. It lists your
 new-game options, Nuzlocke rules, level caps, every important battle in story order with where it is, the team and
 what to bring, difficulty versions, adaptive slots shown as "?" with their candidates, where to catch each Pokémon,
-shops and special evolutions. Make it again after changes.
+shops and special evolutions. In FireRed and Emerald, "Where to catch" follows the playthrough. It's split into
+chapters ("Before Roxanne and Gym 1 (Brock)"), and each chapter starts with good catches for its battle. Its places
+come in the order you reach them, and Pokémon met by a rod or Surf that only opens up later are marked "later". It
+also covers the final chapter and the Nuzlocke questions. Make it again after changes.
 
 ## 8. Building and testing (decomp projects)
 

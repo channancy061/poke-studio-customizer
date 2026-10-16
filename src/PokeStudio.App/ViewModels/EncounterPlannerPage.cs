@@ -28,6 +28,17 @@ public sealed partial class PlanAreaViewModel(EncounterPlanRow row, Func<string,
     };
 }
 
+/// <summary>One major battle in the battle check: its main types and the wild Pokémon that answer them before it.</summary>
+public sealed class BattleCheckViewModel(BattleReadiness r, Func<string, string> name)
+{
+    public string Title => $"{(r.Ready ? "✓" : "⚠")} {r.Label}" + (r.Bosses.Count > 0 && !r.Bosses.Contains(r.Label, StringComparer.OrdinalIgnoreCase) ? $" ({string.Join(", ", r.Bosses)})" : "");
+    public string Types => "Main types: " + string.Join(", ", r.MainTypes.Select(t => GameCatalog.Prettify(t.Replace("TYPE_", "", StringComparison.Ordinal))));
+    public string Counters => r.Counters.Count == 0
+        ? "No wild Pokémon before it hits these types hard."
+        : $"{r.Counters.Count} answer{(r.Counters.Count == 1 ? "" : "s")} before it: " + string.Join(", ", r.Counters.Take(10).Select(c => $"{name(c.Species)} ({c.Area})")) + (r.Counters.Count > 10 ? "…" : "");
+    public bool Ready => r.Ready;
+}
+
 /// <summary>
 /// Plan wild Pokémon for the story: each area gets Pokémon that do well against the next major battles, in the area's
 /// habitat, so players have real answers to the bosses without relying on luck.
@@ -71,6 +82,32 @@ public sealed partial class EncounterPlannerPageViewModel(ShellViewModel shell) 
             : $"{rows.Count} areas would change ({rows.Sum(r => r.Swaps.Count)} Pokémon). Untick any you want to keep as they are, then apply.";
     }
 
+    public System.Collections.ObjectModel.ObservableCollection<BattleCheckViewModel> Checks { get; } = [];
+    public bool HasChecks => Checks.Count > 0;
+
+    [ObservableProperty]
+    public partial string? CheckSummary { get; set; }
+
+    /// <summary>Goes through the playthrough battle by battle: are there wild Pokémon that answer each one before it?</summary>
+    [RelayCommand]
+    private async Task CheckAsync()
+    {
+        var data = shell.Session.Data;
+        var lab = data.Lab ?? new LabSettings();
+        var rows = await shell.RunBusyAsync("Checking every major battle…", () => EncounterPlanner.Check(data, lab));
+        Checks.Clear();
+        foreach (var r in rows)
+        {
+            Checks.Add(new BattleCheckViewModel(r, Name));
+        }
+
+        var gaps = rows.Count(r => !r.Ready);
+        CheckSummary = rows.Count == 0 ? "This game has no level caps to check against."
+            : gaps == 0 ? $"All {rows.Count} major battles have at least {EncounterPlanner.EnoughCounters} different wild Pokémon that hit them hard before the player gets there."
+            : $"{gaps} of {rows.Count} major battles have fewer than {EncounterPlanner.EnoughCounters} wild answers before them (marked ⚠). Preview and apply a plan to fill them.";
+        OnPropertyChanged(nameof(HasChecks));
+    }
+
     [RelayCommand]
     private void Apply()
     {
@@ -85,6 +122,11 @@ public sealed partial class EncounterPlannerPageViewModel(ShellViewModel shell) 
         Areas.Clear();
         OnPropertyChanged(nameof(HasAreas));
         Status = null;
+        if (HasChecks)
+        {
+            _ = CheckAsync();
+        }
+
         shell.Toast = change.Description + ". One Undo puts the old Pokémon back.";
     }
 }
