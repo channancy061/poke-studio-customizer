@@ -29,6 +29,7 @@ public class EncounterPlannerTests
                 + string.Join("; ", r.Swaps.Select(s => $"[{s.Method}] {s.From.Replace("SPECIES_", "")} -> {s.To.Replace("SPECIES_", "")} ({s.Why})")))]);
 
         Assert.NotEmpty(rows);
+        Assert.All(rows.SelectMany(r => r.Swaps), s => Assert.StartsWith("hits ", s.Why, StringComparison.Ordinal)); // every new Pokémon is a real answer
         Assert.True(took.TotalSeconds < 60, $"took {took.TotalSeconds:0}s");
         var swaps = rows.SelectMany(r => r.Swaps).ToList();
         Assert.All(swaps, s => Assert.Equal(0, (int)(species[s.To].Tags & (SpeciesTags.RestrictedLegendary | SpeciesTags.SubLegendary | SpeciesTags.Mythical))));
@@ -46,6 +47,25 @@ public class EncounterPlannerTests
 
     [Fact]
     public Task Real_firered_wild_pokemon_fit_the_story_when_available() => Plan(Environment.GetEnvironmentVariable("POKESTUDIO_FIRERED_DIR"), "firered.txt");
+
+    [Fact]
+    public async Task Real_firered_placeholder_trainers_are_never_fought_when_available()
+    {
+        var root = Environment.GetEnvironmentVariable("POKESTUDIO_FIRERED_DIR");
+        if (string.IsNullOrEmpty(root) || !Directory.Exists(root))
+        {
+            return;
+        }
+
+        using var tmp = new TempDir();
+        var data = await new ExpansionModule().LoadDataAsync(root, tmp.Combine("data"));
+        Assert.True(data.Trainers.Single(t => t.Key == "TRAINER_PLAYER_BRENDAN").NeverFought); // only defined, never battled
+        Assert.False(data.Trainers.Single(t => t.Key == "TRAINER_LEADER_BROCK").NeverFought);
+
+        // so the first gym's Rock types lead what Route 1 is planned against (not four lone Ekans)
+        var route1 = Assert.Single(EncounterPlanner.Plan(data, new LabSettings(), new EncounterPlanner.Options()), r => r.TableKeys.Any(k => k.StartsWith("sRoute1_", StringComparison.Ordinal)));
+        Assert.Contains("TYPE_ROCK", route1.Threats.Take(2)); // Brock: Rock/Ground
+    }
 
     [Fact]
     public Task Real_emerald_wild_pokemon_fit_the_story_when_available() => Plan(Environment.GetEnvironmentVariable("POKESTUDIO_EXPANSION_DIR"), "emerald.txt");

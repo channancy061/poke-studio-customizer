@@ -42,7 +42,7 @@ public sealed partial class EncounterPlannerPageViewModel(ShellViewModel shell) 
     public bool NoCaps => !HasCaps;
 
     [ObservableProperty]
-    public partial int Share { get; set; } = 50;
+    public partial int Share { get; set; } = 75;
 
     [ObservableProperty]
     public partial int Lookahead { get; set; } = 2;

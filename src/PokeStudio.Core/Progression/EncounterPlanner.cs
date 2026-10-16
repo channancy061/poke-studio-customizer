@@ -14,12 +14,12 @@ public sealed record EncounterPlanRow(IReadOnlyList<string> TableKeys, string Ti
 /// <summary>
 /// Wild Pokémon that fit the story: each area offers Pokémon that do well against the next major battles (the ones whose
 /// level cap comes after the area's levels), in the area's habitat (Water types on water, Rock and Ground types when
-/// smashing rocks, grass keeps a type of its own Pokémon), different from nearby areas, never legendary. The Pokémon that
+/// smashing rocks, no pure Water types on land), different from nearby areas, never legendary. The Pokémon that
 /// help least against those battles are the ones replaced, up to the share chosen. Levels stay as they were.
 /// </summary>
 public static class EncounterPlanner
 {
-    public sealed record Options(double Share = 0.5, int Lookahead = 2);
+    public sealed record Options(double Share = 0.75, int Lookahead = 2);
 
     private static readonly SpeciesTags Special = SpeciesTags.RestrictedLegendary | SpeciesTags.SubLegendary | SpeciesTags.Mythical
         | SpeciesTags.UltraBeast | SpeciesTags.Paradox | SpeciesTags.Mega;
@@ -81,7 +81,7 @@ public static class EncounterPlanner
             .Where(r => species.TryGetValue(r, out var s) && (s.Tags & Special) == 0 && UsualForm(s))
             .GroupBy(Family).Select(g => g.OrderBy(r => r.Length).ThenBy(r => r, StringComparer.Ordinal).First())
             .ToList();
-        var starterFamilies = data.Starters.Select(Family).ToHashSet(StringComparer.Ordinal);
+        var starterFamilies = data.Starters.Concat(Starters.Where(species.ContainsKey)).Select(Family).ToHashSet(StringComparer.Ordinal);
         var forms = new Dictionary<(string, int), string>();
         string FormAt(string root, int level) =>
             forms.TryGetValue((root, level), out var f) ? f : forms[(root, level)] = EvolutionPaths.EvolvedForm(data, root, level, 99);
@@ -136,7 +136,8 @@ public static class EncounterPlanner
                     usedNearby[next] = used = [];
                 }
 
-                double Value(string key) => species.TryGetValue(key, out var s) ? CounterValue(s.Types, threats) : 0;
+                var weighed = threats.Select(t => (Type: t, Weight: weights[t])).ToList();
+                double Value(string key) => species.TryGetValue(key, out var s) ? CounterValue(s.Types, weighed) : 0;
                 var distinct = method.Slots.Select(s => s.Species).Distinct(StringComparer.Ordinal).ToList();
                 var count = (int)Math.Round(distinct.Count * options.Share, MidpointRounding.AwayFromZero);
                 var habitat = Habitat(method.Type, distinct.SelectMany(k => species.TryGetValue(k, out var s) ? s.Types : []).ToHashSet(StringComparer.Ordinal));
@@ -152,7 +153,7 @@ public static class EncounterPlanner
                         .Select(r => (Root: r, Form: FormAt(r, level)))
                         .Where(x => species.TryGetValue(x.Form, out var s) && habitat(s.Types) && s.Stats.Total <= maxTotal)
                         .Select(x => (x.Root, x.Form, Score: Value(x.Form)))
-                        .Where(x => x.Score > Value(old))
+                        .Where(x => x.Score > Math.Max(0, Value(old)) && HitsHard(species[x.Form].Types, threats[0]))
                         .OrderByDescending(x => x.Score).ThenByDescending(x => species[x.Form].Stats.Total).ThenBy(x => x.Form, StringComparer.Ordinal)
                         .FirstOrDefault();
                     if (pick.Form is null)
@@ -207,7 +208,7 @@ public static class EncounterPlanner
     }
 
     /// <summary>How well these types do against the bosses' types: hitting them hard and taking little from them.</summary>
-    private static double CounterValue(IReadOnlyList<string> types, IReadOnlyList<string> threats)
+    private static double CounterValue(IReadOnlyList<string> types, IReadOnlyList<(string Type, double Weight)> threats)
     {
         var score = 0.0;
         if (types.Count == 0)
@@ -215,25 +216,43 @@ public static class EncounterPlanner
             return score;
         }
 
-        foreach (var t in threats)
+        // each boss type counts as much as the bosses use it
+        foreach (var (t, w) in threats)
         {
-            score += types.Max(a => TypeChart.Multiplier(a, [t])) - 1;
-            score += 1 - TypeChart.Multiplier(t, types);
+            score += w * (types.Max(a => TypeChart.Multiplier(a, [t])) - 1);
+            score += w * (1 - TypeChart.Multiplier(t, types));
         }
 
         return score;
     }
 
-    /// <summary>Where a Pokémon can live: Water types on water, Rock and Ground for rock smashing, otherwise the area's own types.</summary>
+    /// <summary>A real answer: one of its types hits the coming bosses' main type super-effectively.</summary>
+    private static bool HitsHard(IReadOnlyList<string> types, string mainThreat) =>
+        types.Any(a => TypeChart.Multiplier(a, [mainThreat]) > 1);
+
+    /// <summary>
+    /// Where a Pokémon can live: Water types on water, Rock and Ground for rock smashing; on land anything but a pure Water
+    /// type (a Route 1 of only Normal and Flying types would otherwise never offer an answer to a Rock gym).
+    /// </summary>
     private static Func<IReadOnlyList<string>, bool> Habitat(string method, HashSet<string> areaTypes) => method switch
     {
         _ when method.Contains("water", StringComparison.OrdinalIgnoreCase) || method.Contains("fish", StringComparison.OrdinalIgnoreCase)
             => t => t.Contains("TYPE_WATER"),
         _ when method.Contains("rock", StringComparison.OrdinalIgnoreCase) => t => t.Contains("TYPE_ROCK") || t.Contains("TYPE_GROUND"),
-        _ => t => t.Any(areaTypes.Contains),
+        _ => t => !(t.Count > 0 && t.All(x => x == "TYPE_WATER")),
     };
 
     private static readonly string[] Regional = ["_ALOLA", "_GALAR", "_HISUI", "_PALDEA"];
+
+    /// <summary>Every region's starters: they stay special (gifts), never common wild Pokémon.</summary>
+    private static readonly string[] Starters =
+    [
+        "SPECIES_BULBASAUR", "SPECIES_CHARMANDER", "SPECIES_SQUIRTLE", "SPECIES_CHIKORITA", "SPECIES_CYNDAQUIL", "SPECIES_TOTODILE",
+        "SPECIES_TREECKO", "SPECIES_TORCHIC", "SPECIES_MUDKIP", "SPECIES_TURTWIG", "SPECIES_CHIMCHAR", "SPECIES_PIPLUP",
+        "SPECIES_SNIVY", "SPECIES_TEPIG", "SPECIES_OSHAWOTT", "SPECIES_CHESPIN", "SPECIES_FENNEKIN", "SPECIES_FROAKIE",
+        "SPECIES_ROWLET", "SPECIES_LITTEN", "SPECIES_POPPLIO", "SPECIES_GROOKEY", "SPECIES_SCORBUNNY", "SPECIES_SOBBLE",
+        "SPECIES_SPRIGATITO", "SPECIES_FUECOCO", "SPECIES_QUAXLY",
+    ];
 
     private static string Short(string type) => GameCatalog.Prettify(type.Replace("TYPE_", "", StringComparison.Ordinal));
 

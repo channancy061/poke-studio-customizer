@@ -18,7 +18,7 @@ namespace PokeStudio.Modules.Expansion;
 /// Edits the user's own project folder in place: only the data files listed in
 /// <see cref="ManagedFiles"/>, each backed up first, changing only the values that were edited.
 /// </summary>
-public sealed class ExpansionModule : IGameModule, ISpriteSource
+public sealed partial class ExpansionModule : IGameModule, ISpriteSource
 {
     public const string ModuleId = "gba.pokeemerald-expansion";
 
@@ -460,6 +460,46 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
 
         return places;
     }
+
+    /// <summary>
+    /// Every trainer the game's scripts, maps or code mention (the trainer list and the parties themselves don't count),
+    /// so placeholders nobody can fight (FireRed's PLAYER_BRENDAN/MAY/RED/LEAF) stay out of planning and the guide.
+    /// Null when the project has no scripts to look at.
+    /// </summary>
+    internal static HashSet<string>? ReferencedTrainers(ExpansionLayout layout)
+    {
+        var (data, src) = (layout.Full("data"), layout.Full("src"));
+        if (!Directory.Exists(data))
+        {
+            return null;
+        }
+
+        var skip = new[] { TrainerParty.File, "include/constants/opponents.h", "src/data/trainers.h" }.Select(layout.Full).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var files = Directory.EnumerateFiles(data, "*.inc", SearchOption.AllDirectories)
+            .Concat(Directory.EnumerateFiles(data, "*.s", SearchOption.AllDirectories))
+            .Concat(Directory.EnumerateFiles(data, "*.json", SearchOption.AllDirectories))
+            .Concat(Directory.Exists(src) ? Directory.EnumerateFiles(src, "*.c", SearchOption.AllDirectories).Concat(Directory.EnumerateFiles(src, "*.h", SearchOption.AllDirectories)) : [])
+            .Where(f => !skip.Contains(f));
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var file in files)
+        {
+            var text = File.ReadAllText(file);
+            if (!text.Contains("TRAINER_", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            foreach (Match m in TrainerName().Matches(text))
+            {
+                used.Add(m.Value);
+            }
+        }
+
+        return used;
+    }
+
+    [GeneratedRegex(@"\bTRAINER_[A-Z0-9_]+")]
+    private static partial Regex TrainerName();
 
     /// <summary>"RustboroCity_Gym" → "Rustboro City Gym"; "Route104_Frlg" → "Route 104".</summary>
     internal static string MapPlace(string mapDir)
@@ -954,6 +994,7 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
             var speciesAliases = Catalogs.Aliases(File.Exists(layout.Full("include/constants/species.h")) ? File.ReadAllText(layout.Full("include/constants/species.h")) : "", "SPECIES_");
             var moveAliases = Catalogs.Aliases(File.Exists(layout.Full("include/constants/moves.h")) ? File.ReadAllText(layout.Full("include/constants/moves.h")) : "", "MOVE_");
             state.SpeciesAliases = speciesAliases;
+            var used = ReferencedTrainers(layout);
             foreach (var (block, parsed) in TrainerParty.Parse(state.TrainersText, TrainerParty.SpeciesConstant))
             {
                 TrainerPokemon Resolve(TrainerPokemon p) => p with
@@ -965,6 +1006,7 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
                 {
                     Party = parsed.Party.Select(Resolve).ToList(),
                     FlexCandidates = parsed.FlexCandidates.Select(Resolve).ToList(),
+                    NeverFought = used is not null && !used.Contains(parsed.Key.Split('@')[0]),
                 };
                 if (state.TrainerBlocks.TryAdd(block.Key, block))
                 {

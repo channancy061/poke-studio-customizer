@@ -216,9 +216,10 @@ and in unmodified FireRed (US 1.0) and Emerald (US) ROMs.
 ### Plan wild Pokémon
 Gives every area Pokémon that do well against the next major battles, so players have real answers to the bosses
 instead of hoping for luck. Choose how much of each area to replace (25–100%) and how many major battles to look
-ahead, then **Preview**. Each area shows the coming boss types and every swap with the reason ("hits Rock, Ground
-hard"). Untick areas to keep, then **Apply** (one undo step). Water slots stay Water types, rock smashing Rock and
-Ground, and grass keeps a type of its own Pokémon. Neighbouring areas get different families, legendaries never appear,
+ahead (75% replaced by default), then **Preview**. Each area shows the coming boss types and every swap with the
+reason ("hits Rock, Ground hard"). Untick areas to keep, then **Apply** (one undo step). Every new Pokémon hits at
+least one coming boss type hard. Water slots stay Water types, rock smashing Rock and Ground, and land never gets pure
+Water types. Neighbouring areas get different families, legendaries never appear,
 and levels stay the same. An area's place in the story comes from its wild levels and the level caps.
 
 ### Story battles (decomp projects)

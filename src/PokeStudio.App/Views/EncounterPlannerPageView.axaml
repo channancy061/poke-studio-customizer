@@ -7,7 +7,7 @@
     <StackPanel Margin="32,28" Spacing="16" MaxWidth="960" HorizontalAlignment="Left">
       <StackPanel Spacing="4">
         <TextBlock Text="Plan wild Pokémon" Classes="title" />
-        <TextBlock Text="Give every area Pokémon that do well against the next major battles, so players have real answers to the bosses instead of hoping for luck. Water types stay on water, Rock and Ground types in smashed rocks, and grass keeps a type of its own Pokémon. Neighbouring areas get different families (good for the Nuzlocke dupes clause), legendaries never appear, and levels stay as they were."
+        <TextBlock Text="Give every area Pokémon that do well against the next major battles, so players have real answers to the bosses instead of hoping for luck. Water types stay on water, Rock and Ground types in smashed rocks, and every new Pokémon hits a coming boss hard. Neighbouring areas get different families (good for the Nuzlocke dupes clause), legendaries never appear, and levels stay as they were."
                    Classes="muted" TextWrapping="Wrap" />
       </StackPanel>
 
