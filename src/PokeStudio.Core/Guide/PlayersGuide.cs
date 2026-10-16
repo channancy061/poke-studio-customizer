@@ -168,6 +168,26 @@ public static class PlayersGuide
             }
         }
 
+        // ---- the final chapter ----
+        if (o.Bosses && data.Story?.Finale is { } finale && data.Trainers.Any(t => t.Key == finale.Guide))
+        {
+            Section("After the Champion", "finale");
+            var nuzlocke = data.GameOptions is { } go && go.NuzRuleUsed(go.NuzFaintedGone);
+            blocks.Add(new GuideText($"Becoming Champion isn't the end. {finale.Regions} are still collapsing into each other, and the credits wait until that's stopped."));
+            blocks.Add(new GuideList(
+            [
+                $"After the Hall of Fame, {finale.GuideName} is waiting at home and asks you to meet at {finale.MeetName}.",
+                $"There {finale.GuideName} battles you first (see the team above), above the Champion's level. The level cap goes up to match.",
+                $"Win and {finale.GuideName} takes you to {finale.IslandName}. You can heal and change your team before you say you're ready.",
+                $"Then {finale.BossName}'s {finale.Forms.Count} forms attack one after another, at level {finale.FormLevel}, with no healing in between. Their order and moves are chosen against your team, so every form brings moves that hit you hard. Bring Pokémon that cover each other's weaknesses.",
+                $"After the last form, {finale.BossName} (level {finale.CatchLevel}) has to be caught to stop the collapse. Bring plenty of Poké Balls. If it gets away, talk to {finale.GuideName} to try again.",
+                nuzlocke
+                    ? $"If your team falls to {finale.BossName}: without the Nuzlocke, try again from {finale.GuideName}; in a Nuzlocke, the run is over."
+                    : $"If your team falls to {finale.BossName}, try again from {finale.GuideName}.",
+                "Once it's caught, the regions separate, the visiting challengers go home, and the credits roll.",
+            ]));
+        }
+
         // ---- where to catch ----
         if (o.Wild && data.Encounters.Count > 0)
         {
@@ -349,9 +369,15 @@ public static class PlayersGuide
 
             Rule(o.NuzFirstEncounter, "Only the first wild Pokémon you meet in each area can be caught, counting from when you have Poké Balls. In a wild double battle, knock one out and catch the other.");
             Rule(o.NuzFaintedGone, "A Pokémon that faints is gone for good - no revives.");
+            if (o.NuzFaintedGone is OptionMode.AlwaysOn or OptionMode.PlayerChooses)
+            {
+                items.Add("    • If your whole team faints, you choose at the start: go on with healthy Pokémon from your PC, or the run is over. No battle starts while nobody in your party can fight.");
+            }
+
             Rule(o.NuzDupes, "Duplicates clause: a Pokémon you already caught (or its evolution family) doesn't use up the area.");
             Rule(o.NuzEeveeException, "Eevee clause: Eevee never counts as a duplicate.");
             Rule(o.NuzShiny, "Shiny clause: shiny Pokémon can always be caught.");
+            Rule(o.NuzStatic, "Static encounters count: legendaries and Pokémon you walk up to use up the area too. Saying yes asks you again, because a legendary could be lost.");
             Rule(o.NuzNicknames, "Every Pokémon you catch needs a nickname (not its species name).");
             Rule(o.NuzLevelCap, "The level cap is on.");
         }
