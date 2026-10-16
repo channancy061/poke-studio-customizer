@@ -199,16 +199,34 @@ public static partial class Lab
             return found.i;
         }
 
+        // a rematch (Emerald's TRAINER_ROXANNE_2…5) is fought after the League
+        if (IsRematch(data, t))
+        {
+            return caps.Count - 1;
+        }
+
+        // everyone else by level; the League's own Elite Four and Champion never at a story battle's step (a challenger
+        // waiting outside Victory Road comes before them)
+        var league = t.TrainerClass.Contains("ELITE_FOUR", StringComparison.Ordinal) || t.TrainerClass.Contains("CHAMPION", StringComparison.Ordinal);
+        var storySteps = league ? data.Story?.Battles.Select(b => b.BeatFlag).ToHashSet(StringComparer.Ordinal) ?? [] : [];
         var ace = t.Party.Max(p => p.Level);
         for (var i = 0; i < caps.Count; i++)
         {
-            if (ace <= caps[i].Level)
+            if (ace <= caps[i].Level && !storySteps.Contains(caps[i].Milestone))
             {
                 return i;
             }
         }
 
         return caps.Count - 1;
+    }
+
+    /// <summary>A rematch: TRAINER_X_2…9 when TRAINER_X_1 exists (Emerald's gym leaders and trainers fought again later).</summary>
+    public static bool IsRematch(GameData data, Trainer t)
+    {
+        var key = BaseKey(t);
+        var cut = key.LastIndexOf('_');
+        return cut > 0 && key.Length - cut == 2 && key[^1] is >= '2' and <= '9' && data.Trainers.Any(x => x.Key == key[..cut] + "_1");
     }
 
     /// <summary>The theme a team mostly follows: a type at least two-thirds of it share (4 of 6, 2 of 2…).</summary>

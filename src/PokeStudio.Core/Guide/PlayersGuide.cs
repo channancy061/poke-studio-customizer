@@ -126,7 +126,8 @@ public static class PlayersGuide
             {
                 var (first, group) = fight[0];
                 // the GBA games' small "PKMN" letters read as Pokémon in the guide
-                var label = $"{Name(first.TrainerClass).Replace("ᴾᴷᴹᴺ", "Pokémon", StringComparison.Ordinal)} {GameCatalog.Prettify(first.Name)}".Trim();
+                var label = $"{Name(first.TrainerClass).Replace("ᴾᴷᴹᴺ", "Pokémon", StringComparison.Ordinal)} {GameCatalog.Prettify(first.Name)}".Trim()
+                    + (Lab.IsRematch(data, first) ? " (rematch)" : "");
                 blocks.Add(new GuideHeading(3, label, Anchor(first.Key)));
                 var where = PlaceOf(first) is { Length: > 0 } place ? $"Where: {place}. " : "";
                 var kind = first.Battle == BattleType.Double ? "Double battle. " : "";

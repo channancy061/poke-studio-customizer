@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using PokeStudio.Core.ChampionLab;
 using PokeStudio.Core.Changes;
 using PokeStudio.Core.Models;
@@ -170,9 +169,7 @@ public static class EncounterPlanner
         }
 
         // rematches (Emerald's TRAINER_ROXANNE_2…5) come after the League: they don't shape the way there
-        var keys = data.Trainers.Select(t => t.Key).ToHashSet(StringComparer.Ordinal);
-        bool Rematch(Trainer t) => Regex.Match(t.Key, @"^(.*)_([2-9])$") is { Success: true } m && keys.Contains(m.Groups[1].Value + "_1");
-        foreach (var t in data.Trainers.Where(t => !t.Key.Contains('@', StringComparison.Ordinal) && t.Party.Count > 0 && !t.NeverFought && !Rematch(t)
+        foreach (var t in data.Trainers.Where(t => !t.Key.Contains('@', StringComparison.Ordinal) && t.Party.Count > 0 && !t.NeverFought && !Lab.IsRematch(data, t)
                      && (Lab.GroupOf(data, lab, t) != TrainerGroup.Regular || t.Key.StartsWith(Story.StoryBattles.TrainerPrefix, StringComparison.Ordinal))))
         {
             var m = Lab.MilestoneOf(data, t);
