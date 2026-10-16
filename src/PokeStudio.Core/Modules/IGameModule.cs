@@ -100,6 +100,9 @@ public sealed class GameData
     /// <summary>Story battles (saved with the Poke Studio project, written into the game on save).</summary>
     public Story.StorySettings? Story { get; set; }
 
+    /// <summary>The hack's name, logo and intro (saved with the Poke Studio project, written into the game on save).</summary>
+    public Branding.BrandingSettings? Branding { get; set; }
+
     /// <summary>Pending sprite and palette changes (written by modules that support graphics).</summary>
     public Graphics.GraphicsEdits Graphics { get; } = new();
 
@@ -197,6 +200,9 @@ public interface IGameModule
 
     /// <summary>The overworld sprites a story trainer can use.</summary>
     IReadOnlyList<string> StoryLooks(GameData data) => [];
+
+    /// <summary>What of the game's name, logo and intro can be changed (null: none of it).</summary>
+    Branding.BrandingSupport? DescribeBranding(GameData data) => null;
 
     /// <summary>Of these battle sprites (TRAINER_PIC_…) and overworld sprites (OBJ_EVENT_GFX_…), the ones the game lacks.</summary>
     (IReadOnlyList<string> Pics, IReadOnlyList<string> Looks) MissingSprites(GameData data, IEnumerable<string> pics, IEnumerable<string> looks) => (pics.ToList(), looks.ToList());

@@ -272,6 +272,22 @@ regions separate, the visiting challengers go home, and the credits roll. If the
 Steven. In a Nuzlocke, losing ends the run. You can set Steven's level and the forms' level before adding the
 chapter. **Remove** takes it out again, and Ctrl+Z undoes either.
 
+### Name & title screen (decomp projects)
+Give your hack its own name and look:
+- **ROM title:** the 12-letter name emulators show, for example `CROSSOVER RD`.
+- **Game file name:** what the build is called, for example `crossover-red.gba`. **Build & test** finds it under the
+  new name.
+- **Name in the game:** the credits title, and in Emerald the word the game uses for its own version.
+- **"Powered by" screen:** switch off the pret × RHH screen that plays at startup.
+- **Title screen logo:** your own PNG. In FireRed it's 176×96 pixels with up to 207 colours. In Emerald it's
+  256×64 with up to 223 colours, and the top-left 8×8 corner has to stay empty. Emerald also has a separate
+  128×32 "Version" line under the logo (up to 15 colours). See-through pixels (or the top-left pixel's colour) show
+  the title screen behind. The app checks the size and colours when you pick the picture.
+
+Leave a box empty to keep the game's own. Clearing something later puts the original back: every changed line
+keeps the original in a comment above it, and the original logo pictures are kept in the project's data folder.
+The app doesn't make logos: draw your own.
+
 ### Fix evolutions
 Turns trade and day/night evolutions into ones anyone can do alone: a level, a stone, or (where the game supports it)
 levelling up while holding an item. You choose per evolution; clashes (Espeon/Umbreon) are handled.

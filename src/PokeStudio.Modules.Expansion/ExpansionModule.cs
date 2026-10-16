@@ -51,7 +51,7 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
 
     /// <summary>Same build, but the ROM is named after the base game (pokeemerald.gba / pokefirered.gba).</summary>
     public BuildDefinition BuildFor(string workingSourcePath) =>
-        Build with { OutputFile = $"poke{new ExpansionLayout(workingSourcePath).BuildName}.gba" };
+        Build with { OutputFile = $"{new ExpansionLayout(workingSourcePath).FileName}.gba" };
 
     public IReadOnlyList<FeatureSupport> DescribeFeatures() =>
     [
@@ -108,7 +108,7 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
         var layout = new ExpansionLayout(workingSourcePath);
         IEnumerable<string> files = [.. layout.SpeciesFiles(), layout.LevelUpFile, ExpansionLayout.EggMovesFile, ExpansionLayout.LearnablesJson, MovesInfo.File, TrainerParty.File,
             EncountersFile.File, ItemsInfo.File, CapsFiles.Source, CapsFiles.Config, BattleConfig, ShopsJson.File, ShopsJson.ShopC, DifficultyFile, AiConfig, ItemConfig,
-            "include/config/summary_screen.h", "include/config/overworld.h", StoryWriter.Opponents, StoryWriter.Script, .. ProjectImport.TextFiles, .. FinaleWriter.Files,
+            "include/config/summary_screen.h", "include/config/overworld.h", StoryWriter.Opponents, StoryWriter.Script, .. ProjectImport.TextFiles, .. FinaleWriter.Files, .. BrandingWriter.Files(layout),
             .. GameOptionsWriter.Files(layout).Where(f => !f.EndsWith("/scripts.inc", StringComparison.Ordinal)), .. ScriptFiles(layout.Root)];
         return files.Distinct(StringComparer.Ordinal).ToList(); // several features edit the same file (item_use.c, new_game.inc)
     }
@@ -146,6 +146,9 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
 
     public IReadOnlyList<StorySpot> StorySpots(GameData data, string map) =>
         _states.TryGetValue(data, out var state) ? StoryWriter.Spots(state.Layout.Root, map) : [];
+
+    public Core.Branding.BrandingSupport? DescribeBranding(GameData data) =>
+        _states.TryGetValue(data, out var state) ? BrandingWriter.Describe(state.Layout) : null;
 
     public StorySpot? FreeSpot(GameData data, string map) =>
         _states.TryGetValue(data, out var state) && StoryWriter.FreeSpot(state.Layout.Root, map) is { } s
@@ -341,6 +344,32 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
         if (learnablesChanged && state.Learnables is not null)
         {
             await context.Writer.WriteAllTextAsync(state.Layout.Full(ExpansionLayout.LearnablesJson), state.Learnables.Serialize(), cancellationToken);
+        }
+
+        // the hack's name, logo and intro (the original pictures are kept in the project's data folder)
+        if (data.Branding is { } branding || Directory.Exists(Path.Combine(context.ProjectDataDir, BrandingOriginals)))
+        {
+            var originals = Path.Combine(context.ProjectDataDir, BrandingOriginals);
+            string OriginalPath(string rel) => Path.Combine([originals, .. rel.Split('/')]);
+            string? ReadText(string rel) => File.Exists(state.Layout.Full(rel)) ? File.ReadAllText(state.Layout.Full(rel)) : null;
+            byte[]? ReadBytes(string rel) => File.Exists(state.Layout.Full(rel)) ? File.ReadAllBytes(state.Layout.Full(rel)) : null;
+            byte[]? Original(string rel) => File.Exists(OriginalPath(rel)) ? File.ReadAllBytes(OriginalPath(rel)) : null;
+            var (texts, pictures, _) = BrandingWriter.Plan(state.Layout, data.Branding ?? new Core.Branding.BrandingSettings(), ReadText, ReadBytes, Original);
+            foreach (var (file, text) in texts)
+            {
+                await context.Writer.WriteAllTextAsync(state.Layout.Full(file), text, cancellationToken);
+            }
+
+            foreach (var (file, bytes) in pictures)
+            {
+                if (Original(file) is null && ReadBytes(file) is { } before)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(OriginalPath(file))!);
+                    await new Core.Safety.SafeFileWriter(context.ProjectDataDir).WriteAllBytesAsync(OriginalPath(file), before, cancellationToken); // the app's own folder
+                }
+
+                await context.Writer.WriteAllBytesAsync(state.Layout.Full(file), bytes, cancellationToken);
+            }
         }
 
         // sprites brought from another project (before the story battles that use them)
@@ -543,6 +572,7 @@ public sealed class ExpansionModule : IGameModule, ISpriteSource
         }
     }
 
+    private const string BrandingOriginals = "branding-originals";
     private const string BattleConfig = "include/config/battle.h";
     private const string DifficultyFile = "include/constants/difficulty.h";
     private const string AiConfig = "include/config/ai.h";

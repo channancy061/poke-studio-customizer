@@ -51,6 +51,7 @@ public sealed class ProjectSession : IDisposable
         data.Lab = await LoadJsonAsync<ChampionLab.LabSettings>(project, LabFileName, cancellationToken);
         data.GameOptions = await LoadJsonAsync<GameOptions.GameOptionsSettings>(project, GameOptionsFileName, cancellationToken);
         data.Story = await LoadJsonAsync<Story.StorySettings>(project, StoryFileName, cancellationToken);
+        data.Branding = await LoadOptionalJsonAsync<Branding.BrandingSettings>(project, BrandingFileName, cancellationToken);
         var session = new ProjectSession(project, module, data, projects, backups, clock ?? TimeProvider.System);
         session.RecordBaseline();
         var all = await backups.ListAsync(project.Manifest.Id, cancellationToken);
@@ -62,6 +63,7 @@ public sealed class ProjectSession : IDisposable
     public const string LabFileName = "champion-lab.json";
     public const string GameOptionsFileName = "game-options.json";
     public const string StoryFileName = "story-battles.json";
+    public const string BrandingFileName = "branding.json";
 
     /// <summary>Settings kept in the project's data folder, or the defaults.</summary>
     private static async Task<T> LoadJsonAsync<T>(Project project, string fileName, CancellationToken cancellationToken)
@@ -82,6 +84,11 @@ public sealed class ProjectSession : IDisposable
             return new T(); // a damaged file never stops the project from opening
         }
     }
+
+    /// <summary>Settings kept in the project's data folder, or null when there are none yet.</summary>
+    private static async Task<T?> LoadOptionalJsonAsync<T>(Project project, string fileName, CancellationToken cancellationToken)
+        where T : class, new() =>
+        File.Exists(Path.Combine(project.DataDir, fileName)) ? await LoadJsonAsync<T>(project, fileName, cancellationToken) : null;
 
     public IReadOnlyList<ChangeLogEntry> History(int limit = 500) => _log.ReadRecent(limit);
 
@@ -136,6 +143,12 @@ public sealed class ProjectSession : IDisposable
             await Storage.JsonStore.WriteAsync(Path.Combine(Project.DataDir, GameOptionsFileName), options, cancellationToken);
         }
 
+        if (Data.Branding is { } branding)
+        {
+            Directory.CreateDirectory(Project.DataDir);
+            await Storage.JsonStore.WriteAsync(Path.Combine(Project.DataDir, BrandingFileName), branding, cancellationToken);
+        }
+
         if (Data.Story is { } story)
         {
             Directory.CreateDirectory(Project.DataDir);
@@ -183,6 +196,7 @@ public sealed class ProjectSession : IDisposable
         Data.Lab = await LoadJsonAsync<ChampionLab.LabSettings>(Project, LabFileName, cancellationToken);
         Data.GameOptions = await LoadJsonAsync<GameOptions.GameOptionsSettings>(Project, GameOptionsFileName, cancellationToken);
         Data.Story = await LoadJsonAsync<Story.StorySettings>(Project, StoryFileName, cancellationToken);
+        Data.Branding = await LoadOptionalJsonAsync<Branding.BrandingSettings>(Project, BrandingFileName, cancellationToken);
         RecordBaseline();
         Undo.Clear();
         LastBackupUtc = _clock.GetUtcNow();

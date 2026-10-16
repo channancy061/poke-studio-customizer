@@ -75,6 +75,18 @@ internal sealed partial class ExpansionLayout
 
     public bool IsFireRedBase => BuildName is "firered" or "leafgreen";
 
+    /// <summary>The built game's name without ".gba" (the Makefile's FILE_NAME, e.g. "pokefirered").</summary>
+    public string FileName
+    {
+        get
+        {
+            var makefile = Full("Makefile");
+            var text = File.Exists(makefile) ? File.ReadAllText(makefile) : "";
+            var name = Regex.Match(text, @"^FILE_NAME\s*:=[ \t]*([^\s#]+)", RegexOptions.Multiline);
+            return (name.Success ? name.Groups[1].Value : "poke$(BUILD_NAME)").Replace("$(BUILD_NAME)", BuildName, StringComparison.Ordinal);
+        }
+    }
+
     /// <summary>The standard message box width in pixels, from src/menu.c (27 tiles in Emerald, 26 in FireRed).</summary>
     public int TextBoxWidth
     {

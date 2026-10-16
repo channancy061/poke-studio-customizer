@@ -284,7 +284,7 @@ public class ExpansionTests
         var root = CopyFixture(tmp);
         var (_, _, ctx) = await LoadAsync(root);
 
-        await Assert.ThrowsAsync<UnsafeWriteException>(() => ctx.Writer.WriteAllTextAsync(Path.Combine(root, "Makefile"), "oops"));
+        await Assert.ThrowsAsync<UnsafeWriteException>(() => ctx.Writer.WriteAllTextAsync(Path.Combine(root, "charmap.txt"), "oops"));
     }
 
     [Fact]

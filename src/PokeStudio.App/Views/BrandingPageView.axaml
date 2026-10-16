@@ -1,0 +1,68 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             x:Class="PokeStudio.App.Views.BrandingPageView"
+             x:DataType="vm:BrandingPageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="32,28" Spacing="16" MaxWidth="960" HorizontalAlignment="Left">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Name &amp; title screen" Classes="title" />
+        <TextBlock Text="Give your hack its own name and logo. Leave a box empty to keep the game's own. Clearing one later puts the original back."
+                   Classes="muted" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Name" Classes="heading" />
+          <StackPanel Spacing="4">
+            <TextBlock Text="ROM title" FontWeight="SemiBold" />
+            <TextBox Text="{Binding RomTitle}" MaxLength="12" Width="240" HorizontalAlignment="Left" AutomationProperties.Name="ROM title" />
+            <TextBlock Text="{Binding TitleHint}" Classes="caption muted" TextWrapping="Wrap" />
+          </StackPanel>
+          <StackPanel Spacing="4">
+            <TextBlock Text="Game file name" FontWeight="SemiBold" />
+            <TextBox Text="{Binding FileName}" MaxLength="40" Width="320" HorizontalAlignment="Left" AutomationProperties.Name="Game file name" />
+            <TextBlock Text="{Binding FileNameHint}" Classes="caption muted" TextWrapping="Wrap" />
+          </StackPanel>
+          <StackPanel Spacing="4">
+            <TextBlock Text="Name in the game" FontWeight="SemiBold" />
+            <TextBox Text="{Binding VersionName}" MaxLength="16" Width="320" HorizontalAlignment="Left" AutomationProperties.Name="Name in the game" />
+            <TextBlock Text="{Binding VersionNameHint}" Classes="caption muted" TextWrapping="Wrap" />
+          </StackPanel>
+          <CheckBox IsChecked="{Binding ShowIntro}" IsVisible="{Binding HasIntro}" Content="Play the &quot;Powered by pret × RHH&quot; screen at startup" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Title screen logo" Classes="heading" />
+          <TextBlock Text="{Binding LogoHint}" Classes="small muted" TextWrapping="Wrap" />
+          <Border Classes="well" IsVisible="{Binding HasLogo}" HorizontalAlignment="Left">
+            <Image Source="{Binding LogoPreview}" Stretch="None" RenderOptions.BitmapInterpolationMode="None" />
+          </Border>
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <Button Classes="secondary" Content="Pick logo picture…" Command="{Binding PickLogoCommand}" />
+            <Button Classes="ghost" Content="Use the game's own" Command="{Binding ClearLogoCommand}" IsVisible="{Binding HasLogo}" />
+          </StackPanel>
+
+          <StackPanel Spacing="12" IsVisible="{Binding HasSubtitle}">
+            <TextBlock Text="{Binding SubtitleHint}" Classes="small muted" TextWrapping="Wrap" />
+            <Border Classes="well" IsVisible="{Binding HasSubtitleImage}" HorizontalAlignment="Left">
+              <Image Source="{Binding SubtitlePreview}" Stretch="None" RenderOptions.BitmapInterpolationMode="None" />
+            </Border>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Button Classes="secondary" Content="Pick version line picture…" Command="{Binding PickSubtitleCommand}" />
+              <Button Classes="ghost" Content="Use the game's own" Command="{Binding ClearSubtitleCommand}" IsVisible="{Binding HasSubtitleImage}" />
+            </StackPanel>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <Button Classes="primary" Content="Apply" Command="{Binding ApplyCommand}" />
+        <TextBlock Text="{Binding Message}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="700"
+                   IsVisible="{Binding Message, Converter={x:Static ObjectConverters.IsNotNull}}" />
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

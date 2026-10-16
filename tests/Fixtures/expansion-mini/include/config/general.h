@@ -8,3 +8,5 @@
 #define GEN_8 7
 #define GEN_9 8
 #define GEN_LATEST GEN_9
+
+#define EXPANSION_INTRO              TRUE    // If TRUE, a custom RHH intro will play after the vanilla copyright screen.
