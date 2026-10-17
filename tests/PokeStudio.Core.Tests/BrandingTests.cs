@@ -47,6 +47,26 @@ public class BrandingTests
         Assert.Null(Brand.Convert(Logo(16, 16, 4), slot, "logo").Problem);
     }
 
+    [Fact]
+    public void A_detailed_background_is_made_to_fit_the_block_limit_with_few_pixels_changed()
+    {
+        // 240×160 of noise-like detail: 600 different blocks for 512 places
+        var rnd = new Random(3);
+        var palette = Enumerable.Range(0, 15).Select(i => new Rgb((byte)(i * 17), (byte)(255 - (i * 13)), (byte)(i * 7))).ToList();
+        var pixels = new byte[240 * 160];
+        for (var i = 0; i < pixels.Length; i++)
+        {
+            pixels[i] = (byte)((i / 240 / 8 % 3 == 0) ? rnd.Next(15) : (i % 240 / 8 % 15));
+        }
+
+        var png = Png.Write(new IndexedImage(240, 160, pixels, palette), 8);
+        var slot = new ImageSlot(240, 160, 15, "", MaxBlocks: 512, Opaque: true);
+        var (image, problem) = Brand.Convert(png, slot, "background");
+        Assert.Null(problem);
+        Assert.True(Brand.DistinctBlocks(image!) <= 512);
+        Assert.DoesNotContain((byte)0, image!.Pixels); // nothing see-through in a background
+    }
+
     /// <summary>A test logo: stripes of <paramref name="colors"/> colours, each 8×8 block different, the corner empty.</summary>
     private static byte[] Logo(int width, int height, int colors, bool cornerEmpty = true)
     {

@@ -69,6 +69,11 @@
             <Button Classes="secondary" Content="Pick background picture…" Command="{Binding PickBackgroundCommand}" />
             <Button Classes="ghost" Content="Use the game's own" Command="{Binding ClearBackgroundCommand}" IsVisible="{Binding HasBackgroundImage}" />
           </StackPanel>
+          <TextBlock Text="A detailed picture is made to fit: the most alike 8×8 blocks are merged until there are no more than 512." Classes="caption muted" TextWrapping="Wrap" />
+          <StackPanel Spacing="6" IsVisible="{Binding CanHideLayers}">
+            <CheckBox IsChecked="{Binding ShowLogo}" Content="Show the logo (untick when the background already has the title)" />
+            <CheckBox IsChecked="{Binding ShowBoxArt}" Content="Show the box-art Pokémon (Charizard)" />
+          </StackPanel>
         </StackPanel>
       </Border>
 

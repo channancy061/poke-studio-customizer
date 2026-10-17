@@ -32,7 +32,13 @@ public sealed record BrandingSettings
     /// <summary>The title screen's background picture behind the logo, a PNG (base64), or null to keep the game's.</summary>
     public string? BackgroundPng { get; init; }
 
-    public bool IsEmpty => RomTitle is null && FileName is null && VersionName is null && ShowExpansionIntro is null && LogoPng is null && SubtitlePng is null && BackgroundPng is null;
+    /// <summary>Hide the logo (a background picture that already has the title); null or false shows it.</summary>
+    public bool? HideLogo { get; init; }
+
+    /// <summary>Hide FireRed's box-art Pokémon (Charizard) on the title screen; null or false shows it.</summary>
+    public bool? HideBoxArt { get; init; }
+
+    public bool IsEmpty => RomTitle is null && FileName is null && VersionName is null && ShowExpansionIntro is null && LogoPng is null && SubtitlePng is null && BackgroundPng is null && HideLogo is not true && HideBoxArt is not true;
 }
 
 /// <summary>What a game can change and how big its pictures have to be.</summary>
@@ -49,7 +55,8 @@ public sealed record BrandingSupport(
     bool? IntroShown,
     ImageSlot Logo,
     ImageSlot? Subtitle,
-    ImageSlot? Background = null);
+    ImageSlot? Background = null,
+    bool CanHideLayers = false);
 
 /// <summary>A picture the game needs at an exact size with at most <paramref name="Colors"/> colours (plus see-through).</summary>
 /// <param name="EmptyCorner">The top-left 8×8 block has to stay see-through (the game fills the rest of the screen with it).</param>
@@ -111,6 +118,12 @@ public static class Brand
             return (null, $"Keep the top-left 8×8 corner of the {what} empty (see-through or background colour): the game fills the rest of the screen with it.");
         }
 
+        // a background picture is made to fit: the most alike 8×8 blocks are merged until there's room
+        if (slot.Opaque && DistinctBlocks(image) > slot.MaxBlocks)
+        {
+            image = ReduceBlocks(image, slot.MaxBlocks);
+        }
+
         var blocks = DistinctBlocks(image);
         if (blocks > slot.MaxBlocks)
         {
@@ -122,6 +135,106 @@ public static class Brand
 
     /// <summary>How many different 8×8 blocks a picture has (the empty one included).</summary>
     public static int DistinctBlocks(IndexedImage image) => Blocks(image).Select(b => System.Convert.ToBase64String(b)).Distinct().Count();
+
+    /// <summary>
+    /// The picture with at most <paramref name="max"/> different 8×8 blocks: the two most alike blocks (by colour) are
+    /// merged again and again, the rarer one becoming the more common one, so the fewest pixels change.
+    /// </summary>
+    public static IndexedImage ReduceBlocks(IndexedImage image, int max)
+    {
+        var blocks = Blocks(image).ToList();
+        var keys = blocks.Select(b => System.Convert.ToBase64String(b)).ToList();
+        var unique = keys.Distinct().ToList();
+        if (unique.Count <= max)
+        {
+            return image;
+        }
+
+        var pixels = unique.Select(k => blocks[keys.IndexOf(k)]).ToList();
+        var count = unique.Select(k => keys.Count(x => x == k)).ToArray();
+        var pal = image.Palette;
+        var cost = new double[pal.Count, pal.Count];
+        for (var a = 0; a < pal.Count; a++)
+        {
+            for (var b = 0; b < pal.Count; b++)
+            {
+                cost[a, b] = pal[a].DistanceTo(pal[b]);
+            }
+        }
+
+        double Distance(byte[] x, byte[] y)
+        {
+            var d = 0.0;
+            for (var p = 0; p < 64; p++)
+            {
+                d += cost[Math.Min(x[p], (byte)(pal.Count - 1)), Math.Min(y[p], (byte)(pal.Count - 1))];
+            }
+
+            return d;
+        }
+
+        var pairs = new List<(double D, int A, int B)>();
+        for (var a = 0; a < unique.Count; a++)
+        {
+            for (var b = a + 1; b < unique.Count; b++)
+            {
+                pairs.Add((Distance(pixels[a], pixels[b]), a, b));
+            }
+        }
+
+        pairs.Sort((x, y) => x.D.CompareTo(y.D));
+        var into = Enumerable.Range(0, unique.Count).ToArray();
+        int Find(int i) => into[i] == i ? i : into[i] = Find(into[i]);
+        var absorbed = new bool[unique.Count];
+        var left = unique.Count;
+
+        // first one step only (a block becomes one it really looks like, never a chain of look-alikes that drifts into a
+        // plain dark square), then, if that's not enough, any merge
+        foreach (var oneStep in new[] { true, false })
+        {
+            foreach (var (_, a0, b0) in pairs)
+            {
+                if (left <= max)
+                {
+                    break;
+                }
+
+                var (a, b) = (Find(a0), Find(b0));
+                if (a == b || (oneStep && (a != a0 || b != b0)))
+                {
+                    continue;
+                }
+
+                var (keep, drop) = count[a] >= count[b] ? (a, b) : (b, a);
+                if (oneStep && absorbed[drop])
+                {
+                    (keep, drop) = (drop, keep);
+                    if (absorbed[drop])
+                    {
+                        continue;
+                    }
+                }
+
+                into[drop] = keep;
+                absorbed[keep] = true;
+                count[keep] += count[drop];
+                left--;
+            }
+        }
+
+        var result = (byte[])image.Pixels.Clone();
+        var columns = image.Width / 8;
+        for (var i = 0; i < blocks.Count; i++)
+        {
+            var block = pixels[Find(unique.IndexOf(keys[i]))];
+            for (var y = 0; y < 8; y++)
+            {
+                Array.Copy(block, y * 8, result, ((((i / columns) * 8) + y) * image.Width) + ((i % columns) * 8), 8);
+            }
+        }
+
+        return image with { Pixels = result };
+    }
 
     /// <summary>The picture's 8×8 blocks, left to right, top to bottom.</summary>
     public static IEnumerable<byte[]> Blocks(IndexedImage image)

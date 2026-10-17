@@ -23,6 +23,7 @@ internal static partial class BrandingWriter
     public const string EmeraldLogo = "graphics/title_screen/pokemon_logo";
     public const string EmeraldSubtitle = "graphics/title_screen/emerald_version.png";
     public const string FireRedTitleCode = "src/title_screen.c";
+    public const string FireRedBoxArtMap = "graphics/title_screen/firered/box_art_mon.bin";
     public const string FireRedBackground = "graphics/title_screen/firered/ps_background";
 
     // FireRed's back layer (BG3): its own 16 KB of tiles (512) and a 32×20 map, drawn with BG palette 14
@@ -38,7 +39,7 @@ internal static partial class BrandingWriter
 
     public static IReadOnlyList<string> Files(ExpansionLayout layout) => layout.IsFireRedBase
         ? [Makefile, General, FireRedCredits, FireRedLogo + ".png", FireRedLogo + ".pal", FireRedLogo + ".bin", FireRedTitleCode,
-            FireRedBackground + ".png", FireRedBackground + ".pal", FireRedBackground + ".bin"]
+            FireRedBackground + ".png", FireRedBackground + ".pal", FireRedBackground + ".bin", FireRedBoxArtMap]
         : [Makefile, General, EmeraldCredits, EmeraldStrings, EmeraldLogo + ".png", EmeraldLogo + ".pal", EmeraldSubtitle];
 
     public static BrandingSupport Describe(ExpansionLayout layout)
@@ -52,7 +53,8 @@ internal static partial class BrandingWriter
             ? Regex.Match(Read(FireRedCredits) ?? "", @"sString_PokemonFireRed_Staff\[\] = _\(""Pokémon (.*?) Version\\nStaff""\)") is { Success: true } f ? f.Groups[1].Value : "FireRed"
             : Regex.Match(Read(EmeraldStrings) ?? "", @"gText_ExpandedPlaceholder_Emerald\[\] = _\(""(.*?)""\)") is { Success: true } e ? e.Groups[1].Value : "EMERALD";
         return new BrandingSupport(title, layout.FileName, version, intro, fireRed ? FireRedSlot : EmeraldSlot, fireRed ? null : EmeraldSubtitleSlot,
-            fireRed && Read(FireRedTitleCode)?.Contains("sBorderBgTiles[]", StringComparison.Ordinal) == true ? FireRedBackgroundSlot : null);
+            fireRed && Read(FireRedTitleCode)?.Contains("sBorderBgTiles[]", StringComparison.Ordinal) == true ? FireRedBackgroundSlot : null,
+            CanHideLayers: fireRed);
     }
 
     /// <summary>
@@ -117,7 +119,24 @@ internal static partial class BrandingWriter
         // the logo: from the player's picture, or back to the original
         var logoBase = fireRed ? FireRedLogo : EmeraldLogo;
         var logoFiles = fireRed ? new[] { logoBase + ".png", logoBase + ".pal", logoBase + ".bin" } : [logoBase + ".png", logoBase + ".pal"];
-        if (b.LogoPng is { } logo)
+        // FireRed: a hidden logo or box-art Pokémon is a map of the blank first tile (the originals come back when shown)
+        if (fireRed)
+        {
+            if (b.HideBoxArt == true)
+            {
+                PutBytes(FireRedBoxArtMap, new byte[FireRedMapWidth * FireRedMapHeight * 2]);
+            }
+            else if (original(FireRedBoxArtMap) is { } boxArt)
+            {
+                PutBytes(FireRedBoxArtMap, boxArt);
+            }
+        }
+
+        if (fireRed && b.HideLogo == true)
+        {
+            PutBytes(FireRedLogo + ".bin", new byte[FireRedMapWidth * FireRedMapHeight * 2]);
+        }
+        else if (b.LogoPng is { } logo)
         {
             var (image, problem) = Brand.Convert(Convert.FromBase64String(logo), fireRed ? FireRedSlot : EmeraldSlot, "logo");
             var pal = (original(logoBase + ".pal") ?? readBytes(logoBase + ".pal")) is { } palBytes ? JascPalette.Read(Encoding.ASCII.GetString(palBytes)) : null;

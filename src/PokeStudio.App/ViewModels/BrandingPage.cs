@@ -25,6 +25,8 @@ public sealed partial class BrandingPageViewModel : ViewModelBase
         FileName = b.FileName ?? "";
         VersionName = b.VersionName ?? "";
         ShowIntro = b.ShowExpansionIntro ?? _support.IntroShown ?? true;
+        ShowLogo = b.HideLogo != true;
+        ShowBoxArt = b.HideBoxArt != true;
         _logo = b.LogoPng;
         _subtitle = b.SubtitlePng;
         _background = b.BackgroundPng;
@@ -80,6 +82,14 @@ public sealed partial class BrandingPageViewModel : ViewModelBase
 
     [ObservableProperty]
     public partial bool ShowIntro { get; set; }
+
+    [ObservableProperty]
+    public partial bool ShowLogo { get; set; }
+
+    [ObservableProperty]
+    public partial bool ShowBoxArt { get; set; }
+
+    public bool CanHideLayers => _support.CanHideLayers;
 
     [ObservableProperty]
     public partial Bitmap? LogoPreview { get; set; }
@@ -171,6 +181,8 @@ public sealed partial class BrandingPageViewModel : ViewModelBase
             LogoPng = _logo,
             SubtitlePng = _subtitle,
             BackgroundPng = _background,
+            HideLogo = CanHideLayers && !ShowLogo ? true : null,
+            HideBoxArt = CanHideLayers && !ShowBoxArt ? true : null,
         };
         if (settings == (data.Branding ?? new BrandingSettings()))
         {
