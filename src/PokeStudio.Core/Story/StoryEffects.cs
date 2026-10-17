@@ -71,15 +71,27 @@ public static class StoryEffects
     /// A TM of this type for the player: a damaging move about right for this point of the game, not one the
     /// game's scripts or another story battle already give.
     /// </summary>
-    public static string? RewardFor(GameData data, string type, int level, IEnumerable<string> taken)
+    public static string? RewardFor(GameData data, string type, int level, IEnumerable<string> taken, IReadOnlyCollection<string>? teamTypes = null)
     {
+        // never a TM the game already gives or another challenger gives: their type's attack, else their type's other TM
+        // (Sandstorm for Rock), else one of their team's other types, else a strong one for this point of the game
         var used = taken.ToHashSet(StringComparer.Ordinal);
         var maxPower = level < 20 ? 70 : level < 30 ? 80 : level < 40 ? 95 : 250;
-        var options = data.Catalog.Machines.Where(m => m.Label.StartsWith("TM", StringComparison.Ordinal))
+        var all = data.Catalog.Machines.Where(m => m.Label.StartsWith("TM", StringComparison.Ordinal))
             .Select(m => (Item: "ITEM_TM_" + m.Move.Replace("MOVE_", "", StringComparison.Ordinal), Move: data.Moves.FirstOrDefault(x => x.Key == m.Move)))
-            .Where(m => m.Move is not null && m.Move.Type == type && m.Move.Category != MoveCategory.Status && m.Move.Power > 0 && !used.Contains(m.Item))
+            .Where(m => m.Move is not null && !used.Contains(m.Item))
             .ToList();
-        return options.Where(o => o.Move!.Power <= maxPower).OrderByDescending(o => o.Move!.Power).Select(o => o.Item).FirstOrDefault()
-            ?? options.OrderBy(o => o.Move!.Power).Select(o => o.Item).FirstOrDefault();
+        bool Attack(Move m) => m.Category != MoveCategory.Status && m.Power > 0;
+        string? Best(IEnumerable<(string Item, Move? Move)> options)
+        {
+            var list = options.ToList();
+            return list.Where(o => o.Move!.Power <= maxPower).OrderByDescending(o => o.Move!.Power).Select(o => o.Item).FirstOrDefault()
+                ?? list.OrderBy(o => o.Move!.Power).Select(o => o.Item).FirstOrDefault();
+        }
+
+        return Best(all.Where(m => m.Move!.Type == type && Attack(m.Move)))
+            ?? all.Where(m => m.Move!.Type == type).Select(m => m.Item).FirstOrDefault()
+            ?? Best(all.Where(m => (teamTypes ?? []).Contains(m.Move!.Type) && m.Move.Type != type && Attack(m.Move)))
+            ?? Best(all.Where(m => Attack(m.Move!) && m.Move!.Power >= 60));
     }
 }

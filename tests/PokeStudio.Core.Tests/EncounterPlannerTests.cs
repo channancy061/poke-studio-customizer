@@ -97,6 +97,27 @@ public class EncounterPlannerTests
         EncounterPlanner.ToChange(data, EncounterPlanner.Plan(data, lab, new EncounterPlanner.Options()))!.Apply();
         var after = EncounterPlanner.Check(data, lab);
         Assert.All(after, r => Assert.True(r.Ready, $"{r.Label}: {r.Counters.Count} counters"));
+        // route trainers then use those wild Pokémon, with fair moves (no Pidgey spamming Sand Attack)
+        var (trainers, updated) = RouteTrainers.Refresh(data, lab);
+        Assert.True(updated > 100);
+        trainers!.Apply();
+        var wild = EncounterPlanner.Met(data).Select(m => m.Species).ToHashSet();
+        var rick = data.Trainers.Single(t => t.Key == "TRAINER_BUG_CATCHER_RICK");
+        Assert.All(rick.Party, p => Assert.True(wild.Any(w => Core.ChampionLab.TeamBuilder.FamilyRoot(data, w) == Core.ChampionLab.TeamBuilder.FamilyRoot(data, p.Species)), p.Species));
+        string[] unfair = ["MOVE_SAND_ATTACK", "MOVE_DOUBLE_TEAM", "MOVE_FISSURE", "MOVE_SMOKESCREEN"];
+        Assert.DoesNotContain(data.Trainers.Where(t => !t.Key.Contains('@') && !t.NeverFought && Core.ChampionLab.Lab.GroupOf(data, lab, t) == Core.ChampionLab.TrainerGroup.Regular)
+            .SelectMany(t => t.Party).SelectMany(p => p.Moves), unfair.Contains);
+
+        // the redesign gives every boss a team that grows with the badges, and early ones nothing too strong for their level
+        var (bosses, redesigned) = Core.ChampionLab.TeamBuilder.RedesignBosses(data, lab);
+        Assert.True(redesigned >= 8);
+        bosses!.Apply();
+        var brock = data.Trainers.Single(t => t.Key == "TRAINER_LEADER_BROCK");
+        Assert.Equal(3, brock.Party.Count);
+        Assert.All(brock.Party, p => Assert.True(data.Species.Single(s => s.Key == p.Species).Stats.Total <= Core.ChampionLab.TeamBuilder.MaxStatTotal(14, Core.ChampionLab.Difficulty.Normal), p.Species));
+        Assert.Equal(6, data.Trainers.Single(t => t.Key == "TRAINER_LEADER_GIOVANNI").Party.Count);
+        Assert.Empty(data.Trainers.Where(t => !t.Key.Contains('@') && !t.NeverFought && t.Party.Any(p => p.Moves.Any(unfair.Contains)))
+            .Select(t => $"{t.Key} ({Core.ChampionLab.Lab.GroupOf(data, lab, t)}): {string.Join(",", t.Party.SelectMany(p => p.Moves).Where(unfair.Contains))}"));
         Assert.Equal("Route 1", StoryOrder.AreaName("MAP_ROUTE1"));
         Assert.Equal("S.S. Anne Exterior", StoryOrder.AreaName("MAP_SSANNE_EXTERIOR"));
     }

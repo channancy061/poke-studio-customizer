@@ -73,6 +73,22 @@ public sealed partial class ChampionLabPageViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task RedesignBossesAsync()
+    {
+        var (data, settings) = (Data, Settings);
+        var (change, count) = await _shell.RunBusyAsync("Redesigning every boss's team…", () => TeamBuilder.RedesignBosses(data, settings));
+        if (change is null)
+        {
+            _shell.Toast = "No bosses to redesign. Set the trainer groups first.";
+            return;
+        }
+
+        _shell.Execute(change);
+        _shell.Toast = $"{count} bosses redesigned. One Undo puts their old teams back. Make the difficulty versions next.";
+        OnPropertyChanged(nameof(VersionsSummary));
+    }
+
+    [RelayCommand]
     private async Task GenerateVersionsAsync()
     {
         var versions = new List<Core.ChampionLab.Difficulty>();

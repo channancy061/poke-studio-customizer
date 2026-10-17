@@ -38,7 +38,8 @@ public static class TeamBuilder
     /// <summary>The last official National Dex number (Pecharunt, Gen 9).</summary>
     public const int OfficialDexMax = 1025;
 
-    public sealed record Options(Difficulty Difficulty = Difficulty.Normal, int? TeamSize = null, int? Level = null, int Variant = 0);
+    /// <param name="Avoid">Species other bosses already use: picked only when nothing else fits as well (variety between gyms).</param>
+    public sealed record Options(Difficulty Difficulty = Difficulty.Normal, int? TeamSize = null, int? Level = null, int Variant = 0, IReadOnlySet<string>? Avoid = null);
 
     public static TeamSuggestion Suggest(GameData data, LabSettings lab, Trainer trainer, Options options)
     {
@@ -111,17 +112,27 @@ public static class TeamBuilder
             static int Raise(int max, bool needed) => !needed || max < 0 ? max : Math.Max(max, 1);
         }
 
+        // early bosses get Pokémon a player at that level can face (no Aerodactyl at level 13); the limit loosens a step at a
+        // time when the theme has nothing under it
+        var strongest = MaxStatTotal(level, options.Difficulty);
         while (picked.Count < size)
         {
             var offTypeLeft = theme is null ? int.MaxValue : theme.OffTypeAllowed - picked.Count(p => !p.Types.Contains(theme.Type));
             var scored = pool
+                .Where(s => s.Stats.Total <= strongest)
                 .Where(s => picked.All(p => p.Key != s.Key) && (!rules.SpeciesClause || picked.All(p => Root(data, p.Key) != Root(data, s.Key) && p.Name != s.Name)))
                 .Where(s => theme is null || s.Types.Contains(theme.Type) || offTypeLeft > 0)
                 .Where(s => Allowed(s, rules, picked))
                 .Where(s => !lab.UniqueTypeCombos || theme is null || picked.All(p => !p.Types.OrderBy(x => x).SequenceEqual(s.Types.OrderBy(x => x))))
-                .Select(s => (Species: s, Score: Score(s, picked, threats) + (rng.NextDouble() * 25 * options.Variant)))
+                .Select(s => (Species: s, Score: Score(s, picked, threats) + (rng.NextDouble() * 25 * options.Variant) - (options.Avoid?.Contains(Root(data, s.Key)) == true ? 120 : 0)))
                 .OrderByDescending(x => x.Score)
                 .ToList();
+            if (scored.Count == 0 && strongest < 800)
+            {
+                strongest += 40;
+                continue;
+            }
+
             if (scored.Count == 0)
             {
                 notes.Add($"Only {picked.Count} Pokémon fit every rule; the team is shorter than {size}.");
@@ -159,6 +170,104 @@ public static class TeamBuilder
         }
 
         return new TeamSuggestion(members, notes);
+    }
+
+    /// <summary>
+    /// The strongest Pokémon (base stat total) a boss of this level should have: 330 + 8 per level (434 at level 13,
+    /// 498 at 21, no limit worth noticing from about 45), Easy 30 lower, Hard 25 and Extra Hard 50 higher.
+    /// </summary>
+    public static int MaxStatTotal(int level, Difficulty difficulty) =>
+        330 + (8 * level) + difficulty switch { Difficulty.Easy => -30, Difficulty.Hard => 25, Difficulty.ExtraHard => 50, _ => 0 };
+
+    /// <summary>
+    /// A boss's team size when it's redesigned: growing with the badge (3 at the first two gyms up to 6 at the last two),
+    /// 5 for the Elite Four, 6 for Champions and the post-game, one more for a rival; never smaller than it was.
+    /// </summary>
+    public static int BossTeamSize(GameData data, LabSettings lab, Trainer t)
+    {
+        var group = Lab.GroupOf(data, lab, t);
+        var badge = Progression.StoryOrder.BadgeOf(t.Key) is { } flag ? flag[^5] - '0' : 0;
+        var size = group switch
+        {
+            TrainerGroup.EarlyGym or TrainerGroup.LateGym => badge > 0 ? 2 + ((badge + 1) / 2) : group == TrainerGroup.EarlyGym ? 4 : 5,
+            TrainerGroup.EliteFour => 5,
+            TrainerGroup.Champion or TrainerGroup.PostGame => 6,
+            TrainerGroup.Rival => t.Party.Count + 1,
+            _ => t.Party.Count,
+        };
+        return Math.Clamp(Math.Max(size, t.Party.Count), 1, 6);
+    }
+
+    /// <summary>
+    /// Redesigns every boss's normal team at its own level (gym leaders, Elite Four, Champions, rivals; story battles keep
+    /// theirs), with a type theme from its current team when it has none, as one undo step.
+    /// </summary>
+    public static (IChange? Change, int Count) RedesignBosses(GameData data, LabSettings lab)
+    {
+        var parts = new List<IChange>();
+        void Do(IChange change)
+        {
+            change.Apply();
+            parts.Add(change);
+        }
+
+        try
+        {
+            var bosses = data.Trainers.Where(t => Lab.DifficultyOf(t) == Difficulty.Normal && !t.Key.Contains('@', StringComparison.Ordinal)
+                    && t.LockedReason is null && t.Party.Count > 0 && !t.NeverFought
+                    && !t.Key.StartsWith(Story.StoryBattles.TrainerPrefix, StringComparison.Ordinal)
+                    && Lab.GroupOf(data, lab, t) != TrainerGroup.Regular)
+                .Select(t => t.Key).ToList();
+
+            // themes first (gym leaders and the Elite Four keep the type they had)
+            var themes = new Dictionary<string, TypeTheme>(lab.Themes);
+            foreach (var key in bosses)
+            {
+                var t = data.Trainers.First(x => x.Key == key);
+                if (!themes.ContainsKey(key) && Lab.GroupOf(data, lab, t) is TrainerGroup.EarlyGym or TrainerGroup.LateGym or TrainerGroup.EliteFour
+                    && Lab.SuggestTheme(data, t) is { } type)
+                {
+                    themes[key] = new TypeTheme(type);
+                }
+            }
+
+            var themed = lab with { Themes = themes };
+            if (themes.Count != lab.Themes.Count)
+            {
+                Do(new ValueChange<LabSettings?>("Champion Lab", "Type themes for every boss", v => data.Lab = v, data.Lab, themed));
+            }
+
+            // story battles' teams count as used, so a gym leader doesn't repeat the challenger just before them
+            var used = data.Trainers.Where(t => t.Key.StartsWith(Story.StoryBattles.TrainerPrefix, StringComparison.Ordinal))
+                .SelectMany(t => t.Party).Select(p => Root(data, p.Species)).ToHashSet(StringComparer.Ordinal);
+            var count = 0;
+            foreach (var key in bosses)
+            {
+                var t = data.Trainers.First(x => x.Key == key);
+                var suggestion = Suggest(data, themed, t, new Options(Difficulty.Normal, BossTeamSize(data, themed, t), t.Party.Max(p => p.Level), Avoid: used));
+                if (Lab.GroupOf(data, themed, t) != TrainerGroup.Rival)
+                {
+                    used.UnionWith(suggestion.Members.Select(m => Root(data, m.Pokemon.Species)));
+                }
+
+                if (suggestion.Members.Count == 0)
+                {
+                    continue;
+                }
+
+                Do(Apply(data, t, suggestion, $"{t.Name}: redesigned"));
+                count++;
+            }
+
+            return (parts.Count == 0 ? null : new CompositeChange("Champion Lab", $"Every boss redesigned ({count})", parts.ToList()), count);
+        }
+        finally
+        {
+            for (var i = parts.Count - 1; i >= 0; i--)
+            {
+                parts[i].Revert();
+            }
+        }
     }
 
     /// <summary>Applies a suggestion to a trainer as one undo step.</summary>

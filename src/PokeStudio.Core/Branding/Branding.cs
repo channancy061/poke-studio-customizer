@@ -29,7 +29,10 @@ public sealed record BrandingSettings
     /// <summary>Emerald's "Version" line under the logo, a PNG (base64), or null to keep it.</summary>
     public string? SubtitlePng { get; init; }
 
-    public bool IsEmpty => RomTitle is null && FileName is null && VersionName is null && ShowExpansionIntro is null && LogoPng is null && SubtitlePng is null;
+    /// <summary>The title screen's background picture behind the logo, a PNG (base64), or null to keep the game's.</summary>
+    public string? BackgroundPng { get; init; }
+
+    public bool IsEmpty => RomTitle is null && FileName is null && VersionName is null && ShowExpansionIntro is null && LogoPng is null && SubtitlePng is null && BackgroundPng is null;
 }
 
 /// <summary>What a game can change and how big its pictures have to be.</summary>
@@ -45,12 +48,14 @@ public sealed record BrandingSupport(
     string CurrentVersionName,
     bool? IntroShown,
     ImageSlot Logo,
-    ImageSlot? Subtitle);
+    ImageSlot? Subtitle,
+    ImageSlot? Background = null);
 
 /// <summary>A picture the game needs at an exact size with at most <paramref name="Colors"/> colours (plus see-through).</summary>
 /// <param name="EmptyCorner">The top-left 8×8 block has to stay see-through (the game fills the rest of the screen with it).</param>
 /// <param name="MaxBlocks">At most this many different 8×8 blocks (the rest of the video memory belongs to other pictures).</param>
-public sealed record ImageSlot(int Width, int Height, int Colors, string Hint, bool EmptyCorner = false, int MaxBlocks = int.MaxValue);
+/// <param name="Opaque">Nothing in it is see-through (a background): every colour is drawn, index 0 is left unused.</param>
+public sealed record ImageSlot(int Width, int Height, int Colors, string Hint, bool EmptyCorner = false, int MaxBlocks = int.MaxValue, bool Opaque = false);
 
 public static class Brand
 {
@@ -100,7 +105,7 @@ public static class Brand
             return (null, $"The {what} has to be exactly {slot.Width}×{slot.Height} pixels (this one is {rgba.Width}×{rgba.Height}).");
         }
 
-        var image = Quantizer.ToIndexed(rgba, slot.Colors + 1);
+        var image = slot.Opaque ? Solid(rgba, slot.Colors) : Quantizer.ToIndexed(rgba, slot.Colors + 1);
         if (slot.EmptyCorner && Enumerable.Range(0, 8).Any(y => Enumerable.Range(0, 8).Any(x => image.Pixels[(y * image.Width) + x] != 0)))
         {
             return (null, $"Keep the top-left 8×8 corner of the {what} empty (see-through or background colour): the game fills the rest of the screen with it.");
@@ -134,6 +139,14 @@ public static class Brand
                 yield return block;
             }
         }
+    }
+
+    /// <summary>Every pixel drawn: the colours in 1…n, index 0 (see-through on the GBA) unused.</summary>
+    private static IndexedImage Solid(RgbaImage rgba, int colors)
+    {
+        var opaque = rgba with { Rgba = rgba.Rgba.Select((b, i) => i % 4 == 3 ? (byte)255 : b).ToArray() };
+        var indexed = Quantizer.ToIndexed(opaque, colors);
+        return new IndexedImage(indexed.Width, indexed.Height, indexed.Pixels.Select(p => (byte)(p + 1)).ToArray(), [new Rgb(0, 0, 0), .. indexed.Palette]);
     }
 
     private static RgbaImage ToRgba(IndexedImage i)

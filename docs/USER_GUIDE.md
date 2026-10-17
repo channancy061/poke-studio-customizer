@@ -175,7 +175,16 @@ Pick a Pokémon and a picture (front, back or party icon), then normal or shiny.
 - **Scouting:** what the player can catch before each boss.
 - **Report card:** for each boss, which of the player's possible Pokémon it beats and loses to, with a 1–10 score and
   suggestions.
+- **Redesign every boss:** new Normal teams for every gym leader, Elite Four member, rival and Champion, at their own
+  level and in their type. Teams grow through the game: 3 Pokémon at the first two gyms up to 6 at the last two, 5
+  for the Elite Four and 6 for Champions. Bosses avoid repeating each other's Pokémon (Brock and the Roxanne before
+  him get different teams). Story battles keep their teams.
+- **Fair early teams:** a boss Pokémon's base stat total is at most 330 + 8 per level (434 at level 13). Easy is 30
+  lower, Hard 25 and Extra Hard 50 higher, so no Aerodactyl or Shuckle at the first gym. From about level 45 it no
+  longer matters.
 - **Difficulty versions:** Easy, Hard and Extra Hard teams for every important trainer, made from the Normal team.
+  Hard adds one Pokémon at the same levels; Extra Hard adds two and one level. Harder means better teams, not levels
+  above the cap. The difficulty you pick at a new game only changes anything once these versions exist.
 - **Suggest adaptive slots for all bosses** (decomp projects): see Game options below.
 
 ### Game options (decomp projects)
@@ -228,6 +237,10 @@ place they guard. Surfing, fishing and Rock Smash count only from when they open
 where they're given, and Surf and Rock Smash with their badges. So Route 3 (after Pewter City) is planned against
 Misty, not Brock. Other games use the wild levels and the level caps.
 
+**Route trainers.** After planning, **Update route trainers** gives ordinary trainers (Youngsters, Bird Keepers,
+Hikers…) Pokémon the player can meet in the wild by then. Each keeps a type of the one it replaces, at the same
+level. Their moves are level-up moves only, never Sand Attack-style accuracy drops, evasion boosts or one-hit KOs.
+
 **Battle check.** **Check every battle** goes through the playthrough battle by battle. For each major battle it
 lists the bosses' main types and the different wild Pokémon a player can catch before it that hit those types
 hard. Battles with fewer than two are marked ⚠. The original FireRed, for example, has only Mankey for Brock.
@@ -254,7 +267,8 @@ variables. **Remove** takes the trainer, their script and their level cap out ag
 Every battle is a major battle with its own level cap and a Champion Lab team in the trainer's type. Each
 challenger fights with a **field effect for the whole battle** that suits their type: Erika's rain weakens Fire moves,
 Flannery's sun (or, in FireRed, a sea of fire on your side) weakens Water, and so on. After the first win they give
-you a **TM of their type**. You can change both for every battle on the page. The Player's Guide tells players about
+you a **TM of their type**. It's never a TM the game or another challenger already gives. When their type has
+none left, they give one that fits (Sandstorm from a Rock leader) or a strong TM of another type. You can change both for every battle on the page. The Player's Guide tells players about
 the effect and the reward. The Champion always has at least one legendary and one mythical Pokémon (a Champion Lab
 rule you can switch off). FireRed's expansion is older and has no weather effects, so its challengers use terrains,
 hazards and Tailwind instead. FireRed has no
@@ -294,6 +308,8 @@ Give your hack its own name and look:
   256×64 with up to 223 colours, and the top-left 8×8 corner has to stay empty. Emerald also has a separate
   128×32 "Version" line under the logo (up to 15 colours). See-through pixels (or the top-left pixel's colour) show
   the title screen behind. The app checks the size and colours when you pick the picture.
+- **Title screen background** (FireRed): your own 240×160 picture with up to 15 colours, behind the logo, the
+  box-art Pokémon and the flames, in place of the plain band.
 
 Leave a box empty to keep the game's own. Clearing something later puts the original back: every changed line
 keeps the original in a comment above it, and the original logo pictures are kept in the project's data folder.

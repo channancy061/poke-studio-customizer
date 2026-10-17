@@ -108,6 +108,25 @@ public sealed partial class EncounterPlannerPageViewModel(ShellViewModel shell) 
         OnPropertyChanged(nameof(HasChecks));
     }
 
+    /// <summary>Gives ordinary trainers the wild Pokémon the player can meet by then, with fair level-up moves.</summary>
+    [RelayCommand]
+    private async Task RefreshTrainersAsync()
+    {
+        var data = shell.Session.Data;
+        var lab = data.Lab ?? new LabSettings();
+        var places = shell.Session.Module.TrainerPlaces(data);
+        var (change, count) = await shell.RunBusyAsync("Updating route trainers…", () => RouteTrainers.Refresh(data, lab, places));
+        if (change is null)
+        {
+            Status = "No route trainers to update.";
+            return;
+        }
+
+        shell.Execute(change);
+        Status = null;
+        shell.Toast = $"{count} route trainers now use the planned wild Pokémon with fair moves. One Undo puts their old teams back.";
+    }
+
     [RelayCommand]
     private void Apply()
     {

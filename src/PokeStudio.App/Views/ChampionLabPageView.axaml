@@ -146,9 +146,18 @@
       <StackPanel Spacing="12" IsVisible="{Binding IsVersionsTab}">
         <Border Classes="card">
           <StackPanel Spacing="10">
+            <TextBlock Text="Redesign every boss" Classes="heading" />
+            <TextBlock TextWrapping="Wrap" Classes="small muted"
+                       Text="Gives every gym leader, Elite Four member, rival and Champion a new Normal team from the team builder, at its own level and in its type. Teams grow through the game (3 Pokémon at the first gyms up to 6 at the last), and early bosses only get Pokémon a player at that level can face. Story battles keep their teams. Make the difficulty versions afterwards." />
+            <Button Classes="primary" HorizontalAlignment="Left" Content="Redesign every boss" Command="{Binding RedesignBossesCommand}" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="10">
             <TextBlock Text="Make difficulty versions" Classes="heading" />
             <TextBlock TextWrapping="Wrap" Classes="small muted"
-                       Text="Every important trainer gets extra versions built from its Normal team. Easy: lower levels, no training or items. Hard: a stronger team from the team builder with the Smart AI. Extra Hard: a full competitive team with the Champion AI. The game picks the version from the player's difficulty setting (the new-game menu arrives in Phase 8)." />
+                       Text="Every important trainer gets extra versions built from its Normal team. Easy: lower levels, no training or items. Hard: one more Pokémon and a stronger team with the Smart AI, at the same levels. Extra Hard: two more Pokémon, one level up and a competitive team with the Champion AI. Harder means better teams, not levels above the cap. The game picks the version from the player's difficulty choice at the start of a new game." />
             <TextBlock Text="{Binding VersionsSummary}" FontWeight="Bold" />
             <StackPanel Orientation="Horizontal" Spacing="16">
               <CheckBox IsChecked="{Binding MakeEasy}" Content="Easy" />

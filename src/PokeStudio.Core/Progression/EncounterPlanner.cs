@@ -248,19 +248,7 @@ public static class EncounterPlanner
         var next = NextBattles(data);
         string Family(string key) => species.TryGetValue(TeamBuilder.FamilyRoot(data, key), out var r) ? r.Name.ToUpperInvariant() : key;
 
-        // every wild Pokémon with the first battle it can help in, in playthrough order
-        var met = new List<(string Species, string Area, int From)>();
-        foreach (var (map, tables, _, _) in Areas(data))
-        {
-            foreach (var method in tables.SelectMany(t => t.Methods).Where(m => m.Slots.Count > 0))
-            {
-                // a Pokémon counts from its earliest slot (the Old Rod's before the Super Rod's)
-                for (var slot = 0; slot < method.Slots.Count; slot++)
-                {
-                    met.Add((method.Slots[slot].Species, Title(tables[0]), next(map, method.Slots[slot].MinLevel, method.Type, slot)));
-                }
-            }
-        }
+        var met = Met(data);
 
         var result = new List<BattleReadiness>();
         for (var i = 0; i < caps.Count; i++)
@@ -280,6 +268,28 @@ public static class EncounterPlanner
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Every wild Pokémon with the first major battle it can be caught before (an index into the level caps), in
+    /// playthrough order; a Pokémon counts from its earliest slot (the Old Rod's before the Super Rod's).
+    /// </summary>
+    public static List<(string Species, string Area, int From)> Met(GameData data)
+    {
+        var next = NextBattles(data);
+        var met = new List<(string Species, string Area, int From)>();
+        foreach (var (map, tables, _, _) in Areas(data))
+        {
+            foreach (var method in tables.SelectMany(t => t.Methods).Where(m => m.Slots.Count > 0))
+            {
+                for (var slot = 0; slot < method.Slots.Count; slot++)
+                {
+                    met.Add((method.Slots[slot].Species, Title(tables[0]), next(map, method.Slots[slot].MinLevel, method.Type, slot)));
+                }
+            }
+        }
+
+        return met;
     }
 
     /// <summary>One undo step for the chosen areas.</summary>

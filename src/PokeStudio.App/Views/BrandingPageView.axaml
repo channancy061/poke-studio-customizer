@@ -58,6 +58,20 @@
         </StackPanel>
       </Border>
 
+      <Border Classes="card" IsVisible="{Binding HasBackgroundSlot}">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Title screen background" Classes="heading" />
+          <TextBlock Text="{Binding BackgroundHint}" Classes="small muted" TextWrapping="Wrap" />
+          <Border Classes="well" IsVisible="{Binding HasBackgroundImage}" HorizontalAlignment="Left">
+            <Image Source="{Binding BackgroundPreview}" Stretch="None" RenderOptions.BitmapInterpolationMode="None" />
+          </Border>
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <Button Classes="secondary" Content="Pick background picture…" Command="{Binding PickBackgroundCommand}" />
+            <Button Classes="ghost" Content="Use the game's own" Command="{Binding ClearBackgroundCommand}" IsVisible="{Binding HasBackgroundImage}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
       <StackPanel Orientation="Horizontal" Spacing="12">
         <Button Classes="primary" Content="Apply" Command="{Binding ApplyCommand}" />
         <TextBlock Text="{Binding Message}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="700"

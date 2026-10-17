@@ -167,8 +167,10 @@ public static class DifficultyVersions
             case Difficulty.ExtraHard:
             {
                 var extra = d == Difficulty.ExtraHard;
-                var size = extra && boss ? 6 : Math.Max(normal.Party.Count, boss ? Math.Min(6, normal.Party.Count + 1) : normal.Party.Count);
-                var level = normal.Party.Count > 0 ? normal.Party.Max(p => p.Level) + (extra ? 3 : 1) : 20;
+                // harder through better teams, not a level wall a hard level cap can't climb: Hard one more Pokémon at the same
+                // level, Extra Hard two more and one level up (plus the team builder's stronger ace)
+                var size = boss ? Math.Min(6, normal.Party.Count + (extra ? 2 : 1)) : normal.Party.Count;
+                var level = normal.Party.Count > 0 ? normal.Party.Max(p => p.Level) + (extra ? 1 : 0) : 20;
                 var suggestion = TeamBuilder.Suggest(data, lab, normal, new TeamBuilder.Options(d, size, level));
                 var party = suggestion.Members.Select(m => m.Pokemon).ToList();
                 // never smaller than the original (a double battle needs two): fill from the original team, levelled up

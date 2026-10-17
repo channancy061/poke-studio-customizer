@@ -101,7 +101,7 @@ public class CrossoverTests
         Assert.Null(module.CheckImportSource(other, pics, looks));
         var imports = pics.Select(p => new StoryImport(StoryImport.Pic, p, other)).Concat(looks.Select(l => new StoryImport(StoryImport.Look, l, other))).ToList();
 
-        var (change, notes, added) = CrossoverPacks.Build(data, pack, map => module.StorySpots(data, map), imports, module.Limits.TrainerNameLength);
+        var (change, notes, added) = CrossoverPacks.Build(data, pack, map => module.StorySpots(data, map), imports, module.Limits.TrainerNameLength, module.GivenTms(data));
         Assert.Empty(notes);
         Assert.Equal(pack.Entries.Count, added);
         Assert.Null(data.Story); // Build leaves the data as it was; the change does the rest
@@ -124,6 +124,7 @@ public class CrossoverTests
         var rewards = trainers.Select(x => x.Battle.Reward).OfType<string>().ToList();
         Assert.Equal(pack.Entries.Count(e => e.Role != PackRole.Champion), rewards.Count);
         Assert.Equal(rewards.Count, rewards.Distinct().Count());
+        Assert.Empty(rewards.Intersect(module.GivenTms(data))); // never a TM the game already gives (Brock's Rock Tomb)
 
         // the Champion is above everyone: at least one legendary and one mythical
         var champion = trainers.Single(x => pack.Entries.Single(e => e.Role == PackRole.Champion).Name.Equals(x.Trainer.Name, StringComparison.OrdinalIgnoreCase)).Trainer;

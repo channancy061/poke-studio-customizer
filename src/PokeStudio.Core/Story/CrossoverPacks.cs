@@ -235,10 +235,11 @@ public static class CrossoverPacks
                     After = StoryBattles.DefaultAfter(e.Name),
                     Before = before,
 
-                    // a TM of their type for the player, like a gym leader gives
-                    // (old games have few TMs per type: when the gyms already give them all, one of theirs, never another challenger's)
+                    // a TM of their type for the player, like a gym leader gives, never one the game or another challenger gives
+                    // (old games have few TMs per type: then their type's other TM, or one of their team's other types)
                     Reward = e.Type.Length > 0 && e.Role != PackRole.Champion
-                        ? StoryEffects.RewardFor(data, e.Type, level, rewarded) ?? StoryEffects.RewardFor(data, e.Type, level, rewarded.Except(givenTms ?? []))
+                        ? StoryEffects.RewardFor(data, e.Type, level, rewarded,
+                            trainer.Party.SelectMany(p => data.Species.FirstOrDefault(x => x.Key == p.Species)?.Types ?? []).ToHashSet(StringComparer.Ordinal))
                         : null,
                 };
                 if (battle.Reward is { } reward)

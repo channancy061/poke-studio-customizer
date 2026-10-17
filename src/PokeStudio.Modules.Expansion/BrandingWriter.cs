@@ -22,6 +22,11 @@ internal static partial class BrandingWriter
     public const string FireRedLogo = "graphics/title_screen/firered/game_title_logo";
     public const string EmeraldLogo = "graphics/title_screen/pokemon_logo";
     public const string EmeraldSubtitle = "graphics/title_screen/emerald_version.png";
+    public const string FireRedTitleCode = "src/title_screen.c";
+    public const string FireRedBackground = "graphics/title_screen/firered/ps_background";
+
+    // FireRed's back layer (BG3): its own 16 KB of tiles (512) and a 32×20 map, drawn with BG palette 14
+    private static readonly ImageSlot FireRedBackgroundSlot = new(240, 160, 15, "240×160 pixels, up to 15 colours, nothing see-through. It sits behind the logo, the box-art Pokémon and the flames.", MaxBlocks: 512, Opaque: true);
 
     // FireRed: an 8bpp background, 22×12 tiles at the top left of a 32×20 map, BG palettes 0–12 (207 colours + see-through)
     private const int FireRedMapWidth = 32, FireRedMapHeight = 20;
@@ -32,7 +37,8 @@ internal static partial class BrandingWriter
     private static readonly ImageSlot EmeraldSubtitleSlot = new(128, 32, 15, "The line under the logo (\"Emerald Version\"): 128×32 pixels, up to 15 colours.");
 
     public static IReadOnlyList<string> Files(ExpansionLayout layout) => layout.IsFireRedBase
-        ? [Makefile, General, FireRedCredits, FireRedLogo + ".png", FireRedLogo + ".pal", FireRedLogo + ".bin"]
+        ? [Makefile, General, FireRedCredits, FireRedLogo + ".png", FireRedLogo + ".pal", FireRedLogo + ".bin", FireRedTitleCode,
+            FireRedBackground + ".png", FireRedBackground + ".pal", FireRedBackground + ".bin"]
         : [Makefile, General, EmeraldCredits, EmeraldStrings, EmeraldLogo + ".png", EmeraldLogo + ".pal", EmeraldSubtitle];
 
     public static BrandingSupport Describe(ExpansionLayout layout)
@@ -45,7 +51,8 @@ internal static partial class BrandingWriter
         var version = fireRed
             ? Regex.Match(Read(FireRedCredits) ?? "", @"sString_PokemonFireRed_Staff\[\] = _\(""Pokémon (.*?) Version\\nStaff""\)") is { Success: true } f ? f.Groups[1].Value : "FireRed"
             : Regex.Match(Read(EmeraldStrings) ?? "", @"gText_ExpandedPlaceholder_Emerald\[\] = _\(""(.*?)""\)") is { Success: true } e ? e.Groups[1].Value : "EMERALD";
-        return new BrandingSupport(title, layout.FileName, version, intro, fireRed ? FireRedSlot : EmeraldSlot, fireRed ? null : EmeraldSubtitleSlot);
+        return new BrandingSupport(title, layout.FileName, version, intro, fireRed ? FireRedSlot : EmeraldSlot, fireRed ? null : EmeraldSubtitleSlot,
+            fireRed && Read(FireRedTitleCode)?.Contains("sBorderBgTiles[]", StringComparison.Ordinal) == true ? FireRedBackgroundSlot : null);
     }
 
     /// <summary>
@@ -145,6 +152,34 @@ internal static partial class BrandingWriter
             }
         }
 
+        // FireRed's background: new tiles, map and palette for the back layer, and the title screen pointed at them
+        if (fireRed && read(FireRedTitleCode) is { } titleCode)
+        {
+            var code = Restore(titleCode, "//");
+            if (b.BackgroundPng is { } background)
+            {
+                var (image, problem) = Brand.Convert(Convert.FromBase64String(background), FireRedBackgroundSlot, "background");
+                if (image is null)
+                {
+                    problems.Add(problem!);
+                }
+                else
+                {
+                    var (tiles, map) = BackgroundTiles(image, 14);
+                    PutBytes(FireRedBackground + ".png", Png.Write(tiles, 4));
+                    PutBytes(FireRedBackground + ".pal", Encoding.ASCII.GetBytes(JascPalette.Write(tiles.Palette)));
+                    PutBytes(FireRedBackground + ".bin", map);
+                    code = SetLine(code, "sBorderBgTiles[]",
+                        $"static const u8 sBorderBgTiles[] = INCBIN_U8(\"{FireRedBackground}.4bpp.smol\"); static const u16 sPokeStudioBackgroundPal[] = INCBIN_U16(\"{FireRedBackground}.gbapal\");", restore: false);
+                    code = SetLine(code, "sBorderBgMap[]", $"static const u8 sBorderBgMap[] = INCBIN_U8(\"{FireRedBackground}.bin.smolTM\");", restore: false);
+                    code = Regex.Replace(code, @"^([ \t]*)LoadPalette\(gGraphics_TitleScreen_BackgroundPals, BG_PLTT_ID\(14\)[^\n]*$",
+                        m => $"{m.Groups[1].Value}// {Was}{m.Value.Trim()})\n{m.Groups[1].Value}LoadPalette(sPokeStudioBackgroundPal, BG_PLTT_ID(14), PLTT_SIZE_4BPP);", RegexOptions.Multiline);
+                }
+            }
+
+            Put(FireRedTitleCode, titleCode, code);
+        }
+
         if (!fireRed)
         {
             if (b.SubtitlePng is { } subtitle)
@@ -181,6 +216,43 @@ internal static partial class BrandingWriter
         }
 
         return palette;
+    }
+
+    /// <summary>A full-screen background: each different 8×8 block once (4bpp), and a 32×20 map using one palette.</summary>
+    internal static (IndexedImage Tiles, byte[] Map) BackgroundTiles(IndexedImage image, int palette)
+    {
+        var blocks = new List<byte[]>();
+        var index = new Dictionary<string, int>(StringComparer.Ordinal);
+        var map = new byte[32 * 20 * 2];
+        var columns = image.Width / 8;
+        var i = 0;
+        foreach (var block in Brand.Blocks(image))
+        {
+            var key = Convert.ToBase64String(block);
+            if (!index.TryGetValue(key, out var tile))
+            {
+                index[key] = tile = blocks.Count;
+                blocks.Add(block);
+            }
+
+            var cell = ((i / columns) * 32) + (i % columns);
+            var entry = tile | (palette << 12);
+            map[cell * 2] = (byte)(entry & 0xFF);
+            map[(cell * 2) + 1] = (byte)(entry >> 8);
+            i++;
+        }
+
+        var rows = (blocks.Count + 31) / 32;
+        var pixels = new byte[256 * rows * 8];
+        for (var t = 0; t < blocks.Count; t++)
+        {
+            for (var y = 0; y < 8; y++)
+            {
+                Array.Copy(blocks[t], y * 8, pixels, ((((t / 32) * 8) + y) * 256) + ((t % 32) * 8), 8);
+            }
+        }
+
+        return (new IndexedImage(256, rows * 8, pixels, image.Palette.Concat(Enumerable.Repeat(new Rgb(0, 0, 0), 16)).Take(16).ToList()), map);
     }
 
     /// <summary>FireRed's logo: each different 8×8 block once (the empty block first), and a 32×20 map placing them.</summary>
@@ -239,9 +311,9 @@ internal static partial class BrandingWriter
     }
 
     /// <summary>A C file with the line that defines <paramref name="name"/> replaced (the original kept above it), or put back.</summary>
-    internal static string SetLine(string c, string name, string? line)
+    internal static string SetLine(string c, string name, string? line, bool restore = true)
     {
-        var text = Restore(c, "//");
+        var text = restore ? Restore(c, "//") : c;
         if (line is null)
         {
             return text;

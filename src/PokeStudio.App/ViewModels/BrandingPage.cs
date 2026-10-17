@@ -27,12 +27,15 @@ public sealed partial class BrandingPageViewModel : ViewModelBase
         ShowIntro = b.ShowExpansionIntro ?? _support.IntroShown ?? true;
         _logo = b.LogoPng;
         _subtitle = b.SubtitlePng;
+        _background = b.BackgroundPng;
+        BackgroundPreview = _support.Background is { } bg ? Preview(_background, bg) : null;
         LogoPreview = Preview(_logo, _support.Logo);
         SubtitlePreview = _support.Subtitle is { } s ? Preview(_subtitle, s) : null;
     }
 
     private string? _logo;
     private string? _subtitle;
+    private string? _background;
 
     public string TitleHint => $"Now: {_support.CurrentTitle}. Up to {Brand.TitleLength} capital letters, digits and spaces. Emulators show it.";
     public string FileNameHint => $"Now: {_support.CurrentFileName}.gba. Letters, digits, '-' and '_'.";
@@ -41,6 +44,30 @@ public sealed partial class BrandingPageViewModel : ViewModelBase
     public string LogoHint => _support.Logo.Hint;
     public bool HasSubtitle => _support.Subtitle is not null;
     public string SubtitleHint => _support.Subtitle?.Hint ?? "";
+    public bool HasBackgroundSlot => _support.Background is not null;
+    public string BackgroundHint => _support.Background?.Hint ?? "";
+    public bool HasBackgroundImage => _background is not null;
+
+    [ObservableProperty]
+    public partial Bitmap? BackgroundPreview { get; set; }
+
+    [RelayCommand]
+    private async Task PickBackgroundAsync()
+    {
+        if (_support.Background is { } slot)
+        {
+            _background = await PickAsync(slot, "background", _background, bmp => BackgroundPreview = bmp);
+            OnPropertyChanged(nameof(HasBackgroundImage));
+        }
+    }
+
+    [RelayCommand]
+    private void ClearBackground()
+    {
+        _background = null;
+        BackgroundPreview = null;
+        OnPropertyChanged(nameof(HasBackgroundImage));
+    }
 
     [ObservableProperty]
     public partial string RomTitle { get; set; }
@@ -143,6 +170,7 @@ public sealed partial class BrandingPageViewModel : ViewModelBase
             ShowExpansionIntro = HasIntro && (ShowIntro != _support.IntroShown || data.Branding?.ShowExpansionIntro is not null) ? ShowIntro : null,
             LogoPng = _logo,
             SubtitlePng = _subtitle,
+            BackgroundPng = _background,
         };
         if (settings == (data.Branding ?? new BrandingSettings()))
         {
