@@ -127,6 +127,25 @@ public sealed partial class EncounterPlannerPageViewModel(ShellViewModel shell) 
         shell.Toast = $"{count} route trainers now use the planned wild Pokémon with fair moves. One Undo puts their old teams back.";
     }
 
+    /// <summary>Extra Hard teams of six for every ordinary trainer (used when the player picks Extra Hard).</summary>
+    [RelayCommand]
+    private async Task ExtraHardTeamsAsync()
+    {
+        var data = shell.Session.Data;
+        var lab = data.Lab ?? new LabSettings();
+        var places = shell.Session.Module.TrainerPlaces(data);
+        var (change, count) = await shell.RunBusyAsync("Making Extra Hard teams…", () => RouteTrainers.ExtraHardTeams(data, lab, places));
+        if (change is null)
+        {
+            Status = "No route trainers to make teams for.";
+            return;
+        }
+
+        shell.Execute(change);
+        Status = null;
+        shell.Toast = $"{count} route trainers have an Extra Hard team of six, one level up. One Undo removes them.";
+    }
+
     [RelayCommand]
     private void Apply()
     {

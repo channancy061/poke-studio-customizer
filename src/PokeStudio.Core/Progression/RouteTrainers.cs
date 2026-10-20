@@ -18,7 +18,17 @@ public static class RouteTrainers
 
     /// <param name="places">Where each trainer stands ("Route 3"), from the game module; with a playthrough order it
     /// decides what the player could have met by then (otherwise the trainer's level does).</param>
-    public static (IChange? Change, int Count) Refresh(GameData data, LabSettings lab, IReadOnlyDictionary<string, string>? places = null)
+    public static (IChange? Change, int Count) Refresh(GameData data, LabSettings lab, IReadOnlyDictionary<string, string>? places = null) =>
+        Build(data, lab, places, extraHard: false);
+
+    /// <summary>
+    /// Extra Hard versions of every ordinary trainer: six Pokémon one level up, picked the same way (wild Pokémon met by
+    /// then, the team's types first, fair level-up moves). The game uses them when the player picks Extra Hard.
+    /// </summary>
+    public static (IChange? Change, int Count) ExtraHardTeams(GameData data, LabSettings lab, IReadOnlyDictionary<string, string>? places = null) =>
+        Build(data, lab, places, extraHard: true);
+
+    private static (IChange? Change, int Count) Build(GameData data, LabSettings lab, IReadOnlyDictionary<string, string>? places, bool extraHard)
     {
         var caps = data.Rules?.LevelCaps ?? [];
         var met = EncounterPlanner.Met(data);
@@ -69,10 +79,16 @@ public static class RouteTrainers
             }
 
             var party = new List<TrainerPokemon>();
-            for (var i = 0; i < t.Party.Count; i++)
+            var boost = extraHard ? 1 : 0;
+            var teamTypes = t.Party.SelectMany(p => species.TryGetValue(p.Species, out var x) ? x.Types : []).ToHashSet(StringComparer.Ordinal);
+            var top = t.Party.Max(p => p.Level);
+            for (var i = 0; i < (extraHard ? 6 : t.Party.Count); i++)
             {
-                var old = t.Party[i];
-                var oldTypes = species.TryGetValue(old.Species, out var o) ? o.Types : [];
+                // Extra Hard: the team's own members one level up, then new ones at the top level until there are six
+                var old = i < t.Party.Count ? t.Party[i] with { Level = Math.Min(100, t.Party[i].Level + boost) }
+                    : t.Party[^1] with { Level = Math.Min(100, top + boost), HeldItem = null };
+                var oldTypes = i < t.Party.Count && species.TryGetValue(old.Species, out var known) ? known.Types : (IReadOnlyList<string>)[.. teamTypes];
+                species.TryGetValue(old.Species, out var o);
                 var limit = TeamBuilder.MaxStatTotal(old.Level, Difficulty.Easy);
                 var options = available
                     .Select(r => FormAt(r, old.Level))
@@ -93,10 +109,29 @@ public static class RouteTrainers
             }
 
             var key = t.Key;
-            parts.Add(new ValueChange<Trainer>("Trainers", t.Name, v => data.Trainers[data.Trainers.FindIndex(x => x.Key == key)] = v, t, t with { Party = party }));
+            if (!extraHard)
+            {
+                parts.Add(new ValueChange<Trainer>("Trainers", t.Name, v => data.Trainers[data.Trainers.FindIndex(x => x.Key == key)] = v, t, t with { Party = party }));
+                continue;
+            }
+
+            // the version sits next to the trainer (replaced when it's made again)
+            var version = t with { Key = DifficultyVersions.KeyFor(t, Difficulty.ExtraHard), Party = party };
+            var existing = data.Trainers.FindIndex(x => x.Key == version.Key);
+            if (existing >= 0)
+            {
+                var before = data.Trainers[existing];
+                parts.Add(new ValueChange<Trainer>("Trainers", version.Key, v => data.Trainers[data.Trainers.FindIndex(x => x.Key == version.Key)] = v, before, version with { Id = before.Id }));
+            }
+            else
+            {
+                parts.Add(new ListInsertChange<Trainer>("Trainers", version.Key, data.Trainers, version with { Id = data.Trainers.Count }, data.Trainers.IndexOf(t) + 1));
+            }
         }
 
-        return (parts.Count == 0 ? null : new CompositeChange("Trainers", $"Route trainers use the planned wild Pokémon ({parts.Count})", parts), parts.Count);
+        return (parts.Count == 0 ? null : new CompositeChange("Trainers", extraHard
+            ? $"Extra Hard teams of six for {parts.Count} route trainers"
+            : $"Route trainers use the planned wild Pokémon ({parts.Count})", parts), parts.Count);
     }
 
     /// <summary>

@@ -446,7 +446,7 @@ public sealed partial class ExpansionModule : IGameModule, ISpriteSource
             }
 
             var place = MapPlace(Path.GetFileName(dir));
-            foreach (Match m in Regex.Matches(File.ReadAllText(script), @"\btrainerbattle\w*\s+(TRAINER_\w+)"))
+            foreach (Match m in Regex.Matches(File.ReadAllText(script), @"\btrainerbattle\w*\s+(?:\w+,\s*)?(TRAINER_\w+)")) // Lavaridge's buried trainers come after a local id
             {
                 places.TryAdd(m.Groups[1].Value, place);
             }

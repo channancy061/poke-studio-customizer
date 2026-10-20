@@ -267,6 +267,7 @@ public class GameOptionsCodeTests
     internal static readonly GameOptionsSettings All = new()
     {
         Difficulty = OptionMode.PlayerChooses,
+        TrainerRulesByDifficulty = true,
         LevelCap = OptionMode.NotUsed,
         Nuzlocke = OptionMode.PlayerChooses,
         AdaptiveSlot = OptionMode.PlayerChooses,
@@ -332,6 +333,17 @@ public class GameOptionsCodeTests
         Assert.Contains(GameOptionsWriter.WhiteOutFiles.Where(f => File.Exists(Path.Combine(root, f))).Select(ReadRel),
             t => t.Contains("EventScript_AfterWhiteOutHeal::\n\tgoto_if_set FLAG_PS_NUZ_FAINT, PokeStudio_EventScript_NuzWipe", StringComparison.Ordinal));
         Assert.Contains("PokeStudio_EventScript_NuzWipe::", ReadRel(GameOptionsWriter.Script), StringComparison.Ordinal);
+
+        // trainers by difficulty: Easy skips non-bosses, Hard sees far and in every direction, gym leaders wait for their gym
+        var see = ReadRel(GameOptionsWriter.TrainerSee);
+        Assert.Contains("PokeStudio_TrainerIgnoresPlayer(", see, StringComparison.Ordinal);
+        Assert.True(see.IndexOf("static u8 sPsSeenDirection;", StringComparison.Ordinal) < see.IndexOf("sPsSeenDirection = 0;", StringComparison.Ordinal));
+        var psCode = ReadRel(GameOptionsWriter.CodeFile);
+        Assert.Contains("#define PS_TRAINER_RULES TRUE", psCode, StringComparison.Ordinal);
+        Assert.Contains("#define PS_GYM_COUNT 8", psCode, StringComparison.Ordinal);
+        var gymScripts = Directory.GetDirectories(Path.Combine(root, "data", "maps")).Where(d => Path.GetFileName(d).Contains("_Gym", StringComparison.Ordinal) && !d.EndsWith("_Frlg", StringComparison.Ordinal))
+            .Select(d => Path.Combine(d, "scripts.inc")).Where(File.Exists).Count(f => File.ReadAllText(f).Contains("callnative PokeStudio_GymTrainersLeft", StringComparison.Ordinal));
+        Assert.Equal(8, gymScripts);
         Assert.Contains("void PokeStudio_NuzAfterWipe(void)", ReadRel(GameOptionsWriter.CodeFile), StringComparison.Ordinal);
         Assert.Contains("IMPORTANT: read each question.", ReadRel(GameOptionsWriter.Script), StringComparison.Ordinal);
         Assert.Contains("POOL_PICK_POKE_STUDIO_ADAPTIVE", ReadRel(GameOptionsWriter.PoolsHeader), StringComparison.Ordinal);

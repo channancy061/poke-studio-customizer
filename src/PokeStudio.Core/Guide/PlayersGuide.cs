@@ -377,6 +377,17 @@ public static class PlayersGuide
             items.Add($"Difficulty: always {(o.FixedDifficulty == DifficultyChoice.ExtraHard ? "Extra Hard" : o.FixedDifficulty.ToString())}.");
         }
 
+        if (o.TrainerRulesByDifficulty && o.Difficulty != OptionMode.NotUsed)
+        {
+            items.Add("    • Easy: only important battles stop you. Other trainers battle only if you talk to them.");
+            items.Add("    • Normal: trainers behave as in the original game.");
+            items.Add("    • Hard: every trainer spots you from far away and in every direction, so you can't sneak past. A Gym Leader only battles you once every trainer in their Gym is beaten.");
+            if (o.OfferExtraHard)
+            {
+                items.Add("    • Extra Hard: as Hard, and every trainer has six Pokémon, one level higher.");
+            }
+        }
+
         Add(o.TrainingOff, "EVs and IVs off", "Say yes and every Pokémon has perfect stats from the start - no training needed.", "Every Pokémon has perfect stats from the start - no training needed.");
         Add(o.LevelCap, "Hard level cap", "Say yes and your Pokémon stop at the cap for the next important battle.", "Your Pokémon stop at the cap for the next important battle.", "off - no level cap.");
         Add(o.NoItemsInBattle, "No items in battle", o.NoItemsAlsoWild ? "Say yes and you can't use your bag in any battle." : "Say yes and you can't use your bag in trainer battles.",

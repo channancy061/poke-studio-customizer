@@ -34,7 +34,10 @@
         <StackPanel Spacing="10">
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Text="Route trainers" Classes="heading" VerticalAlignment="Center" />
-            <Button Grid.Column="1" Classes="secondary" Content="Update route trainers" Command="{Binding RefreshTrainersCommand}" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+              <Button Classes="secondary" Content="Update route trainers" Command="{Binding RefreshTrainersCommand}" />
+              <Button Classes="secondary" Content="Extra Hard teams of six" Command="{Binding ExtraHardTeamsCommand}" />
+            </StackPanel>
           </Grid>
           <TextBlock Text="After planning, ordinary trainers (Youngsters, Bird Keepers, Hikers…) still have the original Pokémon. This gives each of them Pokémon the player can meet in the wild by then, sharing a type with the old ones (a Bird Keeper keeps birds), at the same levels. Moves are level-up moves only, never Sand Attack-style accuracy drops, evasion boosts or one-hit KOs. Gym leaders and other bosses aren't changed here."
                      Classes="small muted" TextWrapping="Wrap" />

@@ -171,6 +171,12 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         set => Update(s => s with { FixedDifficulty = value.Choice }, $"Difficulty is always {value.Label}");
     }
 
+    public bool TrainerRulesByDifficulty
+    {
+        get => Settings.TrainerRulesByDifficulty;
+        set => Update(s => s with { TrainerRulesByDifficulty = value }, value ? "Trainers behave by difficulty" : "Trainers behave the same on every difficulty");
+    }
+
     public bool OfferExtraHard
     {
         get => Settings.OfferExtraHard;
@@ -288,6 +294,7 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         OnPropertyChanged(nameof(DefaultDifficulty));
         OnPropertyChanged(nameof(FixedDifficulty));
         OnPropertyChanged(nameof(OfferExtraHard));
+        OnPropertyChanged(nameof(TrainerRulesByDifficulty));
         OnPropertyChanged(nameof(NoItemsAlsoWild));
         OnPropertyChanged(nameof(Preview));
     }

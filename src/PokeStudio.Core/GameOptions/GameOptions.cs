@@ -33,6 +33,13 @@ public sealed record GameOptionsSettings
     public DifficultyChoice FixedDifficulty { get; init; } = DifficultyChoice.Normal;
     public bool OfferExtraHard { get; init; } = true;
 
+    /// <summary>
+    /// The difficulty also changes how trainers behave: on Easy only major battles stop the player (other trainers
+    /// battle only when talked to); on Hard and Extra Hard every trainer sees far in every direction, and gym leaders
+    /// wait until every trainer in their gym is beaten.
+    /// </summary>
+    public bool TrainerRulesByDifficulty { get; init; }
+
     /// <summary>On = EVs and IVs are switched off (everyone has perfect IVs and no EVs).</summary>
     public OptionMode TrainingOff { get; init; } = OptionMode.NotUsed;
 

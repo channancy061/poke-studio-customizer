@@ -35,6 +35,12 @@ internal static partial class GameOptionsWriter
 
         /// <summary>Expansion 1.17+ keeps parties in gParties[…] (the old gPlayerParty/gEnemyParty names are deprecated).</summary>
         public bool HasParties { get; init; }
+
+        /// <summary>Trainers that always stop the player (bosses and story battles), for Easy.</summary>
+        public IReadOnlyList<string> MajorTrainers { get; init; } = [];
+
+        /// <summary>The gyms, for Hard's gym lock.</summary>
+        public IReadOnlyList<GymInfo> Gyms { get; init; } = [];
     }
 
     public static IReadOnlyList<string> CodeFiles => [CodeFile, CodeHeader, BattleSetup, BattleScripts, PoolsSource, PoolsHeader, WildConfig, ItemUse, DataSource, Healing, WildEncounters, TrainerSee];
@@ -48,7 +54,13 @@ internal static partial class GameOptionsWriter
     private static readonly string[] CodeFlagNames =
         ["FLAG_PS_NUZ_FIRST", "FLAG_PS_NUZ_FAINT", "FLAG_PS_NUZ_DUPES", "FLAG_PS_NUZ_EEVEE", "FLAG_PS_NUZ_SHINY", "FLAG_PS_NUZ_NICK", "FLAG_PS_NUZ_STATIC", "FLAG_PS_ADAPTIVE", "FLAG_PS_NO_CATCH", "FLAG_PS_NUZ_WIPE_ENDS", "FLAG_PS_NUZ_OVER"];
 
-    private static bool CodeUsed(GameOptionsSettings o) => o.NuzlockeUsed || o.AdaptiveSlot != OptionMode.NotUsed || o.CenterHelper.AnyService;
+    private static bool CodeUsed(GameOptionsSettings o) => o.NuzlockeUsed || o.AdaptiveSlot != OptionMode.NotUsed || o.CenterHelper.AnyService || TrainerRules(o);
+
+    /// <summary>Trainers behave by difficulty (needs the difficulty option).</summary>
+    internal static bool TrainerRules(GameOptionsSettings o) => o.TrainerRulesByDifficulty && o.Difficulty != OptionMode.NotUsed;
+
+    /// <summary>A gym: its leader, the script file the leader's battle is in, and the other trainers on its floors.</summary>
+    public sealed record GymInfo(string Leader, string LeaderScript, IReadOnlyList<string> Trainers);
 
     public static string AreaFlag(string mapsec) => "FLAG_PS_AREA_" + mapsec.Replace("MAPSEC_", "", StringComparison.Ordinal);
 
@@ -140,7 +152,63 @@ internal static partial class GameOptionsWriter
         return new Extras(roots, [.. areas], [.. CenterPlacement.CenterMaps(layout.Root)])
         {
             HasParties = File.Exists(pokemonHeader) && File.ReadAllText(pokemonHeader).Contains("gParties[", StringComparison.Ordinal),
+            MajorTrainers = data is null ? [] : MajorTrainers(data),
+            Gyms = data is null ? [] : Gyms(layout, data),
         };
+    }
+
+    /// <summary>Bosses (every group but regular trainers) and story battles: they stop the player even on Easy.</summary>
+    private static List<string> MajorTrainers(GameData data)
+    {
+        var lab = data.Lab ?? new Core.ChampionLab.LabSettings();
+        return data.Trainers.Where(t => !t.Key.Contains('@', StringComparison.Ordinal) && t.Party.Count > 0
+                && (t.Key.StartsWith(Core.Story.StoryBattles.TrainerPrefix, StringComparison.Ordinal) || Core.ChampionLab.Lab.GroupOf(data, lab, t) != Core.ChampionLab.TrainerGroup.Regular))
+            .Select(t => t.Key).Distinct(StringComparer.Ordinal).OrderBy(k => k, StringComparer.Ordinal).ToList();
+    }
+
+    /// <summary>Every gym (maps named …_Gym…, all floors together) with its leader and the other trainers in it.</summary>
+    private static List<GymInfo> Gyms(ExpansionLayout layout, GameData data)
+    {
+        var maps = layout.Full("data/maps");
+        if (!Directory.Exists(maps))
+        {
+            return [];
+        }
+
+        var known = data.Trainers.ToDictionary(t => t.Key, StringComparer.Ordinal);
+        var gyms = new List<GymInfo>();
+        foreach (var gym in Directory.GetDirectories(maps).Select(Path.GetFileName).OfType<string>()
+                     .Where(d => d.Contains("_Gym", StringComparison.Ordinal) && (layout.IsFireRedBase || !d.EndsWith("_Frlg", StringComparison.Ordinal)))
+                     .GroupBy(d => d[..(d.IndexOf("_Gym", StringComparison.Ordinal) + 4)])
+                     .OrderBy(g => g.Key, StringComparer.Ordinal))
+        {
+            var battles = new List<(string Trainer, string File)>();
+            foreach (var dir in gym.Order(StringComparer.Ordinal))
+            {
+                var file = $"data/maps/{dir}/scripts.inc";
+                if (File.Exists(layout.Full(file)))
+                {
+                    battles.AddRange(Regex.Matches(File.ReadAllText(layout.Full(file)), @"\btrainerbattle\w*\s+(?:\w+,\s*)?(TRAINER_\w+)")
+                        .Select(m => (m.Groups[1].Value, file)));
+                }
+            }
+
+            bool IsLeader(string key) => Core.Progression.StoryOrder.BadgeOf(key) is not null
+                || known.TryGetValue(key, out var t) && t.TrainerClass.Contains("LEADER", StringComparison.Ordinal);
+            if (battles.FirstOrDefault(b => IsLeader(b.Trainer)) is not { Trainer: not null } leader)
+            {
+                continue;
+            }
+
+            var others = battles.Select(b => b.Trainer).Distinct(StringComparer.Ordinal)
+                .Where(k => !IsLeader(k) && known.TryGetValue(k, out var t) && !Core.ChampionLab.Lab.IsRematch(data, t)).ToList();
+            if (others.Count > 0)
+            {
+                gyms.Add(new GymInfo(leader.Trainer, leader.File, others));
+            }
+        }
+
+        return gyms;
     }
 
     /// <summary>Plans the code files and hooks (called from <see cref="Plan"/>).</summary>
@@ -253,6 +321,52 @@ internal static partial class GameOptionsWriter
             if (updated != c)
             {
                 put(file, c, AddInclude(updated));
+            }
+        }
+
+        // trainer_see.c: trainers by difficulty (Easy: only bosses stop the player; Hard: every trainer sees far and in
+        // every direction, turning to the player before walking over)
+        if (read(TrainerSee) is { } see && !see.Contains("trainers by difficulty", StringComparison.Ordinal))
+        {
+            var nl = CScanner.LineEnding(see);
+            var updated = see;
+            var checkDef = Regex.Match(updated, @"^static u8 CheckTrainer\(u8 (\w+)\)\r?\n\{", RegexOptions.Multiline);
+            var approach = Regex.Match(updated, @"^static u8 GetTrainerApproachDistance\(struct ObjectEvent \*trainerObj\)\r?\n\{[\s\S]*?PlayerGetDestCoords\(&x, &y\);[^\n]*\n", RegexOptions.Multiline);
+            var queue = Regex.Match(updated, @"^([ \t]*)gApproachingTrainers\[gNoOfApproachingTrainers\]\.objectEventId = (\w+);", RegexOptions.Multiline);
+            if (checkDef.Success && approach.Success && queue.Success && checkDef.Index < queue.Index && queue.Index < approach.Index)
+            {
+                // from the end of the file backwards, so earlier insertions don't move the later places
+                var i = queue.Groups[1].Value;
+                var id = queue.Groups[2].Value;
+                updated = updated.Insert(approach.Index + approach.Length, string.Join(nl,
+                    $"    sPsSeenDirection = 0; // {Mark}: trainers by difficulty (Hard: far, every direction)",
+                    $"    if (PokeStudio_TrainersSeeFar() && trainerObj->trainerType == TRAINER_TYPE_NORMAL) // {Mark}",
+                    $"    {{ // {Mark}",
+                    $"        for (i = 0; i < ARRAY_COUNT(sDirectionalApproachDistanceFuncs); i++) // {Mark}",
+                    $"        {{ // {Mark}",
+                    $"            approachDistance = sDirectionalApproachDistanceFuncs[i](trainerObj, max(trainerObj->trainerRange_berryTreeId, 6), x, y); // {Mark}",
+                    $"            if (CheckPathBetweenTrainerAndPlayer(trainerObj, approachDistance, i + 1)) // {Mark}",
+                    $"            {{ // {Mark}",
+                    $"                sPsSeenDirection = i + 1; // {Mark}",
+                    $"                return approachDistance; // {Mark}",
+                    $"            }} // {Mark}",
+                    $"        }} // {Mark}",
+                    $"        return 0; // {Mark}",
+                    $"    }} // {Mark}",
+                    ""));
+                updated = updated.Insert(queue.Index, string.Join(nl,
+                    $"{i}if (trainerBattlePtr && CurrentBattlePyramidLocation() == PYRAMID_LOCATION_NONE // {Mark}: trainers by difficulty (Easy)",
+                    $"{i}    && PokeStudio_TrainerIgnoresPlayer(((TrainerBattleParameter *)(trainerBattlePtr + 1))->params.opponentA)) // {Mark}",
+                    $"{i}    return 0; // {Mark}",
+                    $"{i}if (sPsSeenDirection != 0) // {Mark}: turn to the player first",
+                    $"{i}    ObjectEventTurn(&gObjectEvents[{id}], sPsSeenDirection); // {Mark}",
+                    ""));
+                updated = updated.Insert(checkDef.Index, $"static u8 sPsSeenDirection; // {Mark}: trainers by difficulty{nl}");
+                put(TrainerSee, see, AddInclude(updated));
+            }
+            else
+            {
+                notes.Add("The trainer sight code wasn't found, so trainers behave the same on every difficulty.");
             }
         }
 
@@ -475,6 +589,9 @@ internal static partial class GameOptionsWriter
         void PokeStudio_BeforeWildBattle(void);
         void PokeStudio_UpdateCatchFlag(void);
         void PokeStudio_AfterBattle(void);
+        bool32 PokeStudio_TrainerIgnoresPlayer(u32 trainerId);
+        bool32 PokeStudio_TrainersSeeFar(void);
+        void PokeStudio_GymTrainersLeft(void);
         bool32 PokeStudio_NuzCanBattle(void);
         void PokeStudio_NuzAfterWipe(void);
         u32 PokeStudio_PickNone(const struct Trainer *trainer, u8 *poolIndexArray, u32 partyIndex, u32 monsCount, u32 battleTypeFlags, struct PoolRules *rules);
@@ -505,6 +622,10 @@ internal static partial class GameOptionsWriter
         L("#include \"pokemon_storage_system.h\"");
         L("#include \"trainer_pools.h\"");
         L("#include \"constants/region_map_sections.h\"");
+        L("#include \"battle_setup.h\"");
+        L("#include \"difficulty.h\"");
+        L("#include \"constants/difficulty.h\"");
+        L("#include \"constants/opponents.h\"");
         L("#include \"poke_studio.h\"");
         L();
         L("#if defined(WE_FLAG_NO_CATCHING) && WE_FLAG_NO_CATCHING != 0");
@@ -853,6 +974,60 @@ internal static partial class GameOptionsWriter
                     SetMonData(mon, MON_DATA_HP_EV + i, &ev);
                 }
                 CalculateMonStats(mon);
+            }
+            """.ReplaceLineEndings("\n"));
+
+        // trainers by difficulty: who always stops the player on Easy, and each gym's trainers for Hard's gym lock
+        L();
+        L($"#define PS_TRAINER_RULES {(TrainerRules(o) ? "TRUE" : "FALSE")}");
+        L("static const u16 sMajorTrainers[] =");
+        L("{");
+        foreach (var t in x.MajorTrainers)
+        {
+            L($"    {t},");
+        }
+
+        L("    TRAINER_NONE,");
+        L("};");
+        for (var g = 0; g < x.Gyms.Count; g++)
+        {
+            L($"static const u16 sGymTrainers{g}[] = {{{string.Join(", ", x.Gyms[g].Trainers)}, TRAINER_NONE}}; // {x.Gyms[g].Leader}");
+        }
+
+        L($"static const u16 *const sGymTrainers[] = {{{(x.Gyms.Count == 0 ? "NULL" : string.Join(", ", Enumerable.Range(0, x.Gyms.Count).Select(g => $"sGymTrainers{g}")))}}};");
+        L($"#define PS_GYM_COUNT {x.Gyms.Count}");
+        sb.Append("""
+
+            // Easy: only bosses and story battles stop the player; everyone else battles when talked to.
+            bool32 PokeStudio_TrainerIgnoresPlayer(u32 trainerId)
+            {
+                if (!PS_TRAINER_RULES || GetCurrentDifficultyLevel() != DIFFICULTY_EASY)
+                    return FALSE;
+                for (u32 i = 0; sMajorTrainers[i] != TRAINER_NONE; i++)
+                {
+                    if (sMajorTrainers[i] == trainerId)
+                        return FALSE;
+                }
+                return TRUE;
+            }
+
+            // Hard and Extra Hard: every trainer sees far, in every direction.
+            bool32 PokeStudio_TrainersSeeFar(void)
+            {
+                return PS_TRAINER_RULES && GetCurrentDifficultyLevel() >= DIFFICULTY_HARD;
+            }
+
+            // Hard and Extra Hard: VAR_RESULT = how many trainers of gym VAR_0x8004 are still unbeaten (0 otherwise).
+            void PokeStudio_GymTrainersLeft(void)
+            {
+                gSpecialVar_Result = 0;
+                if (!PS_TRAINER_RULES || GetCurrentDifficultyLevel() < DIFFICULTY_HARD || gSpecialVar_0x8004 >= PS_GYM_COUNT)
+                    return;
+                for (const u16 *t = sGymTrainers[gSpecialVar_0x8004]; *t != TRAINER_NONE; t++)
+                {
+                    if (!HasTrainerBeenFought(*t))
+                        gSpecialVar_Result++;
+                }
             }
             """.ReplaceLineEndings("\n"));
         return sb.ToString();

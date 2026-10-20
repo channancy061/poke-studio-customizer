@@ -190,7 +190,16 @@ Pick a Pokémon and a picture (front, back or party icon), then normal or shiny.
 ### Game options (decomp projects)
 A menu the player sees once when starting a new game. For each option you choose **not added**, **player chooses**,
 or **always on/off**:
-- **Difficulty:** Easy / Normal / Hard / Extra Hard (uses the difficulty versions).
+- **Difficulty:** Easy / Normal / Hard / Extra Hard (uses the difficulty versions). Tick **Difficulty changes how
+  trainers behave** to make the choice change the trainers too:
+  - **Easy:** only important battles (bosses and story battles) stop the player. Other trainers battle only when
+    talked to.
+  - **Normal:** as the original game.
+  - **Hard:** every trainer spots the player from at least 6 tiles away and in every direction, then turns and walks
+    over, so nobody can be sneaked past. A Gym Leader only battles once every trainer in their Gym, on every floor,
+    is beaten.
+  - **Extra Hard:** as Hard, and every trainer has six Pokémon one level up. Make those teams with **Extra Hard teams
+    of six** on Plan wild Pokémon.
 - **Nuzlocke**, each rule separately: only the first Pokémon met in each area can be caught (counting starts once you have Poké Balls); fainted Pokémon are
   released; duplicates clause (whole evolution families, plus an Eevee clause); shiny clause; nicknames required (the
   species name doesn't count); no revives (no revive items or Revival Blessing; Pokémon Centers, healing people and the

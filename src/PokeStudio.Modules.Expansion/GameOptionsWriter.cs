@@ -218,6 +218,39 @@ internal static partial class GameOptionsWriter
             Put(EventScripts, events, events.TrimEnd('\r', '\n') + nl + nl + $"\t.include \"{Script}\" @ {Mark}" + nl);
         }
 
+        // Hard and Extra Hard: a gym leader waits until every trainer in the gym is beaten (lines removed when off)
+        var gyms = (extras ?? Extras.None).Gyms;
+        foreach (var file in gyms.Select(g => g.LeaderScript).Distinct(StringComparer.Ordinal))
+        {
+            if ((result.TryGetValue(file, out var planned) ? planned : read(file)) is not { } gymScript)
+            {
+                continue;
+            }
+
+            var clean = Regex.Replace(gymScript, $@"^[^\n]*@ {Mark}: gym lock[^\n]*\r?\n", "", RegexOptions.Multiline);
+            if (TrainerRules(o))
+            {
+                for (var g = 0; g < gyms.Count; g++)
+                {
+                    if (gyms[g].LeaderScript != file)
+                    {
+                        continue;
+                    }
+
+                    var at = Regex.Match(clean, $@"^([ \t]*)trainerbattle\w*\s+{gyms[g].Leader}\b", RegexOptions.Multiline);
+                    if (at.Success)
+                    {
+                        var nl = CScanner.LineEnding(clean);
+                        var ind = at.Groups[1].Value;
+                        clean = clean.Insert(at.Index,
+                            $"{ind}setvar VAR_0x8004, {g} @ {Mark}: gym lock{nl}{ind}callnative PokeStudio_GymTrainersLeft @ {Mark}: gym lock{nl}{ind}goto_if_ne VAR_RESULT, 0, PokeStudio_EventScript_GymLocked @ {Mark}: gym lock{nl}");
+                    }
+                }
+            }
+
+            Put(file, gymScript, clean);
+        }
+
         // after blacking out in a Nuzlocke: the wipe handler first (the run goes on from the PC, or it's over)
         foreach (var file in WhiteOutFiles)
         {
@@ -643,6 +676,16 @@ internal static partial class GameOptionsWriter
         if (o.CenterHelper.AnyService)
         {
             CenterHelperScript(o.CenterHelper, fireRed, L, Text);
+        }
+
+        if (TrainerRules(o))
+        {
+            L("PokeStudio_EventScript_GymLocked::");
+            L("\tmsgbox PokeStudio_Text_GymLocked, MSGBOX_DEFAULT");
+            L("\trelease");
+            L("\tend");
+            L("");
+            Text("PokeStudio_Text_GymLocked", "Not yet! Beat every trainer in\\nthis Gym first, then come back.");
         }
 
         if (WipeHandled(o))

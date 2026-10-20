@@ -86,6 +86,9 @@
             </ComboBox>
           </StackPanel>
           <CheckBox IsChecked="{Binding OfferExtraHard}" Content="Offer Extra Hard" />
+          <CheckBox IsChecked="{Binding TrainerRulesByDifficulty}" Content="Difficulty changes how trainers behave" />
+          <TextBlock TextWrapping="Wrap" Classes="caption muted"
+                     Text="Easy: only important battles stop the player; other trainers battle when talked to. Normal: as the original game. Hard: every trainer sees far and in every direction (no sneaking past), and Gym Leaders wait until every trainer in their Gym is beaten. Extra Hard: as Hard, with six Pokémon per trainer (make those teams on Plan wild Pokémon)." />
         </StackPanel>
       </Border>
 
