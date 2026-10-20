@@ -409,4 +409,10 @@ public sealed record GameRules
 
     /// <summary>True: TMs aren't used up when taught (Gen 5+). Null when the game can't be switched.</summary>
     public bool? ReusableTms { get; init; }
+
+    /// <summary>
+    /// True: the game keeps its own clock from play time, so day and night (and time-of-day evolutions) work without a
+    /// real-time clock chip (FireRed cartridges have none). Null when the game can't be switched.
+    /// </summary>
+    public bool? GameClock { get; init; }
 }

@@ -108,7 +108,7 @@ public sealed partial class ExpansionModule : IGameModule, ISpriteSource
         var layout = new ExpansionLayout(workingSourcePath);
         IEnumerable<string> files = [.. layout.SpeciesFiles(), layout.LevelUpFile, ExpansionLayout.EggMovesFile, ExpansionLayout.LearnablesJson, MovesInfo.File, TrainerParty.File,
             EncountersFile.File, ItemsInfo.File, CapsFiles.Source, CapsFiles.Config, BattleConfig, ShopsJson.File, ShopsJson.ShopC, DifficultyFile, AiConfig, ItemConfig,
-            "include/config/summary_screen.h", "include/config/overworld.h", StoryWriter.Opponents, StoryWriter.Script, .. ProjectImport.TextFiles, .. FinaleWriter.Files, .. BrandingWriter.Files(layout),
+            "include/config/summary_screen.h", "include/config/overworld.h", GlobalHeader, StoryWriter.Opponents, StoryWriter.Script, .. ProjectImport.TextFiles, .. FinaleWriter.Files, .. BrandingWriter.Files(layout),
             .. GameOptionsWriter.Files(layout).Where(f => !f.EndsWith("/scripts.inc", StringComparison.Ordinal)), .. ScriptFiles(layout.Root)];
         return files.Distinct(StringComparer.Ordinal).ToList(); // several features edit the same file (item_use.c, new_game.inc)
     }
@@ -146,6 +146,36 @@ public sealed partial class ExpansionModule : IGameModule, ISpriteSource
 
     public IReadOnlyList<StorySpot> StorySpots(GameData data, string map) =>
         _states.TryGetValue(data, out var state) ? StoryWriter.Spots(state.Layout.Root, map) : [];
+
+    public IReadOnlyCollection<string> ItemsInWorld(GameData data)
+    {
+        if (!_states.TryGetValue(data, out var state) || !Directory.Exists(state.Layout.Full("data")))
+        {
+            return [];
+        }
+
+        // every item the map scripts, hidden items, gifts and FireRed's shops.json mention
+        var files = Directory.EnumerateFiles(state.Layout.Full("data"), "*.*", SearchOption.AllDirectories)
+            .Where(f => f.EndsWith(".inc", StringComparison.Ordinal) || f.EndsWith(".json", StringComparison.Ordinal) || f.EndsWith(".s", StringComparison.Ordinal))
+            .Concat(File.Exists(state.Layout.Full(ShopsJson.File)) ? [state.Layout.Full(ShopsJson.File)] : []);
+        var found = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var file in files)
+        {
+            var text = File.ReadAllText(file);
+            if (text.Contains("ITEM_", StringComparison.Ordinal))
+            {
+                foreach (Match m in ItemName().Matches(text))
+                {
+                    found.Add(m.Value);
+                }
+            }
+        }
+
+        return found;
+    }
+
+    [GeneratedRegex(@"\bITEM_[A-Z0-9_]+")]
+    private static partial Regex ItemName();
 
     public Core.Branding.BrandingSupport? DescribeBranding(GameData data) =>
         _states.TryGetValue(data, out var state) ? BrandingWriter.Describe(state.Layout) : null;
@@ -613,6 +643,8 @@ public sealed partial class ExpansionModule : IGameModule, ISpriteSource
     }
 
     private const string BrandingOriginals = "branding-originals";
+    private const string OverworldConfig = "include/config/overworld.h";
+    private const string GlobalHeader = "include/global.h";
     private const string BattleConfig = "include/config/battle.h";
     private const string DifficultyFile = "include/constants/difficulty.h";
     private const string AiConfig = "include/config/ai.h";
@@ -1162,14 +1194,15 @@ public sealed partial class ExpansionModule : IGameModule, ISpriteSource
                     ExpBoostBelowCap = Def("B_LEVEL_CAP_EXP_UP") == "TRUE",
                     PhysicalSpecialSplit = SplitSetting(layout),
                     ReusableTms = ReusableTmsSetting(layout),
+                    GameClock = GameClockSetting(layout),
                 };
                 data.Rules = state.Rules;
             }
         }
 
-        if (data.Rules is null && (SplitSetting(layout) is not null || ReusableTmsSetting(layout) is not null))
+        if (data.Rules is null && (SplitSetting(layout) is not null || ReusableTmsSetting(layout) is not null || GameClockSetting(layout) is not null))
         {
-            state.Rules = new GameRules { PhysicalSpecialSplit = SplitSetting(layout), ReusableTms = ReusableTmsSetting(layout) };
+            state.Rules = new GameRules { PhysicalSpecialSplit = SplitSetting(layout), ReusableTms = ReusableTmsSetting(layout), GameClock = GameClockSetting(layout) };
             data.Rules = state.Rules;
         }
     }
@@ -1197,6 +1230,32 @@ public sealed partial class ExpansionModule : IGameModule, ISpriteSource
     /// <summary>B_PHYSICAL_SPECIAL_SPLIT ≥ GEN_4 means each move's category counts.</summary>
     private static bool? SplitSetting(ExpansionLayout layout) =>
         layout.Macros.IsDefined("B_PHYSICAL_SPECIAL_SPLIT") && layout.Macros.TryEvaluate("B_PHYSICAL_SPECIAL_SPLIT >= GEN_4") is { } v ? v != 0 : null;
+
+    /// <summary>
+    /// include/global.h with SaveBlock3's fixed padding ("u8 unused[812];") made smaller by the fake clock's size when
+    /// the clock is on, or null when the block has no such padding (or it's already adjusted).
+    /// </summary>
+    internal static string? SaveBlock3Padding(string header)
+    {
+        var block = Regex.Match(header, @"struct SaveBlock3\s*\{[\s\S]*?\n\};");
+        if (!block.Success || block.Value.Contains("sizeof(struct SiiRtcInfo)", StringComparison.Ordinal) || !block.Value.Contains("fakeRTC", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var unused = Regex.Match(block.Value, @"u8 unused\[(\d+)\];");
+        if (!unused.Success)
+        {
+            return null;
+        }
+
+        var at = block.Index + unused.Index;
+        return header.Remove(at, unused.Length).Insert(at,
+            $"u8 unused[{unused.Groups[1].Value} - (OW_USE_FAKE_RTC ? sizeof(struct SiiRtcInfo) : 0)]; // Poke Studio: room for the game clock");
+    }
+
+    private static bool? GameClockSetting(ExpansionLayout layout) =>
+        layout.Macros.IsDefined("OW_USE_FAKE_RTC") && layout.Macros.TryEvaluate("OW_USE_FAKE_RTC") is { } v ? v != 0 : null;
 
     private static bool? ReusableTmsSetting(ExpansionLayout layout) =>
         layout.Macros.IsDefined("I_REUSABLE_TMS") && layout.Macros.TryEvaluate("I_REUSABLE_TMS") is { } v ? v != 0 : null;
@@ -1325,6 +1384,29 @@ public sealed partial class ExpansionModule : IGameModule, ISpriteSource
             {
                 await context.Writer.WriteAllTextAsync(state.Layout.Full(ItemConfig),
                     TextEdits.Apply(cfg, [new TextEdit(d.Start, d.End - d.Start, reusable ? "TRUE" : "FALSE")]), cancellationToken);
+            }
+        }
+
+        // the game's own clock (include/config/overworld.h)
+        if (data.Rules?.GameClock is { } clock && state.Rules?.GameClock is { } oldClock && clock != oldClock
+            && File.Exists(state.Layout.Full(OverworldConfig)))
+        {
+            var cfg = await File.ReadAllTextAsync(state.Layout.Full(OverworldConfig), cancellationToken);
+            if (CapsFiles.Define(cfg, "OW_USE_FAKE_RTC") is { } d)
+            {
+                await context.Writer.WriteAllTextAsync(state.Layout.Full(OverworldConfig),
+                    TextEdits.Apply(cfg, [new TextEdit(d.Start, d.End - d.Start, clock ? "TRUE" : "FALSE")]), cancellationToken);
+            }
+        }
+
+        // the clock's time is kept in save block 3; a project whose block ends in fixed padding sized for the default
+        // settings (pokefirered-expansion) gets the padding shrunk by the clock's size, so the block stays the same size
+        if (data.Rules?.GameClock == true && File.Exists(state.Layout.Full(GlobalHeader)))
+        {
+            var header = await File.ReadAllTextAsync(state.Layout.Full(GlobalHeader), cancellationToken);
+            if (SaveBlock3Padding(header) is { } padded && padded != header)
+            {
+                await context.Writer.WriteAllTextAsync(state.Layout.Full(GlobalHeader), padded, cancellationToken);
             }
         }
 

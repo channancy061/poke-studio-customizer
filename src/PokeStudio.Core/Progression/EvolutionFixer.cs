@@ -26,6 +26,9 @@ public enum EvolutionProblem
     TradeWithItem,
     TradePartner,
     TimeOfDay,
+
+    /// <summary>The player has to spin on the spot (Alcremie, from Sword and Shield).</summary>
+    Spin,
 }
 
 /// <summary>One evolution that needs a fix, with the fix the rules suggest.</summary>
@@ -36,7 +39,14 @@ public sealed record EvolutionFixRow(
     EvolutionProblem Problem,
     EvolutionFix Suggested,
     IReadOnlyList<EvolutionFix> Choices,
-    string Reason);
+    string Reason)
+{
+    /// <summary>
+    /// For a spin evolution: the share of Pokémon (by the upper personality value, 0–9) that take this branch among the
+    /// branches that would otherwise trigger the same way, so every form stays reachable.
+    /// </summary>
+    public (int From, int To)? Share { get; init; }
+}
 
 /// <summary>
 /// Finds evolutions that need trading or a time of day and turns them into ones a single player can do. Rule-based:
@@ -71,7 +81,7 @@ public static class EvolutionFixer
     };
 
     /// <summary>Every trade / time-of-day evolution in the game that can be edited, with a suggested fix.</summary>
-    public static List<EvolutionFixRow> Find(GameData data, bool trades = true, bool timeOfDay = true)
+    public static List<EvolutionFixRow> Find(GameData data, bool trades = true, bool timeOfDay = true, bool spins = true)
     {
         var hasCord = data.Items.Any(i => i.Key == LinkingCord);
         var heldOk = data.HeldItemLevelEvolutions; // Gen 3 can't evolve by levelling up while holding an item
@@ -88,6 +98,30 @@ public static class EvolutionFixer
             {
                 var relaxed = Signature(Relax(set.Evolutions[i]));
                 timeSuggestion[i] = kept.Add(relaxed) ? EvolutionFix.Level : EvolutionFix.Stone;
+            }
+
+            // spinning (Alcremie): level up holding the same Sweet at the same time of day; the branches that would then
+            // trigger the same way share out by the Pokémon's personality, so every cream is still reachable
+            if (spins && heldOk)
+            {
+                foreach (var group in set.Evolutions.Select((e, i) => (e, i)).Where(x => x.e.Method == "EVO_SPIN")
+                             .GroupBy(x => string.Join("|", x.e.Conditions.Select(c => $"{c.Kind}={c.Value}"))))
+                {
+                    var branches = group.ToList();
+                    for (var j = 0; j < branches.Count; j++)
+                    {
+                        var (e, i) = branches[j];
+                        var item = e.Conditions.FirstOrDefault(c => c.Kind == "IF_HOLD_ITEM")?.Value;
+                        var time = e.Conditions.Any(c => TimeKinds.Contains(c.Kind)) ? TimeOf(e).ToLowerInvariant() : null;
+                        var reason = $"Needs the player to spin on the spot (Sword and Shield); it now evolves on level-up"
+                            + (item is null ? "" : $" while holding {Name(data, item)}") + (time is null ? "" : $" in the {time}")
+                            + (branches.Count > 1 ? $", for {Math.Max(1, 10 / branches.Count) * 10}% of them (by personality)." : ".");
+                        rows.Add(new EvolutionFixRow(set.FromSpecies, i, e, EvolutionProblem.Spin, EvolutionFix.HoldItem, [EvolutionFix.Leave, EvolutionFix.HoldItem], reason)
+                        {
+                            Share = branches.Count > 1 ? (10 * j / branches.Count, 10 * (j + 1) / branches.Count) : null,
+                        });
+                    }
+                }
             }
 
             for (var i = 0; i < set.Evolutions.Count; i++)
@@ -170,6 +204,26 @@ public static class EvolutionFixer
         if (fix == EvolutionFix.Leave)
         {
             return e;
+        }
+
+        if (row.Problem == EvolutionProblem.Spin)
+        {
+            // the Sweet and the time of day stay; the personality share picks among the branches that now look alike
+            var conditions = e.Conditions.ToList();
+            if (row.Share is { } share)
+            {
+                if (share.From > 0)
+                {
+                    conditions.Add(new EvolutionCondition("IF_PID_UPPER_MODULO_10_GT", (share.From - 1).ToString(System.Globalization.CultureInfo.InvariantCulture)));
+                }
+
+                if (share.To < 10)
+                {
+                    conditions.Add(new EvolutionCondition("IF_PID_UPPER_MODULO_10_LT", share.To.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+                }
+            }
+
+            return new Evolution("EVO_LEVEL", "0", e.TargetSpecies) { Conditions = conditions };
         }
 
         if (row.Problem == EvolutionProblem.TimeOfDay)

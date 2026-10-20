@@ -286,6 +286,36 @@ public sealed partial class ItemsPageViewModel : ViewModelBase
     private readonly ShellViewModel _shell;
     private bool _updating;
 
+    [ObservableProperty]
+    public partial string? EvolutionItemsSummary { get; set; }
+
+    /// <summary>Checks that every item an evolution needs can be found, received or bought; adds the missing ones to a shop.</summary>
+    [RelayCommand]
+    private async Task CheckEvolutionItemsAsync()
+    {
+        var data = Data;
+        var module = _shell.Session.Module;
+        var items = await _shell.RunBusyAsync("Checking evolution items…", () => Core.Progression.EvolutionItems.Check(data, module.ItemsInWorld(data)));
+        var missing = items.Where(i => !i.Obtainable).ToList();
+        if (missing.Count == 0)
+        {
+            EvolutionItemsSummary = $"All {items.Count} evolution items can be found, received or bought.";
+            return;
+        }
+
+        if (Core.Progression.EvolutionItems.ShopFor(data) is not { } shop
+            || Core.Progression.EvolutionItems.AddToShop(data, shop, missing.Select(m => m.Item)) is not { } change)
+        {
+            EvolutionItemsSummary = $"{missing.Count} evolution items can't be obtained ({string.Join(", ", missing.Select(m => m.Name))}), and there's no shop to add them to.";
+            return;
+        }
+
+        _shell.Execute(change);
+        EvolutionItemsSummary = $"{missing.Count} of {items.Count} evolution items couldn't be obtained. They're now sold at {shop.Place}: {string.Join(", ", missing.Select(m => m.Name))}.";
+        _shell.Toast = change.Description + ". One Undo takes them out again.";
+        FilterMarts();
+    }
+
     public ItemsPageViewModel(ShellViewModel shell)
     {
         _shell = shell;
@@ -900,6 +930,7 @@ public sealed partial class ProgressionPageViewModel : ViewModelBase
     public bool NoCaps => !HasCaps;
     public bool HasSplit => Rules?.PhysicalSpecialSplit is not null;
     public bool HasReusableTms => Rules?.ReusableTms is not null;
+    public bool HasGameClock => Rules?.GameClock is not null;
     public bool HasSwitches => Data.Switches.Count > 0;
     public IReadOnlyList<SwitchRowViewModel> Switches => Data.Switches.Select(s => new SwitchRowViewModel(s, SetSwitch)).ToList();
 
@@ -1027,5 +1058,11 @@ public sealed partial class ProgressionPageViewModel : ViewModelBase
     {
         get => Rules?.ReusableTms ?? false;
         set => SetRules(r => r with { ReusableTms = value }, value ? "TMs can be used again and again" : "TMs are used up when taught");
+    }
+
+    public bool GameClock
+    {
+        get => Rules?.GameClock ?? false;
+        set => SetRules(r => r with { GameClock = value }, value ? "The game keeps its own clock" : "The game uses the cartridge's clock");
     }
 }

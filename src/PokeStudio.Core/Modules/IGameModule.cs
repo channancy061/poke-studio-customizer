@@ -201,6 +201,9 @@ public interface IGameModule
     /// <summary>The overworld sprites a story trainer can use.</summary>
     IReadOnlyList<string> StoryLooks(GameData data) => [];
 
+    /// <summary>Items the game places or gives outside shops (item balls, hidden items, gifts, prizes); empty when unknown.</summary>
+    IReadOnlyCollection<string> ItemsInWorld(GameData data) => [];
+
     /// <summary>What of the game's name, logo and intro can be changed (null: none of it).</summary>
     Branding.BrandingSupport? DescribeBranding(GameData data) => null;
 

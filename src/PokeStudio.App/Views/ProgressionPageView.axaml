@@ -92,6 +92,14 @@
         </StackPanel>
       </Border>
 
+      <Border Classes="card" IsVisible="{Binding HasGameClock}">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Day and night" Classes="heading" />
+          <ToggleSwitch IsChecked="{Binding GameClock}" OnContent="The game keeps its own clock (a full day every 72 minutes of play)" OffContent="The cartridge's clock decides the time of day" />
+          <TextBlock Text="Turn this on for FireRed: its cartridges have no clock, so without it the time never changes, there's no day and night tint, and time-of-day evolutions never happen. Emerald has a clock, so it works either way." Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />
+        </StackPanel>
+      </Border>
+
       <Border Classes="card" IsVisible="{Binding HasSwitches}">
         <StackPanel Spacing="10">
           <TextBlock Text="Quality of life" Classes="heading" />

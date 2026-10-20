@@ -39,6 +39,15 @@
       <StackPanel Margin="28,22" Spacing="16" MaxWidth="1040" HorizontalAlignment="Stretch">
         <Border Classes="card" IsVisible="{Binding ShowShops}">
           <StackPanel Spacing="8">
+            <TextBlock Text="Evolution items" FontWeight="Bold" />
+            <TextBlock Text="Checks that every item an evolution needs (stones, Sweets, the Linking Cord, held trade items…) can be found in the world, received from someone or bought. Missing ones are added to the shop that sells evolution stones." Classes="small muted" TextWrapping="Wrap" />
+            <Button Classes="secondary" Content="Check evolution items" Command="{Binding CheckEvolutionItemsCommand}" HorizontalAlignment="Left" />
+            <TextBlock Text="{Binding EvolutionItemsSummary}" TextWrapping="Wrap" IsVisible="{Binding EvolutionItemsSummary, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card" IsVisible="{Binding ShowShops}">
+          <StackPanel Spacing="8">
             <TextBlock Text="No grinding: Rare Candies everywhere" FontWeight="Bold" />
             <TextBlock Text="Adds Rare Candies to every shop at this price. If level caps are on, candies still stop at the cap." Classes="small muted" TextWrapping="Wrap" />
             <StackPanel Orientation="Horizontal" Spacing="10">

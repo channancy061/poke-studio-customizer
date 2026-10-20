@@ -88,6 +88,7 @@ public sealed partial class EvolutionFixPageViewModel : ViewModelBase
     internal string LabelFor(EvolutionFixRow row, EvolutionFix fix) => fix switch
     {
         EvolutionFix.Leave => "Leave as it is",
+        EvolutionFix.HoldItem when row.Problem == EvolutionProblem.Spin => "Level up holding it",
         EvolutionFix.Level when row.Problem == EvolutionProblem.TimeOfDay => "Any time of day",
         EvolutionFix.Level => "Level up at a level",
         EvolutionFix.Stone => row.Problem == EvolutionProblem.TimeOfDay ? "Use a stone" : "Use a Linking Cord",

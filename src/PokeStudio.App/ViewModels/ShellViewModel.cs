@@ -274,7 +274,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             NavItems.Add(new NavItemViewModel(NavKey.StoryBattles, "Story battles", "Icon.Map", true, null, "Tools"));
         }
 
-        if ((Session.Data.Rules is { } rules && (rules.LevelCaps.Count > 0 || rules.PhysicalSpecialSplit is not null || rules.ReusableTms is not null))
+        if ((Session.Data.Rules is { } rules && (rules.LevelCaps.Count > 0 || rules.PhysicalSpecialSplit is not null || rules.ReusableTms is not null || rules.GameClock is not null))
             || Session.Data.Switches.Count > 0)
         {
             NavItems.Add(new NavItemViewModel(NavKey.Progression, "Levels & caps", "Icon.ChevronUp", true, null, "Tools"));
