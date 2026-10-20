@@ -61,8 +61,10 @@ public static class EvolutionFixer
     private static readonly string[] TimeKinds = ["IF_TIME", "IF_NOT_TIME"];
     private static readonly string[] TradeKinds = ["IF_HOLD_ITEM", "IF_TRADE_PARTNER_SPECIES"];
 
-    // only level-up and item evolutions: special ones (Alcremie spinning…) keep their own rules
-    private static bool IsTime(Evolution e) => e.Method is "EVO_LEVEL" or "EVO_ITEM" && e.Conditions.Any(c => TimeKinds.Contains(c.Kind));
+    // only level-up and item evolutions: special ones (Alcremie spinning…) keep their own rules, also after the spin fix
+    // made them "level up holding a Sweet" (the time of day is what keeps every cream reachable)
+    private static bool IsTime(Evolution e) => e.Method is "EVO_LEVEL" or "EVO_ITEM" && e.Conditions.Any(c => TimeKinds.Contains(c.Kind))
+        && !e.Conditions.Any(c => c.Kind == "IF_HOLD_ITEM" && c.Value.EndsWith("_SWEET", StringComparison.Ordinal));
 
     /// <summary>"Day", "Night" or "Evening": the time of day a time evolution needs.</summary>
     public static string TimeOf(Evolution e)
