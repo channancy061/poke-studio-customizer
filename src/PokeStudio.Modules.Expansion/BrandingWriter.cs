@@ -25,6 +25,8 @@ internal static partial class BrandingWriter
     public const string FireRedTitleCode = "src/title_screen.c";
     public const string FireRedBoxArtMap = "graphics/title_screen/firered/box_art_mon.bin";
     public const string FireRedBackground = "graphics/title_screen/firered/ps_background";
+    public const string EmeraldTitleCode = "src/title_screen.c";
+    public const string EmeraldBackground = "graphics/title_screen/ps_background";
 
     // FireRed's back layer (BG3): its own 16 KB of tiles (512) and a 32×20 map, drawn with BG palette 14
     private static readonly ImageSlot FireRedBackgroundSlot = new(240, 160, 15, "240×160 pixels, up to 15 colours, nothing see-through. It sits behind the logo, the box-art Pokémon and the flames.", MaxBlocks: 512, Opaque: true);
@@ -35,12 +37,16 @@ internal static partial class BrandingWriter
 
     // Emerald: a 256×64 8bpp picture laid out tile by tile (palettes 0–13: 223 colours); tile 0 fills the rest of the screen
     private static readonly ImageSlot EmeraldSlot = new(256, 64, 223, "256×64 pixels, up to 223 colours. Keep the top-left 8×8 corner empty. See-through pixels (or the top-left pixel's colour) show the title screen behind it.", EmptyCorner: true);
-    private static readonly ImageSlot EmeraldSubtitleSlot = new(128, 32, 15, "The line under the logo (\"Emerald Version\"): 128×32 pixels, up to 15 colours.");
+    // Emerald's Rayquaza layer (BG0, BG palette 14): its tiles start at 0x8000 and the clouds' at 0xC000, so 512 at most;
+    // the clouds and Rayquaza's glowing markings are switched off while a background is shown
+    private static readonly ImageSlot EmeraldBackgroundSlot = new(240, 160, 15, "240×160 pixels, up to 15 colours, nothing see-through. It takes the place of Rayquaza and the clouds, behind the logo.", MaxBlocks: 512, Opaque: true);
+    private static readonly ImageSlot EmeraldSubtitleSlot =new(128, 32, 15, "The line under the logo (\"Emerald Version\"): 128×32 pixels, up to 15 colours.");
 
     public static IReadOnlyList<string> Files(ExpansionLayout layout) => layout.IsFireRedBase
         ? [Makefile, General, FireRedCredits, FireRedLogo + ".png", FireRedLogo + ".pal", FireRedLogo + ".bin", FireRedTitleCode,
             FireRedBackground + ".png", FireRedBackground + ".pal", FireRedBackground + ".bin", FireRedBoxArtMap]
-        : [Makefile, General, EmeraldCredits, EmeraldStrings, EmeraldLogo + ".png", EmeraldLogo + ".pal", EmeraldSubtitle];
+        : [Makefile, General, EmeraldCredits, EmeraldStrings, EmeraldLogo + ".png", EmeraldLogo + ".pal", EmeraldSubtitle,
+            EmeraldTitleCode, EmeraldBackground + ".png", EmeraldBackground + ".pal", EmeraldBackground + ".bin"];
 
     public static BrandingSupport Describe(ExpansionLayout layout)
     {
@@ -53,7 +59,8 @@ internal static partial class BrandingWriter
             ? Regex.Match(Read(FireRedCredits) ?? "", @"sString_PokemonFireRed_Staff\[\] = _\(""Pokémon (.*?) Version\\nStaff""\)") is { Success: true } f ? f.Groups[1].Value : "FireRed"
             : Regex.Match(Read(EmeraldStrings) ?? "", @"gText_ExpandedPlaceholder_Emerald\[\] = _\(""(.*?)""\)") is { Success: true } e ? e.Groups[1].Value : "EMERALD";
         return new BrandingSupport(title, layout.FileName, version, intro, fireRed ? FireRedSlot : EmeraldSlot, fireRed ? null : EmeraldSubtitleSlot,
-            fireRed && Read(FireRedTitleCode)?.Contains("sBorderBgTiles[]", StringComparison.Ordinal) == true ? FireRedBackgroundSlot : null,
+            fireRed ? (Read(FireRedTitleCode)?.Contains("sBorderBgTiles[]", StringComparison.Ordinal) == true ? FireRedBackgroundSlot : null)
+                : Read(EmeraldTitleCode)?.Contains("sTitleScreenRayquazaGfx[]", StringComparison.Ordinal) == true ? EmeraldBackgroundSlot : null,
             CanHideLayers: fireRed);
     }
 
@@ -199,6 +206,36 @@ internal static partial class BrandingWriter
             Put(FireRedTitleCode, titleCode, code);
         }
 
+        // Emerald's background: Rayquaza's layer gets the picture; the clouds and Rayquaza's glowing markings are switched off
+        if (!fireRed && read(EmeraldTitleCode) is { } emeraldTitle)
+        {
+            var code = Restore(emeraldTitle, "//");
+            if (b.BackgroundPng is { } background)
+            {
+                var (image, problem) = Brand.Convert(Convert.FromBase64String(background), EmeraldBackgroundSlot, "background");
+                if (image is null)
+                {
+                    problems.Add(problem!);
+                }
+                else
+                {
+                    var (tiles, map) = BackgroundTiles(image, 14);
+                    PutBytes(EmeraldBackground + ".png", Png.Write(tiles, 4));
+                    PutBytes(EmeraldBackground + ".pal", Encoding.ASCII.GetBytes(JascPalette.Write(tiles.Palette)));
+                    PutBytes(EmeraldBackground + ".bin", map);
+                    code = SetLine(code, "sTitleScreenRayquazaGfx[]",
+                        $"static const u32 sTitleScreenRayquazaGfx[] = INCGFX_U32(\"{EmeraldBackground}.png\", \".4bpp.smol\"); static const u16 sPokeStudioBackgroundPal[] = INCGFX_U16(\"{EmeraldBackground}.pal\", \".gbapal\");", restore: false);
+                    code = SetLine(code, "sTitleScreenRayquazaTilemap[]", $"static const u32 sTitleScreenRayquazaTilemap[] = INCGFX_U32(\"{EmeraldBackground}.bin\", \".smolTM\");", restore: false);
+                    code = ReplaceStatement(code, @"LoadPalette\(gTitleScreenBgPalettes, BG_PLTT_ID\(0\)", indent => $"{indent}LoadPalette(gTitleScreenBgPalettes, BG_PLTT_ID(0), 15 * PLTT_SIZE_4BPP); LoadPalette(sPokeStudioBackgroundPal, BG_PLTT_ID(14), PLTT_SIZE_4BPP);");
+                    code = ReplaceStatement(code, @"DecompressDataWithHeaderVram\(sTitleScreenCloudsGfx,", indent => $"{indent}// no clouds in front of the background");
+                    code = ReplaceStatement(code, @"DecompressDataWithHeaderVram\(gTitleScreenCloudsTilemap,", indent => $"{indent}// no clouds in front of the background");
+                    code = ReplaceStatement(code, @"UpdateLegendaryMarkingColor\(gTasks\[taskId\]\.tCounter\);", indent => $"{indent}// Rayquaza's markings don't glow on the background");
+                }
+            }
+
+            Put(EmeraldTitleCode, emeraldTitle, code);
+        }
+
         if (!fireRed)
         {
             if (b.SubtitlePng is { } subtitle)
@@ -340,6 +377,13 @@ internal static partial class BrandingWriter
 
         var at = Regex.Match(text, $@"^[^\n]*{Regex.Escape(name)}\s*= [^\n]*", RegexOptions.Multiline);
         return at.Success ? text.Remove(at.Index, at.Length).Insert(at.Index, $"// {Was}{at.Value.TrimEnd('\r')})\n{line}") : text;
+    }
+
+    /// <summary>A C file with the first statement line matching <paramref name="pattern"/> replaced (the original kept above it).</summary>
+    private static string ReplaceStatement(string c, string pattern, Func<string, string> line)
+    {
+        var at = Regex.Match(c, $@"^([ \t]*){pattern}[^\n]*?(?=\r?$)", RegexOptions.Multiline);
+        return at.Success ? c.Remove(at.Index, at.Length).Insert(at.Index, $"// {Was}{at.Value})\n{line(at.Groups[1].Value)}") : c;
     }
 
     /// <summary>Puts back every line the app changed: "&lt;comment&gt; Poke Studio (was: original)" and the line after it.</summary>

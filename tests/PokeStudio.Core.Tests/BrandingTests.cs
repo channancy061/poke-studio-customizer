@@ -154,4 +154,35 @@ public class BrandingTests
     [Fact]
     public void Real_emerald_gets_its_name_logo_and_intro_when_available() =>
         RealProject(Dir("POKESTUDIO_EXPANSION_DIR"), BrandingWriter.EmeraldLogo, 256, 64);
+
+    [Fact]
+    public void Real_emerald_background_takes_rayquazas_place_and_is_put_back_when_available()
+    {
+        if (Dir("POKESTUDIO_EXPANSION_DIR") is not { } root)
+        {
+            return;
+        }
+
+        var layout = new ExpansionLayout(root);
+        var slot = Assert.IsType<ImageSlot>(BrandingWriter.Describe(layout).Background);
+        Assert.Equal((240, 160), (slot.Width, slot.Height));
+        string? Read(string rel) => File.Exists(layout.Full(rel)) ? File.ReadAllText(layout.Full(rel)) : null;
+        byte[]? ReadBytes(string rel) => File.Exists(layout.Full(rel)) ? File.ReadAllBytes(layout.Full(rel)) : null;
+        var settings = new BrandingSettings { BackgroundPng = Convert.ToBase64String(Logo(240, 160, 15, cornerEmpty: false)) };
+        var (text, binary, problems) = BrandingWriter.Plan(layout, settings, Read, ReadBytes, _ => null);
+        Assert.Empty(problems);
+        var code = text[BrandingWriter.EmeraldTitleCode];
+        Assert.Contains($"INCGFX_U32(\"{BrandingWriter.EmeraldBackground}.png\", \".4bpp.smol\")", code, StringComparison.Ordinal);
+        Assert.Contains($"INCGFX_U32(\"{BrandingWriter.EmeraldBackground}.bin\", \".smolTM\")", code, StringComparison.Ordinal);
+        Assert.Contains("LoadPalette(sPokeStudioBackgroundPal, BG_PLTT_ID(14), PLTT_SIZE_4BPP);", code, StringComparison.Ordinal);
+        Assert.Matches(@"(?m)^// Poke Studio \(was: \s*DecompressDataWithHeaderVram\(sTitleScreenCloudsGfx", code);
+        Assert.Matches(@"(?m)^// Poke Studio \(was: \s*UpdateLegendaryMarkingColor", code);
+        var tiles = Assert.IsType<IndexedImage>(Png.Read(binary[BrandingWriter.EmeraldBackground + ".png"]));
+        Assert.True(tiles.Height / 8 * 32 <= 512, "at most 512 tiles (the clouds' tiles start after them)");
+        Assert.Equal(32 * 20 * 2, binary[BrandingWriter.EmeraldBackground + ".bin"].Length);
+
+        // without a background the title screen code is as it was
+        var (back, _, _) = BrandingWriter.Plan(layout, new BrandingSettings(), f => f == BrandingWriter.EmeraldTitleCode ? code : Read(f), ReadBytes, _ => null);
+        Assert.Equal(Read(BrandingWriter.EmeraldTitleCode), back[BrandingWriter.EmeraldTitleCode]);
+    }
 }
