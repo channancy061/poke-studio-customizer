@@ -224,8 +224,8 @@ internal static partial class BrandingWriter
                     PutBytes(EmeraldBackground + ".pal", Encoding.ASCII.GetBytes(JascPalette.Write(tiles.Palette)));
                     PutBytes(EmeraldBackground + ".bin", map);
                     code = SetLine(code, "sTitleScreenRayquazaGfx[]",
-                        $"static const u32 sTitleScreenRayquazaGfx[] = INCGFX_U32(\"{EmeraldBackground}.png\", \".4bpp.smol\"); static const u16 sPokeStudioBackgroundPal[] = INCGFX_U16(\"{EmeraldBackground}.pal\", \".gbapal\");", restore: false);
-                    code = SetLine(code, "sTitleScreenRayquazaTilemap[]", $"static const u32 sTitleScreenRayquazaTilemap[] = INCGFX_U32(\"{EmeraldBackground}.bin\", \".smolTM\");", restore: false);
+                        $"static const u32 sTitleScreenRayquazaGfx[] = INCGFX_U32(\"{EmeraldBackground}.png\", \".4bpp.lz\"); static const u16 sPokeStudioBackgroundPal[] = INCGFX_U16(\"{EmeraldBackground}.pal\", \".gbapal\");", restore: false);
+                    code = SetLine(code, "sTitleScreenRayquazaTilemap[]", $"static const u32 sTitleScreenRayquazaTilemap[] = INCGFX_U32(\"{EmeraldBackground}.bin\", \".lz\");", restore: false);
                     code = ReplaceStatement(code, @"LoadPalette\(gTitleScreenBgPalettes, BG_PLTT_ID\(0\)", indent => $"{indent}LoadPalette(gTitleScreenBgPalettes, BG_PLTT_ID(0), 15 * PLTT_SIZE_4BPP); LoadPalette(sPokeStudioBackgroundPal, BG_PLTT_ID(14), PLTT_SIZE_4BPP);");
                     code = ReplaceStatement(code, @"DecompressDataWithHeaderVram\(sTitleScreenCloudsGfx,", indent => $"{indent}// no clouds in front of the background");
                     code = ReplaceStatement(code, @"DecompressDataWithHeaderVram\(gTitleScreenCloudsTilemap,", indent => $"{indent}// no clouds in front of the background");

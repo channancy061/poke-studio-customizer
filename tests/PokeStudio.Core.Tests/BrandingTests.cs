@@ -172,8 +172,8 @@ public class BrandingTests
         var (text, binary, problems) = BrandingWriter.Plan(layout, settings, Read, ReadBytes, _ => null);
         Assert.Empty(problems);
         var code = text[BrandingWriter.EmeraldTitleCode];
-        Assert.Contains($"INCGFX_U32(\"{BrandingWriter.EmeraldBackground}.png\", \".4bpp.smol\")", code, StringComparison.Ordinal);
-        Assert.Contains($"INCGFX_U32(\"{BrandingWriter.EmeraldBackground}.bin\", \".smolTM\")", code, StringComparison.Ordinal);
+        Assert.Contains($"INCGFX_U32(\"{BrandingWriter.EmeraldBackground}.png\", \".4bpp.lz\")", code, StringComparison.Ordinal);
+        Assert.Contains($"INCGFX_U32(\"{BrandingWriter.EmeraldBackground}.bin\", \".lz\")", code, StringComparison.Ordinal);
         Assert.Contains("LoadPalette(sPokeStudioBackgroundPal, BG_PLTT_ID(14), PLTT_SIZE_4BPP);", code, StringComparison.Ordinal);
         Assert.Matches(@"(?m)^// Poke Studio \(was: \s*DecompressDataWithHeaderVram\(sTitleScreenCloudsGfx", code);
         Assert.Matches(@"(?m)^// Poke Studio \(was: \s*UpdateLegendaryMarkingColor", code);
