@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using PokeStudio.Core.Models;
 using PokeStudio.Core.Modules;
 using PokeStudio.Core.Story;
@@ -138,5 +139,52 @@ public class StoryBattleTests
         Assert.Equal((18, 29), (exit.FrontX, exit.FrontY));
         Assert.Equal(29, exit.Y);
         Assert.Contains("OBJ_EVENT_GFX_COOLTRAINER_F", StoryWriter.Looks(root));
+    }
+
+    [Fact]
+    public void Real_firered_challenger_comes_out_of_the_gym_and_walks_away_when_available()
+    {
+        var root = Environment.GetEnvironmentVariable("POKESTUDIO_FIRERED_DIR");
+        if (string.IsNullOrEmpty(root) || !Directory.Exists(root))
+        {
+            return;
+        }
+
+        string? Read(string rel) => File.Exists(Path.Combine(root, rel)) ? File.ReadAllText(Path.Combine(root, rel)) : null;
+        var gym = Assert.Single(StoryWriter.Spots(root, "PewterCity"), s => s.Entrance == "Pewter City Gym");
+        var data = Data();
+        var roxanne = Roxanne(data);
+        data.Trainers.Add(roxanne);
+        data.Story = new StorySettings
+        {
+            Battles = [Battle(roxanne.Key) with { X = gym.X, Y = gym.Y, Facing = gym.Facing, Sight = gym.Sight, DoorX = gym.DoorX, DoorY = gym.DoorY, FrontX = gym.FrontX, FrontY = gym.FrontY }],
+        };
+        Assert.True(data.Story.Battles[0].UsesScene);
+
+        var files = StoryWriter.Plan(root, data, Read);
+        var script = files[StoryWriter.Script];
+        Assert.Contains("PokeStudio_Story_ROXANNE_Scene::", script, StringComparison.Ordinal);
+        Assert.Contains("\topendoor 15, 16\n", script, StringComparison.Ordinal); // Pewter Gym's door opens
+        Assert.Contains($"\ttrainerbattle_no_intro {roxanne.Key}, PokeStudio_Story_ROXANNE_Defeat\n", script, StringComparison.Ordinal);
+        Assert.Contains("PokeStudio_Story_ROXANNE_StepBack:\n\tlock_facing_direction\n\twalk_down\n", script, StringComparison.Ordinal);
+        Assert.Contains("PokeStudio_Story_ROXANNE_ComeOut:\n\twalk_down\n", script, StringComparison.Ordinal);
+        Assert.Contains("PokeStudio_Story_ROXANNE_WalkAway:\n\twalk_", script, StringComparison.Ordinal);
+        Assert.Contains("PokeStudio_Story_PewterCity_OnTransition::\n\tsetflag FLAG_TEMP_", script, StringComparison.Ordinal);
+        Assert.Contains($"\tcall_if_set TRAINER_FLAGS_START + {roxanne.Key}, PokeStudio_Story_ROXANNE_Gone\n", script, StringComparison.Ordinal);
+
+        // in the doorway, hidden by a temporary flag, with a step trigger in front of the door
+        var json = files["data/maps/PewterCity/map.json"];
+        Assert.Matches(@"""x"": 15,\s+""y"": 16,[\s\S]*?""flag"": ""FLAG_TEMP_[0-9A-F]+""", json);
+        Assert.Matches(@"""type"": ""trigger"",\s+""x"": 15,\s+""y"": 17,\s+""elevation"": 0,\s+""var"": ""VAR_TEMP_[0-9A-F]+"",\s+""var_value"": ""0"",\s+""script"": ""PokeStudio_Story_ROXANNE_Scene""", json);
+        var mapScripts = files["data/maps/PewterCity/scripts.inc"];
+        Assert.Matches(@"PewterCity_MapScripts::\r?\n\tmap_script MAP_SCRIPT_ON_TRANSITION, PokeStudio_Story_PewterCity_OnTransition @", mapScripts);
+
+        // the map's own ON_TRANSITION still runs afterwards
+        var own = Regex.Match(Read("data/maps/PewterCity/scripts.inc")!, @"map_script MAP_SCRIPT_ON_TRANSITION, (\w+)");
+        Assert.Contains(own.Success ? $"\tgoto {own.Groups[1].Value}\n" : "\tend\n", script[script.IndexOf("_OnTransition::", StringComparison.Ordinal)..], StringComparison.Ordinal);
+
+        // without the battle the map is as it was
+        Assert.Equal(Read("data/maps/PewterCity/map.json"), StoryWriter.SceneTriggers(StoryWriter.MapObjects(json, Array.Empty<StoryWriter.MapPerson>()), []));
+        Assert.Equal(Read("data/maps/PewterCity/scripts.inc"), StoryWriter.SceneTable(mapScripts, "PewterCity", false));
     }
 }

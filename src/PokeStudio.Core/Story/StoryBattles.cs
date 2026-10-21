@@ -62,6 +62,22 @@ public sealed record StoryBattle
     /// <summary>Script run when the player talks to the trainer after the battle instead of the "after" line.</summary>
     public string? AfterTalk { get; init; }
 
+    /// <summary>The entrance the trainer guards (its door or cave mouth) and the tile in front of it.</summary>
+    public int? DoorX { get; init; }
+    public int? DoorY { get; init; }
+    public int? FrontX { get; init; }
+    public int? FrontY { get; init; }
+
+    /// <summary>
+    /// The trainer waits inside and comes out to meet the player who steps in front of the entrance, then walks away
+    /// after losing (needs <see cref="DoorX"/>…<see cref="FrontY"/>; otherwise they stand outside looking at it).
+    /// </summary>
+    public bool ComesOut { get; init; } = true;
+
+    /// <summary>Whether the come-out-and-battle scene is used (the final chapter's guide keeps its own ways).</summary>
+    public bool UsesScene => ComesOut && DoorX is not null && DoorY is not null && FrontX is not null && FrontY is not null
+        && Hidden is null && OnWin is null && AfterTalk is null;
+
     /// <summary>The name used for the battle's flag and script labels, e.g. "ROXANNE".</summary>
     public string Id => StoryBattles.IdOf(TrainerKey);
 
