@@ -334,6 +334,17 @@ internal static partial class GameOptionsWriter
             }
         }
 
+        // projects patched by an older version: their Hard sight went through the game's distance helpers, which stop at
+        // 3 tiles while every object slot is taken (a following Pokémon takes one), so trainers didn't see far after all
+        if (read(TrainerSee) is { } oldSee && oldSee.Contains("max(trainerObj->trainerRange_berryTreeId, 6), x, y)", StringComparison.Ordinal))
+        {
+            var block = Regex.Match(oldSee, $@"^    sPsSeenDirection = 0;[^\n]*\n(?:[^\n]*{Mark}[^\n]*\n)*?    \}} // {Mark}\r?\n", RegexOptions.Multiline);
+            if (block.Success)
+            {
+                put(TrainerSee, oldSee, oldSee.Remove(block.Index, block.Length).Insert(block.Index, HardSight(CScanner.LineEnding(oldSee))));
+            }
+        }
+
         // trainer_see.c: trainers by difficulty (Easy: only bosses stop the player; Hard: every trainer sees far and in
         // every direction, turning to the player before walking over)
         if (read(TrainerSee) is { } see && !see.Contains("trainers by difficulty", StringComparison.Ordinal))
@@ -348,22 +359,7 @@ internal static partial class GameOptionsWriter
                 // from the end of the file backwards, so earlier insertions don't move the later places
                 var i = queue.Groups[1].Value;
                 var id = queue.Groups[2].Value;
-                updated = updated.Insert(approach.Index + approach.Length, string.Join(nl,
-                    $"    sPsSeenDirection = 0; // {Mark}: trainers by difficulty (Hard: far, every direction)",
-                    $"    if (PokeStudio_TrainersSeeFar() && trainerObj->trainerType == TRAINER_TYPE_NORMAL) // {Mark}",
-                    $"    {{ // {Mark}",
-                    $"        for (i = 0; i < ARRAY_COUNT(sDirectionalApproachDistanceFuncs); i++) // {Mark}",
-                    $"        {{ // {Mark}",
-                    $"            approachDistance = sDirectionalApproachDistanceFuncs[i](trainerObj, max(trainerObj->trainerRange_berryTreeId, 6), x, y); // {Mark}",
-                    $"            if (CheckPathBetweenTrainerAndPlayer(trainerObj, approachDistance, i + 1)) // {Mark}",
-                    $"            {{ // {Mark}",
-                    $"                sPsSeenDirection = i + 1; // {Mark}",
-                    $"                return approachDistance; // {Mark}",
-                    $"            }} // {Mark}",
-                    $"        }} // {Mark}",
-                    $"        return 0; // {Mark}",
-                    $"    }} // {Mark}",
-                    ""));
+                updated = updated.Insert(approach.Index + approach.Length, HardSight(nl));
                 updated = updated.Insert(queue.Index, string.Join(nl,
                     $"{i}if (trainerBattlePtr && CurrentBattlePyramidLocation() == PYRAMID_LOCATION_NONE // {Mark}: trainers by difficulty (Easy)",
                     $"{i}    && PokeStudio_TrainerIgnoresPlayer(((TrainerBattleParameter *)(trainerBattlePtr + 1))->params.opponentA)) // {Mark}",
@@ -535,6 +531,28 @@ internal static partial class GameOptionsWriter
             }
         }
     }
+
+    /// <summary>
+    /// GetTrainerApproachDistance's Hard branch: the player straight in line anywhere on screen (7 tiles left or right, 5 up
+    /// or down, or the trainer's own longer range), in any direction. The distance is worked out here: the game's own helpers stop at 3 tiles while every
+    /// object slot is taken, and a following Pokémon takes one.
+    /// </summary>
+    private static string HardSight(string nl) => string.Join(nl,
+        $"    sPsSeenDirection = 0; // {Mark}: trainers by difficulty (Hard: far, every direction)",
+        $"    if (PokeStudio_TrainersSeeFar() && trainerObj->trainerType != TRAINER_TYPE_BURIED) // {Mark}",
+        $"    {{ // {Mark}",
+        $"        s16 psDx = x - trainerObj->currentCoords.x, psDy = y - trainerObj->currentCoords.y; // {Mark}",
+        $"        u8 psDir = psDx == 0 ? (psDy > 0 ? DIR_SOUTH : DIR_NORTH) : psDy == 0 ? (psDx > 0 ? DIR_EAST : DIR_WEST) : DIR_NONE; // {Mark}",
+        $"        approachDistance = psDx == 0 ? abs(psDy) : abs(psDx); // {Mark}",
+        $"        if (psDir != DIR_NONE && approachDistance != 0 && approachDistance <= max(trainerObj->trainerRange_berryTreeId, psDx == 0 ? 5 : 7) // {Mark}: as far as the screen shows",
+        $"            && CheckPathBetweenTrainerAndPlayer(trainerObj, approachDistance, psDir)) // {Mark}",
+        $"        {{ // {Mark}",
+        $"            sPsSeenDirection = psDir; // {Mark}",
+        $"            return approachDistance; // {Mark}",
+        $"        }} // {Mark}",
+        $"        return 0; // {Mark}",
+        $"    }} // {Mark}",
+        "");
 
     private static string AddInclude(string c)
     {

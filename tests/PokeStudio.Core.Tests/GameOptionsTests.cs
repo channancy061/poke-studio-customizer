@@ -344,6 +344,33 @@ public class GameOptionsCodeTests
         var see = ReadRel(GameOptionsWriter.TrainerSee);
         Assert.Contains("PokeStudio_TrainerIgnoresPlayer(", see, StringComparison.Ordinal);
         Assert.True(see.IndexOf("static u8 sPsSeenDirection;", StringComparison.Ordinal) < see.IndexOf("sPsSeenDirection = 0;", StringComparison.Ordinal));
+        // Hard sight works out the distance itself (the game's helpers stop at 3 tiles when every object slot is taken)
+        Assert.Contains("approachDistance <= max(trainerObj->trainerRange_berryTreeId, psDx == 0 ? 5 : 7)", see, StringComparison.Ordinal);
+        Assert.DoesNotContain("sDirectionalApproachDistanceFuncs[i](trainerObj, max(", see, StringComparison.Ordinal);
+
+        // a project patched by an older version gets the new sight on the next save
+        var oldBlock = string.Join("\n",
+            "    sPsSeenDirection = 0; // Poke Studio: trainers by difficulty (Hard: far, every direction)",
+            "    if (PokeStudio_TrainersSeeFar() && trainerObj->trainerType == TRAINER_TYPE_NORMAL) // Poke Studio",
+            "    { // Poke Studio",
+            "        for (i = 0; i < ARRAY_COUNT(sDirectionalApproachDistanceFuncs); i++) // Poke Studio",
+            "        { // Poke Studio",
+            "            approachDistance = sDirectionalApproachDistanceFuncs[i](trainerObj, max(trainerObj->trainerRange_berryTreeId, 6), x, y); // Poke Studio",
+            "            if (CheckPathBetweenTrainerAndPlayer(trainerObj, approachDistance, i + 1)) // Poke Studio",
+            "            { // Poke Studio",
+            "                sPsSeenDirection = i + 1; // Poke Studio",
+            "                return approachDistance; // Poke Studio",
+            "            } // Poke Studio",
+            "        } // Poke Studio",
+            "        return 0; // Poke Studio",
+            "    } // Poke Studio",
+            "");
+        var newBlock = System.Text.RegularExpressions.Regex.Match(see, @"(?m)^    sPsSeenDirection = 0;[\s\S]*?^    \} // Poke Studio\n").Value;
+        File.WriteAllText(Path.Combine(root, "src", "trainer_see.c"), see.Replace(newBlock, oldBlock, StringComparison.Ordinal));
+        await module.SaveDataAsync(data, ctx);
+        var upgraded = ReadRel(GameOptionsWriter.TrainerSee);
+        Assert.Contains("psDx == 0 ? 5 : 7", upgraded, StringComparison.Ordinal);
+        Assert.DoesNotContain("max(trainerObj->trainerRange_berryTreeId, 6), x, y)", upgraded, StringComparison.Ordinal);
         var psCode = ReadRel(GameOptionsWriter.CodeFile);
         Assert.Contains("#define PS_TRAINER_RULES TRUE", psCode, StringComparison.Ordinal);
         Assert.Contains("#define PS_GYM_COUNT 8", psCode, StringComparison.Ordinal);
