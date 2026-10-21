@@ -619,6 +619,7 @@ internal static partial class GameOptionsWriter
         void PokeStudio_AfterBattle(void);
         bool32 PokeStudio_TrainerIgnoresPlayer(u32 trainerId);
         bool32 PokeStudio_TrainersSeeFar(void);
+        void PokeStudio_HardTrainers(void);
         void PokeStudio_GymTrainersLeft(void);
         bool32 PokeStudio_NuzCanBattle(void);
         void PokeStudio_NuzAfterWipe(void);
@@ -1043,6 +1044,12 @@ internal static partial class GameOptionsWriter
             bool32 PokeStudio_TrainersSeeFar(void)
             {
                 return PS_TRAINER_RULES && GetCurrentDifficultyLevel() >= DIFFICULTY_HARD;
+            }
+
+            // For the routes' scripts: VAR_RESULT = TRUE on Hard and Extra Hard (route trainers stand on chokepoints).
+            void PokeStudio_HardTrainers(void)
+            {
+                gSpecialVar_Result = PokeStudio_TrainersSeeFar();
             }
 
             // Hard and Extra Hard: VAR_RESULT = how many trainers of gym VAR_0x8004 are still unbeaten (0 otherwise).

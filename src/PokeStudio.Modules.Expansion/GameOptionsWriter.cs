@@ -258,6 +258,40 @@ internal static partial class GameOptionsWriter
             Put(file, gymScript, clean);
         }
 
+        // Hard and Extra Hard: route trainers stand on chokepoints, moved by each route's ON_TRANSITION script (lines
+        // removed when off)
+        if (Directory.Exists(Path.Combine(layout.Root, "data", "maps")))
+        {
+            var behaviors = Chokepoints.Behaviors(read("include/constants/metatile_behaviors.h"));
+            var (movedCount, routesMoved, keptRoutes) = (0, 0, new List<string>());
+            foreach (var route in Chokepoints.Routes(layout.Root))
+            {
+                var file = $"data/maps/{route}/scripts.inc";
+                if ((result.TryGetValue(file, out var planned) ? planned : read(file)) is not { } routeScript)
+                {
+                    continue;
+                }
+
+                var plan = TrainerRules(o) && readBytes is not null ? Chokepoints.PlanRoute(route, read, readBytes, behaviors) : null;
+                Put(file, routeScript, Chokepoints.Script(routeScript, route, plan?.Moves ?? []));
+                if (plan is not null)
+                {
+                    movedCount += plan.Moves.Count;
+                    routesMoved += plan.Moves.Count > 0 ? 1 : 0;
+                    if (plan.Kept.Count > 0)
+                    {
+                        keptRoutes.Add($"{ExpansionModule.MapPlace(route)} ({plan.Kept.Count})");
+                    }
+                }
+            }
+
+            if (TrainerRules(o) && readBytes is not null)
+            {
+                notes?.Add($"Hard: {movedCount} route trainers on {routesMoved} routes stand where they can't be walked past."
+                    + (keptRoutes.Count == 0 ? "" : $" No chokepoint was free for some, who keep their place: {string.Join(", ", keptRoutes)}."));
+            }
+        }
+
         // after blacking out in a Nuzlocke: the wipe handler first (the run goes on from the PC, or it's over)
         foreach (var file in WhiteOutFiles)
         {
