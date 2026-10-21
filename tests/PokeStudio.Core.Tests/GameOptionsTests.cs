@@ -331,8 +331,14 @@ public class GameOptionsCodeTests
         Assert.Equal(2, System.Text.RegularExpressions.Regex.Count(ReadRel(GameOptionsWriter.WildEncounters), @"if \(!PokeStudio_NuzCanBattle\(\)\)"));
         Assert.Contains("if (!PokeStudio_NuzCanBattle())", ReadRel(GameOptionsWriter.TrainerSee), StringComparison.Ordinal);
         Assert.Contains(GameOptionsWriter.WhiteOutFiles.Where(f => File.Exists(Path.Combine(root, f))).Select(ReadRel),
-            t => t.Contains("EventScript_AfterWhiteOutHeal::\n\tgoto_if_set FLAG_PS_NUZ_FAINT, PokeStudio_EventScript_NuzWipe", StringComparison.Ordinal));
+            t => t.Contains("EventScript_AfterWhiteOutHeal::\n\tcall_if_set FLAG_PS_NUZ_FAINT, PokeStudio_EventScript_NuzWipe", StringComparison.Ordinal));
         Assert.Contains("PokeStudio_EventScript_NuzWipe::", ReadRel(GameOptionsWriter.Script), StringComparison.Ordinal);
+
+        // the fainting rules start with the Pokédex: losing the first rival battle (Oak's Lab) doesn't end the run
+        Assert.Contains("#define PS_NUZ_FAINT_ON (FlagGet(FLAG_PS_NUZ_FAINT) && FlagGet(FLAG_SYS_POKEDEX_GET))", ReadRel(GameOptionsWriter.Header), StringComparison.Ordinal);
+        Assert.Contains("PokeStudio_EventScript_NuzWipe::\n\tgoto_if_unset FLAG_SYS_POKEDEX_GET, PokeStudio_EventScript_NuzWipeNotYet", ReadRel(GameOptionsWriter.Script), StringComparison.Ordinal);
+        Assert.DoesNotContain("FlagGet(FLAG_PS_NUZ_FAINT)", ReadRel(GameOptionsWriter.Pokemon), StringComparison.Ordinal);
+        Assert.DoesNotContain("FlagGet(FLAG_PS_NUZ_FAINT)", battleScripts, StringComparison.Ordinal);
 
         // trainers by difficulty: Easy skips non-bosses, Hard sees far and in every direction, gym leaders wait for their gym
         var see = ReadRel(GameOptionsWriter.TrainerSee);

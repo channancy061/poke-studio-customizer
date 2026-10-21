@@ -49,7 +49,7 @@ internal static partial class GameOptionsWriter
             var at = Regex.Match(clean, $@"^{label}::[^\n]*\n", RegexOptions.Multiline);
             if (at.Success)
             {
-                clean = clean.Insert(at.Index + at.Length, $"\tgoto_if_set FLAG_PS_NUZ_FAINT, PokeStudio_EventScript_NuzWipe @ {Mark}: Nuzlocke wipe{nl}");
+                clean = clean.Insert(at.Index + at.Length, $"\tcall_if_set FLAG_PS_NUZ_FAINT, PokeStudio_EventScript_NuzWipe @ {Mark}: Nuzlocke wipe{nl}");
             }
         }
 
@@ -130,6 +130,13 @@ internal static partial class GameOptionsWriter
         foreach (var (k, v) in ids.Vars)
         {
             header.Append(CultureInfo.InvariantCulture, $"#define {k} {v}\n");
+        }
+
+        if (ids.Flags.ContainsKey("FLAG_PS_NUZ_FAINT"))
+        {
+            // the Nuzlocke fainting rules start with the Pokédex (and the Poké Balls that come with it): the story's
+            // first rival battle can be lost, and the game heals the team after it
+            header.Append("\n#define PS_NUZ_FAINT_ON (FlagGet(FLAG_PS_NUZ_FAINT) && FlagGet(FLAG_SYS_POKEDEX_GET))\n");
         }
 
         header.Append("\n#endif // GUARD_CONSTANTS_POKE_STUDIO_H\n");
@@ -690,8 +697,10 @@ internal static partial class GameOptionsWriter
 
         if (WipeHandled(o))
         {
-            // after blacking out (see WhiteOutScripts): fainted Pokémon can't be healed
+            // after blacking out (see WhiteOutScripts): fainted Pokémon can't be healed. Called first thing in the game's
+            // own whiteout script: before the Pokédex the rules haven't started, so it returns and the game heals as usual
             L("PokeStudio_EventScript_NuzWipe::");
+            L("\tgoto_if_unset FLAG_SYS_POKEDEX_GET, PokeStudio_EventScript_NuzWipeNotYet");
             L("\tlockall");
             L("\tcallnative PokeStudio_NuzAfterWipe");
             L("\tgoto_if_eq VAR_RESULT, FALSE, PokeStudio_EventScript_NuzRunOver");
@@ -699,6 +708,8 @@ internal static partial class GameOptionsWriter
             L("\tfadedefaultbgm");
             L("\treleaseall");
             L("\tend");
+            L("PokeStudio_EventScript_NuzWipeNotYet::");
+            L("\treturn");
             L("PokeStudio_EventScript_NuzRunOver::");
             L("\tmsgbox PokeStudio_Text_NuzRunOver, MSGBOX_DEFAULT");
             L("\tfadedefaultbgm");

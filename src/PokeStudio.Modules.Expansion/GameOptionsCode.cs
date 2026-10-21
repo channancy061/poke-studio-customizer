@@ -268,6 +268,16 @@ internal static partial class GameOptionsWriter
             }
         }
 
+        // projects patched by an older version: their fainting checks start right away, so the Oak's Lab battle (lost,
+        // then healed by the story) left the starter fainted; they now wait for the Pokédex like the new ones
+        foreach (var file in new[] { Healing, Pokemon, BattleScripts })
+        {
+            if (read(file) is { } old && old.Contains($"FlagGet(FLAG_PS_NUZ_FAINT)", StringComparison.Ordinal))
+            {
+                put(file, old, Regex.Replace(old, $@"FlagGet\(FLAG_PS_NUZ_FAINT\)(?=[^\n]*{Mark}|[^\n]*\n[^\n]*HealBoxPokemon)", "PS_NUZ_FAINT_ON"));
+            }
+        }
+
         // script_pokemon_util.c: a fainted Pokémon stays fainted in a Nuzlocke. Pokémon Centers, healing NPCs and blacking
         // out all heal through HealPlayerParty (and the PC boxes through HealPlayerBoxes), so nothing brings it back.
         if (read(Healing) is { } healing && !healing.Contains("stay fainted in a Nuzlocke", StringComparison.Ordinal))
@@ -285,11 +295,11 @@ internal static partial class GameOptionsWriter
                     $"{bi}{{ // {Mark}: fainted Pokémon stay fainted in a Nuzlocke",
                     $"{bi}    struct Pokemon psMon;",
                     $"{bi}    BoxMonToMon({bm}, &psMon);",
-                    $"{bi}    if (!FlagGet(FLAG_PS_NUZ_FAINT) || GetMonData(&psMon, MON_DATA_HP) != 0)",
+                    $"{bi}    if (!PS_NUZ_FAINT_ON || GetMonData(&psMon, MON_DATA_HP) != 0)",
                     $"{bi}        HealBoxPokemon({bm});",
                     $"{bi}}}") + nl;
                 var edited = healing.Remove(boxFn + box.Index, box.Length).Insert(boxFn + box.Index, boxText);
-                var partyText = $"{pi}if (!FlagGet(FLAG_PS_NUZ_FAINT) || GetMonData({pm}, MON_DATA_HP) != 0) // {Mark}: fainted Pokémon stay fainted in a Nuzlocke{nl}{pi}    HealPokemon({pm});{nl}";
+                var partyText = $"{pi}if (!PS_NUZ_FAINT_ON || GetMonData({pm}, MON_DATA_HP) != 0) // {Mark}: fainted Pokémon stay fainted in a Nuzlocke{nl}{pi}    HealPokemon({pm});{nl}";
                 edited = edited.Remove(fn + party.Index, party.Length).Insert(fn + party.Index, partyText);
                 put(Healing, healing, edited);
             }
@@ -380,7 +390,7 @@ internal static partial class GameOptionsWriter
                 var lineStart = pokemonC.LastIndexOf('\n', at) + 1;
                 var indent = CScanner.IndentAt(pokemonC, at);
                 var block = string.Join(nl,
-                    $"{indent}if ((effectFlags & (ITEM4_REVIVE >> 2)) && FlagGet(FLAG_PS_NUZ_FAINT)) // {Mark}: no revives in a Nuzlocke",
+                    $"{indent}if ((effectFlags & (ITEM4_REVIVE >> 2)) && PS_NUZ_FAINT_ON) // {Mark}: no revives in a Nuzlocke",
                     $"{indent}{{",
                     $"{indent}    itemEffectParam++;",
                     $"{indent}    break;",
@@ -404,7 +414,7 @@ internal static partial class GameOptionsWriter
                 var lineEnd = bsc.IndexOf('\n', first) + 1;
                 var indent = CScanner.IndentAt(bsc, first);
                 put(BattleScripts, bsc, bsc.Insert(lineEnd,
-                    $"{indent}if (FlagGet(FLAG_PS_NUZ_FAINT) && IsOnPlayerSide(gBattlerAttacker)) // {Mark}: no Revival Blessing in a Nuzlocke{nl}{indent}    index = PARTY_SIZE;{nl}"));
+                    $"{indent}if (PS_NUZ_FAINT_ON && IsOnPlayerSide(gBattlerAttacker)) // {Mark}: no Revival Blessing in a Nuzlocke{nl}{indent}    index = PARTY_SIZE;{nl}"));
             }
         }
 
@@ -768,7 +778,7 @@ internal static partial class GameOptionsWriter
 
                 FlagClear(PS_NO_CATCH);
                 sCatchRulesActive = FALSE;
-                if (!FlagGet(FLAG_PS_NUZ_FAINT))
+                if (!PS_NUZ_FAINT_ON)
                     return;
                 for (u32 i = 0; i < PARTY_SIZE; i++)
                 {
@@ -800,7 +810,7 @@ internal static partial class GameOptionsWriter
             // Whether a battle may start: in a Nuzlocke, not while nobody in the party can fight, and never once the run is over.
             bool32 PokeStudio_NuzCanBattle(void)
             {
-                if (!FlagGet(FLAG_PS_NUZ_FAINT))
+                if (!PS_NUZ_FAINT_ON)
                     return TRUE;
                 if (FlagGet(FLAG_PS_NUZ_OVER))
                     return FALSE;
