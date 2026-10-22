@@ -106,5 +106,11 @@
     <Border Classes="well">
       <TextBlock Text="{Binding LearnedBy}" Classes="small" TextWrapping="Wrap" />
     </Border>
+
+    <StackPanel Spacing="4">
+      <CheckBox IsChecked="{Binding LeftOut}" Content="Leave this move out of the game" FontWeight="Bold" />
+      <TextBlock Text="No Pokémon learns it (level-up, TM, tutor or egg move) and no trainer gets it. Ticking it takes it out of every learnset and team in one step; Undo puts it back. Useful for moves like Dragon Rage, whose fixed 40 damage is unfair early on."
+                 Classes="caption muted" TextWrapping="Wrap" />
+    </StackPanel>
   </StackPanel>
 </UserControl>

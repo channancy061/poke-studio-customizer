@@ -379,6 +379,22 @@ public sealed partial class MoveEditorViewModel : ViewModelBase
         set => Edit("contact", m => m with { MakesContact = value }, (_, b) => b.MakesContact ? "now makes contact" : "no longer makes contact", merge: false);
     }
 
+    /// <summary>Left out of the game: taken out of every learnset and trainer team, and never picked for a trainer.</summary>
+    public bool LeftOut
+    {
+        get => _shell.Session.Data.Lab?.LeftOutMoves.Contains(Model.Key) == true;
+        set
+        {
+            if (value != LeftOut && Core.ChampionLab.MoveRules.LeaveOut(_shell.Session.Data, Model.Key, value) is { } change)
+            {
+                _shell.Execute(change);
+            }
+
+            OnPropertyChanged(nameof(LeftOut));
+            OnPropertyChanged(nameof(LearnedBy));
+        }
+    }
+
     /// <summary>Pokémon that learn this move by level-up, to show how far a change reaches.</summary>
     public string LearnedBy
     {

@@ -68,6 +68,50 @@ public class TeamBuilderTests
     }
 
     [Fact]
+    public async Task Low_level_teams_only_get_moves_their_level_allows()
+    {
+        using var tmp = new TempDir();
+        var (_, data, _, _) = await Load(tmp);
+        var fern = data.Trainers.Single(t => t.Key == "TRAINER_LEADER_FERN");
+
+        var team = TeamBuilder.Suggest(data, new LabSettings(), fern, new TeamBuilder.Options(Difficulty.Normal, TeamSize: 3, Level: 12));
+
+        Assert.NotEmpty(team.Members);
+        foreach (var m in team.Members)
+        {
+            var species = data.Species.Single(s => s.Key == m.Pokemon.Species);
+            var natural = data.LearnsetFor(species)!.LevelUp.Where(l => l.Level <= 12).Select(l => l.Move).ToHashSet();
+            foreach (var move in m.Pokemon.Moves.Select(k => data.Moves.Single(x => x.Key == k)))
+            {
+                Assert.True(natural.Contains(move.Key) || (move.Power > 0 ? move.Power <= MoveRules.MaxPower(12, Difficulty.Normal) : false),
+                    $"{species.Name} at Lv 12 got {move.Name} ({move.Power} power)");
+            }
+        }
+    }
+
+    [Fact]
+    public async Task A_move_left_out_leaves_every_learnset_and_team_and_undo_brings_it_back()
+    {
+        using var tmp = new TempDir();
+        var (_, data, _, _) = await Load(tmp);
+        var move = data.Learnsets.SelectMany(l => l.LevelUp.Select(m => m.Move)).GroupBy(m => m).OrderByDescending(g => g.Count()).First().Key;
+        var before = data.Learnsets.ToList();
+
+        var change = MoveRules.LeaveOut(data, move, true)!;
+        change.Apply();
+
+        Assert.Contains(move, data.Lab!.LeftOutMoves);
+        Assert.DoesNotContain(data.Learnsets, l => l.LevelUp.Any(m => m.Move == move) || l.Teachable.Contains(move) || l.EggMoves.Contains(move));
+        Assert.DoesNotContain(data.Trainers, t => t.Party.Any(p => p.Moves.Contains(move)));
+        Assert.Equal(250, MoveRules.MaxPower(70, Difficulty.Normal));
+        Assert.Equal(70, MoveRules.MaxPower(15, Difficulty.Hard));
+
+        change.Revert();
+        Assert.Equal(before, data.Learnsets);
+        Assert.True(data.Lab is null || !data.Lab.LeftOutMoves.Contains(move));
+    }
+
+    [Fact]
     public async Task Legendary_rules_are_respected_while_building()
     {
         using var tmp = new TempDir();

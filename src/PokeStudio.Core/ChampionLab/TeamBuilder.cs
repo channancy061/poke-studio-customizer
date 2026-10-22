@@ -51,6 +51,11 @@ public static class TeamBuilder
         var caps = data.Rules?.LevelCaps ?? [];
         var level = options.Level ?? (trainer.Party.Count > 0 ? trainer.Party.Max(p => p.Level) : caps.ElementAtOrDefault(Math.Max(0, milestone))?.Level ?? 20);
         var size = options.TeamSize ?? Math.Max(trainer.Party.Count, options.Difficulty >= Difficulty.Hard && group != TrainerGroup.Regular ? 6 : 1);
+        if (FirstRivalBattle(group, trainer))
+        {
+            size = trainer.Party.Count; // the player has only their starter: the rival has only theirs, on every difficulty
+        }
+
         var threats = ThreatTypes(data, milestone);
         var hard = options.Difficulty >= Difficulty.Hard;
         var extra = options.Difficulty == Difficulty.ExtraHard;
@@ -192,7 +197,7 @@ public static class TeamBuilder
             TrainerGroup.EarlyGym or TrainerGroup.LateGym => badge > 0 ? 2 + ((badge + 1) / 2) : group == TrainerGroup.EarlyGym ? 4 : 5,
             TrainerGroup.EliteFour => 5,
             TrainerGroup.Champion or TrainerGroup.PostGame => 6,
-            TrainerGroup.Rival => t.Party.Count + 1,
+            TrainerGroup.Rival => FirstRivalBattle(group, t) ? t.Party.Count : t.Party.Count + 1,
             _ => t.Party.Count,
         };
         return Math.Clamp(Math.Max(size, t.Party.Count), 1, 6);
@@ -534,11 +539,15 @@ public static class TeamBuilder
             return []; // the game picks its latest level-up moves
         }
 
-        var known = learnset.LevelUp.Where(m => m.Level <= level).Select(m => m.Move)
+        // moves it learns by levelling up by now are fair; TMs, tutors and egg moves only up to the power its level allows
+        // (a Lv 5 rival with Thunderbolt or a Lv 14 leader with Head Smash outclasses the player's team)
+        var natural = learnset.LevelUp.Where(m => m.Level <= level).Select(m => m.Move).ToHashSet(StringComparer.Ordinal);
+        var known = natural
             .Concat(learnset.Teachable)
             .Concat(difficulty >= Difficulty.Hard ? learnset.EggMoves : [])
             .Distinct().ToHashSet(StringComparer.Ordinal);
-        var moves = data.Moves.Where(m => known.Contains(m.Key) && !m.LockedFields.ContainsKey("*")).ToList();
+        var leftOut = data.Lab?.LeftOutMoves ?? [];
+        var moves = data.Moves.Where(m => known.Contains(m.Key) && !m.LockedFields.ContainsKey("*") && MoveRules.Allowed(m, level, difficulty, natural, leftOut)).ToList();
         var category = physical ? MoveCategory.Physical : MoveCategory.Special;
         double Value(Move m) => m.Power * (m.Accuracy == 0 ? 1 : m.Accuracy / 100.0) * (s.Types.Contains(m.Type) ? 1.5 : 1);
         // two-turn, recharge, self-fainting and situational moves make poor picks for a trainer
@@ -591,6 +600,10 @@ public static class TeamBuilder
         note = "Moves: " + string.Join(", ", chosen.Select(m => m.Name)) + ".";
         return chosen.Take(4).Select(m => m.Key).ToList();
     }
+
+    /// <summary>The first rival battle (Oak's Lab, Route 103): a rival whose Pokémon are all Lv 6 or lower.</summary>
+    private static bool FirstRivalBattle(TrainerGroup group, Trainer t) =>
+        group == TrainerGroup.Rival && t.Party.Count > 0 && t.Party.All(p => p.Level <= 6);
 
     private static string? RivalStarter(GameData data, LabSettings lab, Trainer t)
     {

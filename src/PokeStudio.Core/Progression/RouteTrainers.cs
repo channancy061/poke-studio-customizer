@@ -147,7 +147,8 @@ public static class RouteTrainers
         }
 
         var known = learnset.LevelUp.Where(m => m.Level <= level).Select(m => m.Move).ToHashSet(StringComparer.Ordinal);
-        var moves = data.Moves.Where(m => known.Contains(m.Key) && !Unfair.Any(u => m.Effect.Contains(u, StringComparison.Ordinal))).ToList();
+        var leftOut = data.Lab?.LeftOutMoves ?? [];
+        var moves = data.Moves.Where(m => known.Contains(m.Key) && !leftOut.Contains(m.Key) && !Unfair.Any(u => m.Effect.Contains(u, StringComparison.Ordinal))).ToList();
         double Value(Move m) => m.Power * (m.Accuracy == 0 ? 1 : m.Accuracy / 100.0) * (s.Types.Contains(m.Type) ? 1.5 : 1);
         var attacks = moves.Where(m => m.Category != MoveCategory.Status && m.Power > 0).ToList();
         var chosen = new List<Move>();
