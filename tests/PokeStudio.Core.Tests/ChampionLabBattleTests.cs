@@ -74,17 +74,17 @@ public class TeamBuilderTests
         var (_, data, _, _) = await Load(tmp);
         var fern = data.Trainers.Single(t => t.Key == "TRAINER_LEADER_FERN");
 
-        var team = TeamBuilder.Suggest(data, new LabSettings(), fern, new TeamBuilder.Options(Difficulty.Normal, TeamSize: 3, Level: 12));
+        var team = TeamBuilder.Suggest(data, new LabSettings(), fern, new TeamBuilder.Options(Difficulty.Normal, TeamSize: 3, Level: 20));
 
         Assert.NotEmpty(team.Members);
         foreach (var m in team.Members)
         {
             var species = data.Species.Single(s => s.Key == m.Pokemon.Species);
-            var natural = data.LearnsetFor(species)!.LevelUp.Where(l => l.Level <= 12).Select(l => l.Move).ToHashSet();
+            var natural = data.LearnsetFor(species)!.LevelUp.Where(l => l.Level <= 20).Select(l => l.Move).ToHashSet();
             foreach (var move in m.Pokemon.Moves.Select(k => data.Moves.Single(x => x.Key == k)))
             {
-                Assert.True(natural.Contains(move.Key) || (move.Power > 0 ? move.Power <= MoveRules.MaxPower(12, Difficulty.Normal) : false),
-                    $"{species.Name} at Lv 12 got {move.Name} ({move.Power} power)");
+                Assert.True(natural.Contains(move.Key) || (move.Power > 0 ? move.Power <= MoveRules.MaxPower(20, Difficulty.Normal) : false),
+                    $"{species.Name} at Lv 20 got {move.Name} ({move.Power} power)");
             }
         }
     }
