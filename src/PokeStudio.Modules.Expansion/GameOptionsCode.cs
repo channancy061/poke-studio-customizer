@@ -653,6 +653,7 @@ internal static partial class GameOptionsWriter
         L("#include \"pokedex.h\"");
         L("#include \"pokemon.h\"");
         L("#include \"pokemon_storage_system.h\"");
+        L("#include \"string_util.h\"");
         L("#include \"trainer_pools.h\"");
         L("#include \"constants/region_map_sections.h\"");
         L("#include \"battle_setup.h\"");
