@@ -114,5 +114,18 @@ public sealed record CenterHelperSettings
     public int IvPrice { get; init; }
     public int EvPrice { get; init; }
 
-    public bool AnyService => Enabled && (Nature || PerfectIvs || EvSpreads);
+    /// <summary>
+    /// Changing a Pokémon's ability to another one its species has (normal ones, and the hidden one once
+    /// <see cref="HiddenAbilityBadge"/> is won): not used, the player chooses at a new game, or always there.
+    /// </summary>
+    public OptionMode Ability { get; init; } = OptionMode.NotUsed;
+    public int AbilityPrice { get; init; } = 5000;
+    public int HiddenAbilityPrice { get; init; } = 20000;
+
+    /// <summary>The badge (1–8) that opens hidden abilities; 0 = from the start.</summary>
+    public int HiddenAbilityBadge { get; init; } = 6;
+
+    public bool AbilityService => Ability is OptionMode.PlayerChooses or OptionMode.AlwaysOn;
+
+    public bool AnyService => Enabled && (Nature || PerfectIvs || EvSpreads || AbilityService);
 }

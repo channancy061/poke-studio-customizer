@@ -271,7 +271,7 @@ public class GameOptionsCodeTests
         LevelCap = OptionMode.NotUsed,
         Nuzlocke = OptionMode.PlayerChooses,
         AdaptiveSlot = OptionMode.PlayerChooses,
-        CenterHelper = new CenterHelperSettings { Enabled = true, NaturePrice = 2000 },
+        CenterHelper = new CenterHelperSettings { Enabled = true, NaturePrice = 2000, Ability = OptionMode.PlayerChooses },
     };
 
     private static async Task RealProject(string? real, string name)
@@ -333,6 +333,16 @@ public class GameOptionsCodeTests
         Assert.Contains(GameOptionsWriter.WhiteOutFiles.Where(f => File.Exists(Path.Combine(root, f))).Select(ReadRel),
             t => t.Contains("EventScript_AfterWhiteOutHeal::\n\tcall_if_set FLAG_PS_NUZ_FAINT, PokeStudio_EventScript_NuzWipe", StringComparison.Ordinal));
         Assert.Contains("PokeStudio_EventScript_NuzWipe::", ReadRel(GameOptionsWriter.Script), StringComparison.Ordinal);
+
+        // the helper's ability changer: asked at the start, listed by the game code, the hidden one costs more
+        var options = ReadRel(GameOptionsWriter.Script);
+        Assert.Contains("PokeStudio_EventScript_AbilityYes::\n\tsetflag FLAG_PS_ABILITY_ON", options, StringComparison.Ordinal);
+        Assert.Contains("\tgoto_if_unset FLAG_PS_ABILITY_ON, PokeStudio_EventScript_HelperMenuNoAbility", options, StringComparison.Ordinal);
+        Assert.Contains("\tcallnative PokeStudio_ListAbilities", options, StringComparison.Ordinal);
+        Assert.Contains("\tdynmultichoice 0, 0, FALSE, 6, 0, DYN_MULTICHOICE_CB_NONE, gStringVar1, gStringVar2, gStringVar3", options, StringComparison.Ordinal);
+        Assert.Contains("\tcheckmoney 20000", options, StringComparison.Ordinal);
+        Assert.Contains("#define PS_HIDDEN_ABILITY_BADGE 6", ReadRel(GameOptionsWriter.CodeFile), StringComparison.Ordinal);
+        Assert.Contains("#define FLAG_PS_ABILITY_ON ", ReadRel(GameOptionsWriter.Header), StringComparison.Ordinal);
 
         // the fainting rules start with the Pokédex: losing the first rival battle (Oak's Lab) doesn't end the run
         Assert.Contains("#define PS_NUZ_FAINT_ON (FlagGet(FLAG_PS_NUZ_FAINT) && FlagGet(FLAG_SYS_POKEDEX_GET))", ReadRel(GameOptionsWriter.Header), StringComparison.Ordinal);

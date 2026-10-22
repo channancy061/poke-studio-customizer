@@ -149,6 +149,39 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
     }
 
     private static int Price(decimal? value) => (int)Math.Clamp(value ?? 0, 0, 999999);
+
+    public IReadOnlyList<ModeOption> HelperAbilityModes { get; } =
+    [
+        new("Not offered", OptionMode.NotUsed),
+        new("Player chooses at a new game", OptionMode.PlayerChooses),
+        new("Always offered", OptionMode.AlwaysOn),
+    ];
+
+    public ModeOption HelperAbilityMode
+    {
+        get => HelperAbilityModes.FirstOrDefault(m => m.Mode == Helper.Ability) ?? HelperAbilityModes[0];
+        set => UpdateHelper(h => h with { Ability = value?.Mode ?? OptionMode.NotUsed }, $"Ability changer: {value?.Label.ToLowerInvariant()}");
+    }
+
+    public bool HelperAbilityShown => Helper.AbilityService;
+
+    public decimal? AbilityPrice
+    {
+        get => Helper.AbilityPrice;
+        set => UpdateHelper(h => h with { AbilityPrice = Price(value) }, $"Ability change costs {Price(value)}");
+    }
+
+    public decimal? HiddenAbilityPrice
+    {
+        get => Helper.HiddenAbilityPrice;
+        set => UpdateHelper(h => h with { HiddenAbilityPrice = Price(value) }, $"Hidden ability costs {Price(value)}");
+    }
+
+    public decimal? HiddenAbilityBadge
+    {
+        get => Helper.HiddenAbilityBadge;
+        set => UpdateHelper(h => h with { HiddenAbilityBadge = (int)Math.Clamp(value ?? 0, 0, 8) }, $"Hidden abilities after badge {(int)Math.Clamp(value ?? 0, 0, 8)}");
+    }
     public IReadOnlyList<DifficultyChoiceOption> DifficultyChoices { get; }
 
     private static string Cost(int price) => price > 0 ? $" (¥{price})" : " (free)";
@@ -252,6 +285,9 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
                     s.CenterHelper.Nature ? $"change nature{Cost(s.CenterHelper.NaturePrice)}" : null,
                     s.CenterHelper.PerfectIvs ? $"perfect IVs{Cost(s.CenterHelper.IvPrice)}" : null,
                     s.CenterHelper.EvSpreads ? $"EV spreads{Cost(s.CenterHelper.EvPrice)}" : null,
+                    s.CenterHelper.AbilityService ? $"change ability{Cost(s.CenterHelper.AbilityPrice)}, hidden ability{Cost(s.CenterHelper.HiddenAbilityPrice)}"
+                        + (s.CenterHelper.HiddenAbilityBadge > 0 ? $" after badge {s.CenterHelper.HiddenAbilityBadge}" : "")
+                        + (s.CenterHelper.Ability == OptionMode.PlayerChooses ? " (if the player says yes at the start)" : "") : null,
                 }.Where(x => x is not null)) + ".");
             }
 
@@ -283,7 +319,8 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
             row.Refresh();
         }
 
-        foreach (var name in new[] { nameof(NuzlockeShown), nameof(HelperEnabled), nameof(HelperNature), nameof(HelperIvs), nameof(HelperEvs), nameof(NaturePrice), nameof(IvPrice), nameof(EvPrice) })
+        foreach (var name in new[] { nameof(NuzlockeShown), nameof(HelperEnabled), nameof(HelperNature), nameof(HelperIvs), nameof(HelperEvs), nameof(NaturePrice), nameof(IvPrice), nameof(EvPrice),
+            nameof(HelperAbilityMode), nameof(HelperAbilityShown), nameof(AbilityPrice), nameof(HiddenAbilityPrice), nameof(HiddenAbilityBadge) })
         {
             OnPropertyChanged(name);
         }

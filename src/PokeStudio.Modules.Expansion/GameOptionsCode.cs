@@ -73,7 +73,8 @@ internal static partial class GameOptionsWriter
         }
 
         var areas = o.NuzRuleUsed(o.NuzFirstEncounter) ? x.EncounterAreas.Select(AreaFlag) : [];
-        return [.. CodeFlagNames, .. areas];
+        string[] ability = o.CenterHelper.AnyService && o.CenterHelper.AbilityService ? ["FLAG_PS_ABILITY_ON"] : [];
+        return [.. CodeFlagNames, .. ability, .. areas];
     }
 
     /// <summary>Areas with wild Pokémon (region map sections of the maps in wild_encounters.json) and evolution families.</summary>
@@ -627,6 +628,9 @@ internal static partial class GameOptionsWriter
         u32 PokeStudio_PickAdaptive(const struct Trainer *trainer, u8 *poolIndexArray, u32 partyIndex, u32 monsCount, u32 battleTypeFlags, struct PoolRules *rules);
         void PokeStudio_MaxIvs(void);
         void PokeStudio_SetEvSpread(void);
+        void PokeStudio_ListAbilities(void);
+        void PokeStudio_AbilityChoiceHidden(void);
+        void PokeStudio_SetAbility(void);
 
         #endif // GUARD_POKE_STUDIO_H
 
@@ -1003,6 +1007,60 @@ internal static partial class GameOptionsWriter
                     SetMonData(mon, MON_DATA_HP_EV + i, &ev);
                 }
                 CalculateMonStats(mon);
+            }
+            """.ReplaceLineEndings("\n"));
+
+        // Pokémon Center helper: the ability changer (its list comes from the game's own species data, so changed
+        // abilities are offered as they are now)
+        L();
+        L($"#define PS_HIDDEN_ABILITY_BADGE {o.CenterHelper.HiddenAbilityBadge.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+        L("""
+            // Abilities the chosen party member (gSpecialVar_0x8004) could switch to, in gStringVar1-3; gSpecialVar_0x8005 =
+            // how many. Its own ability, empty slots and repeats are left out; the hidden one only once its badge is won.
+            EWRAM_DATA static u8 sPsAbilitySlots[NUM_ABILITY_SLOTS] = {0};
+
+            void PokeStudio_ListAbilities(void)
+            {
+                struct Pokemon *mon = &PS_PLAYER_PARTY[gSpecialVar_0x8004];
+                enum Species species = GetMonData(mon, MON_DATA_SPECIES);
+                enum Ability current = GetMonAbility(mon);
+                u8 *names[] = {gStringVar1, gStringVar2, gStringVar3};
+                enum Ability listed[NUM_ABILITY_SLOTS] = {0};
+                u32 count = 0;
+                bool32 hiddenOpen = PS_HIDDEN_ABILITY_BADGE == 0 || FlagGet(FLAG_BADGE01_GET + PS_HIDDEN_ABILITY_BADGE - 1);
+
+                for (u32 slot = 0; slot < NUM_ABILITY_SLOTS && count < ARRAY_COUNT(names); slot++)
+                {
+                    enum Ability ability = GetSpeciesAbility(species, slot);
+                    bool32 repeat = FALSE;
+                    if (ability == ABILITY_NONE || ability == current || (slot >= NUM_NORMAL_ABILITY_SLOTS && !hiddenOpen))
+                        continue;
+                    for (u32 i = 0; i < count; i++)
+                    {
+                        if (listed[i] == ability)
+                            repeat = TRUE;
+                    }
+                    if (repeat)
+                        continue;
+                    StringCopy(names[count], gAbilitiesInfo[ability].name);
+                    listed[count] = ability;
+                    sPsAbilitySlots[count] = slot;
+                    count++;
+                }
+                gSpecialVar_0x8005 = count;
+            }
+
+            // gSpecialVar_0x8006 = TRUE when the picked ability (gSpecialVar_Result) is the hidden one (it costs more).
+            void PokeStudio_AbilityChoiceHidden(void)
+            {
+                gSpecialVar_0x8006 = gSpecialVar_Result < NUM_ABILITY_SLOTS && sPsAbilitySlots[gSpecialVar_Result] >= NUM_NORMAL_ABILITY_SLOTS;
+            }
+
+            void PokeStudio_SetAbility(void)
+            {
+                struct Pokemon *mon = &PS_PLAYER_PARTY[gSpecialVar_0x8004];
+                u32 slot = gSpecialVar_Result < NUM_ABILITY_SLOTS ? sPsAbilitySlots[gSpecialVar_Result] : 0;
+                SetMonData(mon, MON_DATA_ABILITY_NUM, &slot);
             }
             """.ReplaceLineEndings("\n"));
 

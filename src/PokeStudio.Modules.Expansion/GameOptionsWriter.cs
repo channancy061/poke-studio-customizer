@@ -549,6 +549,11 @@ internal static partial class GameOptionsWriter
             L("\tsetflag FLAG_PS_TRAINING_OFF");
         }
 
+        if (o.CenterHelper.Enabled && o.CenterHelper.Ability == OptionMode.AlwaysOn)
+        {
+            L("\tsetflag FLAG_PS_ABILITY_ON");
+        }
+
         if (o.LevelCap == OptionMode.AlwaysOff)
         {
             L("\tsetflag FLAG_PS_LEVEL_CAP_OFF");
@@ -577,7 +582,7 @@ internal static partial class GameOptionsWriter
 
         var nuzlocke = o.Nuzlocke is OptionMode.PlayerChooses or OptionMode.AlwaysOn;
         var nuzRules = new[] { o.NuzFirstEncounter, o.NuzFaintedGone, o.NuzDupes, o.NuzEeveeException, o.NuzShiny, o.NuzStatic, o.NuzNicknames, o.NuzLevelCap };
-        var asks = new[] { o.Difficulty, o.TrainingOff, o.LevelCap, o.NoItemsInBattle, o.InfiniteCandy, o.AdaptiveSlot, o.Nuzlocke }.Count(m => m == OptionMode.PlayerChooses)
+        var asks = new[] { o.Difficulty, o.TrainingOff, o.LevelCap, o.NoItemsInBattle, o.InfiniteCandy, o.AdaptiveSlot, o.Nuzlocke, o.CenterHelper.Enabled ? o.CenterHelper.Ability : OptionMode.NotUsed }.Count(m => m == OptionMode.PlayerChooses)
             + (nuzlocke ? nuzRules.Count(m => m == OptionMode.PlayerChooses) : 0);
         if (asks > 0)
         {
@@ -635,6 +640,10 @@ internal static partial class GameOptionsWriter
             $"\tsetvar VAR_PS_NO_BAG, {(o.NoItemsAlsoWild ? 2 : 1)}\n");
         Ask(o.InfiniteCandy, "Candy", "Take an Infinite Candy?\\nIt never runs out.", "\tgiveitem ITEM_INFINITE_CANDY\n");
         Ask(o.AdaptiveSlot, "Adaptive", "Bosses adapt one Pokémon\\nto your team?", "\tsetflag FLAG_PS_ADAPTIVE\n");
+        if (o.CenterHelper.Enabled)
+        {
+            Ask(o.CenterHelper.Ability, "Ability", "Allow ability changes at\\nPokémon Centers?", "\tsetflag FLAG_PS_ABILITY_ON\n");
+        }
 
         if (nuzlocke)
         {
@@ -771,6 +780,75 @@ internal static partial class GameOptionsWriter
         ["Reset to 0", "Attack + Speed", "Sp. Atk + Speed", "HP + Attack", "HP + Sp. Atk", "HP + Defense", "HP + Sp. Def"];
 
     /// <summary>The Pokémon Center helper: pick a service, a party Pokémon, then the nature or spread.</summary>
+    private static string Ordinal(int n) => n switch { 1 => "1st", 2 => "2nd", 3 => "3rd", _ => $"{n}th" };
+
+    /// <summary>
+    /// The ability changer, after a party member is picked: the abilities it could switch to (listed by the game code),
+    /// the price (more for the hidden one), then the change. The pick is kept in VAR_0x8008 while the money is checked.
+    /// </summary>
+    private static void AbilityScript(CenterHelperSettings h, Action<string> L)
+    {
+        L("\tcallnative PokeStudio_ListAbilities");
+        L("\tgoto_if_eq VAR_0x8005, 0, PokeStudio_EventScript_HelperNoAbility");
+        L("\tmessage PokeStudio_Text_HelperWhichAbility");
+        L("\twaitmessage");
+        L("\tswitch VAR_0x8005");
+        L("\tcase 1, PokeStudio_EventScript_HelperAbility1");
+        L("\tcase 2, PokeStudio_EventScript_HelperAbility2");
+        L("\tgoto PokeStudio_EventScript_HelperAbility3");
+        string[] names = ["gStringVar1", "gStringVar2", "gStringVar3"];
+        for (var n = 1; n <= 3; n++)
+        {
+            L($"PokeStudio_EventScript_HelperAbility{n}:");
+            L($"\tdynmultichoice 0, 0, FALSE, 6, 0, DYN_MULTICHOICE_CB_NONE, {string.Join(", ", names.Take(n))}");
+            L("\tgoto PokeStudio_EventScript_HelperAbilityPicked");
+        }
+
+        L("PokeStudio_EventScript_HelperAbilityPicked:");
+        L("\tgoto_if_eq VAR_RESULT, MULTI_B_PRESSED, PokeStudio_EventScript_HelperEnd");
+        L("\tcopyvar VAR_0x8008, VAR_RESULT");
+        L("\tcallnative PokeStudio_AbilityChoiceHidden");
+        void Pay(int price)
+        {
+            if (price > 0)
+            {
+                L($"\tcheckmoney {price}");
+                L("\tgoto_if_eq VAR_RESULT, FALSE, PokeStudio_EventScript_HelperNoMoney");
+                L($"\tremovemoney {price}");
+            }
+
+            L("\tgoto PokeStudio_EventScript_HelperAbilitySet");
+        }
+
+        if (h.HiddenAbilityPrice != h.AbilityPrice)
+        {
+            L("\tgoto_if_eq VAR_0x8006, TRUE, PokeStudio_EventScript_HelperAbilityHidden");
+        }
+
+        Pay(h.AbilityPrice);
+        if (h.HiddenAbilityPrice != h.AbilityPrice)
+        {
+            L("PokeStudio_EventScript_HelperAbilityHidden:");
+            if (h.HiddenAbilityPrice > 0)
+            {
+                L("\tmsgbox PokeStudio_Text_HelperHiddenPrice, MSGBOX_DEFAULT");
+            }
+
+            Pay(h.HiddenAbilityPrice);
+        }
+
+        L("PokeStudio_EventScript_HelperAbilitySet:");
+        L("\tcopyvar VAR_RESULT, VAR_0x8008");
+        L("\tcallnative PokeStudio_SetAbility");
+        L("\tplayse SE_SUCCESS");
+        L("\tmsgbox PokeStudio_Text_HelperDone, MSGBOX_DEFAULT");
+        L("\tgoto PokeStudio_EventScript_HelperEnd");
+        L("PokeStudio_EventScript_HelperNoAbility:");
+        L("\tmsgbox PokeStudio_Text_HelperNoAbility, MSGBOX_DEFAULT");
+        L("\tgoto PokeStudio_EventScript_HelperEnd");
+        L("");
+    }
+
     private static void CenterHelperScript(CenterHelperSettings h, bool fireRed, Action<string> L, Action<string, string> text)
     {
         var services = new List<(string Name, string Label, int Price)>();
@@ -789,19 +867,42 @@ internal static partial class GameOptionsWriter
             services.Add(("Evs", "Set EVs", h.EvPrice));
         }
 
+        if (h.AbilityService)
+        {
+            services.Add(("Ability", "Change ability", h.AbilityPrice));
+        }
+
         L("PokeStudio_EventScript_CenterHelper::");
         L("\tlock");
         L("\tfaceplayer");
         L("\tmessage PokeStudio_Text_HelperAsk");
         L("\twaitmessage");
-        L($"\tdynmultichoice 0, 0, FALSE, 6, 0, DYN_MULTICHOICE_CB_NONE, {string.Join(", ", services.Select(s => $"PokeStudio_Text_Helper{s.Name}"))}, PokeStudio_Text_HelperBye");
-        L("\tswitch VAR_RESULT");
-        for (var i = 0; i < services.Count; i++)
+        void Menu(IReadOnlyList<(string Name, string Label, int Price)> offered)
         {
-            L($"\tcase {i}, PokeStudio_EventScript_Helper{services[i].Name}");
+            L($"\tdynmultichoice 0, 0, FALSE, 6, 0, DYN_MULTICHOICE_CB_NONE, {string.Join(", ", offered.Select(s => $"PokeStudio_Text_Helper{s.Name}"))}, PokeStudio_Text_HelperBye");
+            L("\tswitch VAR_RESULT");
+            for (var i = 0; i < offered.Count; i++)
+            {
+                L($"\tcase {i}, PokeStudio_EventScript_Helper{offered[i].Name}");
+            }
+
+            L("\tgoto PokeStudio_EventScript_HelperEnd");
         }
 
-        L("\tgoto PokeStudio_EventScript_HelperEnd");
+        // the ability changer only for players who said yes at the start (or always, when the creator decided so)
+        var withoutAbility = services.Where(s => s.Name != "Ability").ToList();
+        if (h.AbilityService && withoutAbility.Count > 0)
+        {
+            L("\tgoto_if_unset FLAG_PS_ABILITY_ON, PokeStudio_EventScript_HelperMenuNoAbility");
+        }
+
+        Menu(services);
+        if (h.AbilityService && withoutAbility.Count > 0)
+        {
+            L("PokeStudio_EventScript_HelperMenuNoAbility:");
+            Menu(withoutAbility);
+        }
+
         L("");
         text("PokeStudio_Text_HelperAsk", "I can tune your Pokémon.\\nWhat would you like?");
         text("PokeStudio_Text_HelperBye", "No, thanks");
@@ -829,6 +930,12 @@ internal static partial class GameOptionsWriter
             L("\tgoto_if_ge VAR_0x8004, PARTY_SIZE, PokeStudio_EventScript_HelperEnd");
             L("\tspecialvar VAR_RESULT, ScriptGetPartyMonSpecies");
             L("\tgoto_if_eq VAR_RESULT, SPECIES_EGG, PokeStudio_EventScript_HelperEgg");
+            if (s.Name == "Ability")
+            {
+                AbilityScript(h, L);
+                continue;
+            }
+
             switch (s.Name)
             {
                 case "Nature":
@@ -878,6 +985,17 @@ internal static partial class GameOptionsWriter
         text("PokeStudio_Text_HelperDone", "All done! Take good care\\nof it.");
         text("PokeStudio_Text_HelperNoMoney", "You don't have enough\\nmoney.");
         text("PokeStudio_Text_HelperEgg", "I can't do that for an Egg.");
+        if (h.AbilityService)
+        {
+            text("PokeStudio_Text_HelperWhichAbility", "Which ability?");
+            text("PokeStudio_Text_HelperNoAbility", h.HiddenAbilityBadge > 0
+                ? $"It has no other ability I can\\ngive it yet.\\pHidden abilities come after\\nyour {Ordinal(h.HiddenAbilityBadge)} badge."
+                : "It has no other ability I can\\ngive it.");
+            if (h.HiddenAbilityPrice != h.AbilityPrice && h.HiddenAbilityPrice > 0)
+            {
+                text("PokeStudio_Text_HelperHiddenPrice", $"A hidden ability costs\\n¥{h.HiddenAbilityPrice}.");
+            }
+        }
         foreach (var n in Natures)
         {
             text($"PokeStudio_Text_Nature{n.Name}", n.Effect.Length == 0 ? n.Name : $"{n.Name} {n.Effect}");
