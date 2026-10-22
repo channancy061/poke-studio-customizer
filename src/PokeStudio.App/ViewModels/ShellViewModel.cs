@@ -15,7 +15,7 @@ namespace PokeStudio.App.ViewModels;
 public enum NavKey
 {
     Overview, Species, Moves, Learnsets, Evolutions, Trainers, TrainerAi, Graphics, Models3d,
-    Encounters, Items, Text, Randomizer, Build, Backups, Settings, About, Modernize, Progression, ChampionLab, GameOptions, EvolutionFixes, Guide, StoryBattles, EncounterPlanner, Branding,
+    Encounters, Items, Text, Randomizer, Build, Backups, Settings, About, Modernize, Progression, ChampionLab, GameOptions, EvolutionFixes, Guide, StoryBattles, EncounterPlanner, Branding, Rebalance,
 }
 
 public sealed class NavItemViewModel(NavKey key, string label, string icon, bool enabled, string? reason, string section)
@@ -259,6 +259,11 @@ public sealed partial class ShellViewModel : ViewModelBase
             NavItems.Add(new NavItemViewModel(NavKey.EvolutionFixes, "Fix evolutions", "Icon.Sparkle", true, null, "Tools"));
         }
 
+        if (Session.Data.Species.Count > 0 && Session.Data.Learnsets.Count > 0)
+        {
+            NavItems.Add(new NavItemViewModel(NavKey.Rebalance, "Rebalance", "Icon.Sparkle", true, null, "Tools"));
+        }
+
         if (Session.Module.SupportsGameOptions(Session.Data))
         {
             NavItems.Add(new NavItemViewModel(NavKey.GameOptions, "Game options", "Icon.Settings", true, null, "Tools"));
@@ -329,6 +334,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             NavKey.EncounterPlanner => new EncounterPlannerPageViewModel(this),
             NavKey.Branding => new BrandingPageViewModel(this),
             NavKey.EvolutionFixes => new EvolutionFixPageViewModel(this),
+            NavKey.Rebalance => new RebalancePageViewModel(this),
             NavKey.Guide => new GuidePageViewModel(this),
             NavKey.Randomizer => new RandomizerPageViewModel(this),
             NavKey.Graphics when item is { IsEnabled: true } && Session.Module is PokeStudio.Core.Graphics.ISpriteSource => new GraphicsPageViewModel(this),

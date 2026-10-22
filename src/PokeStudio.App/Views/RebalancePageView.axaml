@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PokeStudio.App.ViewModels"
+             x:Class="PokeStudio.App.Views.RebalancePageView"
+             x:DataType="vm:RebalancePageViewModel">
+  <UserControl.Resources>
+    <DataTemplate x:Key="RowTemplate" x:DataType="vm:RebalanceRowViewModel">
+      <Border Classes="card">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+          <CheckBox IsChecked="{Binding Chosen}" VerticalAlignment="Top" AutomationProperties.Name="{Binding Title}" />
+          <StackPanel Grid.Column="1" Spacing="2">
+            <TextBlock Text="{Binding Title}" FontWeight="Bold" />
+            <TextBlock Text="{Binding Summary}" Classes="small" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding Why}" Classes="small muted" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding Moves}" Classes="small muted" TextWrapping="Wrap" IsVisible="{Binding HasMoves}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </DataTemplate>
+  </UserControl.Resources>
+  <ScrollViewer>
+    <StackPanel Margin="32,28" Spacing="16" MaxWidth="1100" HorizontalAlignment="Left">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Rebalance" Classes="title" />
+        <TextBlock Text="Fix abilities that hold their own Pokémon back, and give weak Pokémon a boost. Tick what you want, then apply: it's one undo step. A Pokémon that gets an ability it can't use yet (Iron Fist without punches) also learns the moves for it, by TM when the game has one, otherwise at a fair level."
+                   Classes="muted" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <Border Classes="card">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Nothing left to change: every listed Pokémon already has these changes." IsVisible="{Binding HasNothing}" TextWrapping="Wrap" />
+          <Button Classes="primary" Content="Apply the ticked changes" Command="{Binding ApplyCommand}" HorizontalAlignment="Left" IsVisible="{Binding !HasNothing}" />
+          <TextBlock Text="{Binding Status}" IsVisible="{Binding Status, Converter={x:Static ObjectConverters.IsNotNull}}" Classes="small" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <StackPanel Spacing="8" IsVisible="{Binding HasAbilities}">
+        <TextBlock Text="Abilities that hold their Pokémon back" Classes="heading" />
+        <TextBlock Text="Regigigas keeps Slow Start: it's part of what it is." Classes="small muted" />
+        <ItemsControl ItemsSource="{Binding Abilities}" ItemTemplate="{StaticResource RowTemplate}">
+          <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="8" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        </ItemsControl>
+      </StackPanel>
+
+      <StackPanel Spacing="8" IsVisible="{Binding HasBuffs}">
+        <TextBlock Text="Weak Pokémon" Classes="heading" />
+        <TextBlock Text="Changes players often ask for. They start unticked: choose the ones that suit your hack." Classes="small muted" TextWrapping="Wrap" />
+        <ItemsControl ItemsSource="{Binding Buffs}" ItemTemplate="{StaticResource RowTemplate}">
+          <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="8" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        </ItemsControl>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
