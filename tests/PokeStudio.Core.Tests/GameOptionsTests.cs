@@ -389,6 +389,8 @@ public class GameOptionsCodeTests
         // Hard sight works out the distance itself (the game's helpers stop at 3 tiles when every object slot is taken)
         Assert.Contains("approachDistance <= max(trainerObj->trainerRange_berryTreeId, psDx == 0 ? 5 : 7)", see, StringComparison.Ordinal);
         Assert.DoesNotContain("sDirectionalApproachDistanceFuncs[i](trainerObj, max(", see, StringComparison.Ordinal);
+        // from the side they battle where they stand: walking over could leave them standing in a narrow path
+        Assert.Contains("return psDir == trainerObj->facingDirection ? approachDistance : 1;", see, StringComparison.Ordinal);
 
         // a project patched by an older version gets the new sight on the next save
         var oldBlock = string.Join("\n",

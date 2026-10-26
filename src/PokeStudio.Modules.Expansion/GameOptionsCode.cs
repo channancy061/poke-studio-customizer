@@ -341,12 +341,13 @@ internal static partial class GameOptionsWriter
 
         // projects patched by an older version: their Hard sight went through the game's distance helpers, which stop at
         // 3 tiles while every object slot is taken (a following Pokémon takes one), so trainers didn't see far after all
-        if (read(TrainerSee) is { } oldSee && oldSee.Contains("max(trainerObj->trainerRange_berryTreeId, 6), x, y)", StringComparison.Ordinal))
+        if (read(TrainerSee) is { } oldSee)
         {
             var block = Regex.Match(oldSee, $@"^    sPsSeenDirection = 0;[^\n]*\n(?:[^\n]*{Mark}[^\n]*\n)*?    \}} // {Mark}\r?\n", RegexOptions.Multiline);
-            if (block.Success)
+            var now = HardSight(CScanner.LineEnding(oldSee));
+            if (block.Success && block.Value != now)
             {
-                put(TrainerSee, oldSee, oldSee.Remove(block.Index, block.Length).Insert(block.Index, HardSight(CScanner.LineEnding(oldSee))));
+                put(TrainerSee, oldSee, oldSee.Remove(block.Index, block.Length).Insert(block.Index, now));
             }
         }
 
@@ -553,7 +554,7 @@ internal static partial class GameOptionsWriter
         $"            && CheckPathBetweenTrainerAndPlayer(trainerObj, approachDistance, psDir)) // {Mark}",
         $"        {{ // {Mark}",
         $"            sPsSeenDirection = psDir; // {Mark}",
-        $"            return approachDistance; // {Mark}",
+        $"            return psDir == trainerObj->facingDirection ? approachDistance : 1; // {Mark}: walk over only along their own line (from the side they'd end up in a path)",
         $"        }} // {Mark}",
         $"        return 0; // {Mark}",
         $"    }} // {Mark}",
