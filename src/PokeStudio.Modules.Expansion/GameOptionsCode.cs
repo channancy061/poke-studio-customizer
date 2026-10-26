@@ -41,6 +41,9 @@ internal static partial class GameOptionsWriter
 
         /// <summary>The gyms, for Hard's gym lock.</summary>
         public IReadOnlyList<GymInfo> Gyms { get; init; } = [];
+
+        /// <summary>The Mart Specialist's stock for 0…8 badges.</summary>
+        public IReadOnlyList<IReadOnlyList<string>> SpecialistTiers { get; init; } = [];
     }
 
     public static IReadOnlyList<string> CodeFiles => [CodeFile, CodeHeader, BattleSetup, BattleScripts, PoolsSource, PoolsHeader, WildConfig, ItemUse, DataSource, Healing, WildEncounters, TrainerSee];
@@ -155,6 +158,7 @@ internal static partial class GameOptionsWriter
             HasParties = File.Exists(pokemonHeader) && File.ReadAllText(pokemonHeader).Contains("gParties[", StringComparison.Ordinal),
             MajorTrainers = data is null ? [] : MajorTrainers(data),
             Gyms = data is null ? [] : Gyms(layout, data),
+            SpecialistTiers = data is null ? [] : Core.Progression.SpecialistStock.Tiers(data),
         };
     }
 

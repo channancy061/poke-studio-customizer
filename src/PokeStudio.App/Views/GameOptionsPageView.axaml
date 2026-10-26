@@ -95,6 +95,14 @@
         </StackPanel>
       </Border>
 
+      <Border Classes="card">
+        <StackPanel Spacing="8">
+          <CheckBox IsChecked="{Binding MartSpecialist}" FontWeight="Bold" Content="Mart Specialist" />
+          <TextBlock Text="A second person behind every Poké Mart's counter who sells held items (Leftovers, Life Orb, Choice items…), special Poké Balls and TMs at the game's prices. The stock grows with each badge: strong items come later, and a TM is sold once its power is fair for the next boss's level."
+                     Classes="small muted" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
       <Border Classes="card" IsVisible="{Binding AsksDifficulty}">
         <StackPanel Spacing="8">
           <TextBlock Text="Difficulty menu" Classes="heading" />

@@ -90,11 +90,14 @@ public sealed record GameOptionsSettings
     /// <summary>A helper in every Pokémon Center who changes natures and stats.</summary>
     public CenterHelperSettings CenterHelper { get; init; } = new();
 
+    /// <summary>A second person in every Poké Mart selling held items, special Poké Balls and TMs, more with each badge.</summary>
+    public bool MartSpecialist { get; init; }
+
     public bool NuzlockeUsed => Nuzlocke != OptionMode.NotUsed;
 
     public bool AnyUsed => Difficulty != OptionMode.NotUsed || TrainingOff != OptionMode.NotUsed || LevelCap != OptionMode.NotUsed
         || NoItemsInBattle != OptionMode.NotUsed || InfiniteCandy != OptionMode.NotUsed || NuzlockeUsed || AdaptiveSlot != OptionMode.NotUsed
-        || CenterHelper.Enabled;
+        || CenterHelper.Enabled || MartSpecialist;
 
     /// <summary>The level cap code is needed (by the cap option itself or the Nuzlocke cap rule).</summary>
     public bool LevelCapCodeUsed => LevelCap != OptionMode.NotUsed || NuzRuleUsed(NuzLevelCap);

@@ -272,6 +272,7 @@ public class GameOptionsCodeTests
         Nuzlocke = OptionMode.PlayerChooses,
         AdaptiveSlot = OptionMode.PlayerChooses,
         CenterHelper = new CenterHelperSettings { Enabled = true, NaturePrice = 2000, Ability = OptionMode.PlayerChooses },
+        MartSpecialist = true,
     };
 
     private static async Task RealProject(string? real, string name)
@@ -348,6 +349,28 @@ public class GameOptionsCodeTests
         Assert.Contains("{[STAT_DEF] = 252, [STAT_SPDEF] = 252, [STAT_HP] = 4}, // Defense + Sp. Def", evCode, StringComparison.Ordinal);
         Assert.Contains("PokeStudio_Text_Evs0:\n\t.string \"Attack + Speed$\"", options, StringComparison.Ordinal);
         Assert.Contains("PokeStudio_Text_Evs15:\n\t.string \"Reset to 0$\"", options, StringComparison.Ordinal);
+
+        // the Mart Specialist: in every Mart, with stock that grows by badge (FireRed: a staged shop; Emerald: nine lists)
+        Assert.Contains("PokeStudio_EventScript_Specialist::", options, StringComparison.Ordinal);
+        var marts = Directory.GetDirectories(Path.Combine(root, "data", "maps")).Where(d => Path.GetFileName(d).EndsWith("_Mart", StringComparison.Ordinal)).ToList();
+        Assert.NotEmpty(marts);
+        Assert.True(marts.Count(d => File.ReadAllText(Path.Combine(d, "map.json")).Contains("PokeStudio_EventScript_Specialist", StringComparison.Ordinal)) >= marts.Count - 2);
+        if (File.Exists(Path.Combine(root, "src", "data", "shops.json")))
+        {
+            var shopsText = File.ReadAllText(Path.Combine(root, "src", "data", "shops.json"));
+            using var shopsDoc = System.Text.Json.JsonDocument.Parse(shopsText);
+            var shop = shopsDoc.RootElement.GetProperty("shops").EnumerateArray().Single(s => s.GetProperty("id").GetString() == "SHOP_ID_PS_SPECIALIST");
+            var stages = shop.GetProperty("stages").EnumerateArray().ToList();
+            Assert.Equal(9, stages.Count);
+            Assert.True(stages[8].GetProperty("items").GetArrayLength() > stages[0].GetProperty("items").GetArrayLength());
+            Assert.Contains("\tpokemart SHOP_ID_PS_SPECIALIST", options, StringComparison.Ordinal);
+            Assert.Contains("PokeStudio_HasBadge8", ReadRel("src/shop.c"), StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Contains("PokeStudio_Mart_Specialist8:", options, StringComparison.Ordinal);
+            Assert.Contains("\tgoto_if_set FLAG_BADGE08_GET, PokeStudio_EventScript_Specialist8", options, StringComparison.Ordinal);
+        }
         Assert.Contains("\tdynmultichoice 0, 0, FALSE, 6, 0, DYN_MULTICHOICE_CB_NONE, gStringVar1, gStringVar2, gStringVar3", options, StringComparison.Ordinal);
         Assert.Contains("\tcheckmoney 20000", options, StringComparison.Ordinal);
         Assert.Contains("#define PS_HIDDEN_ABILITY_BADGE 6", ReadRel(GameOptionsWriter.CodeFile), StringComparison.Ordinal);

@@ -130,6 +130,12 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         set => UpdateHelper(h => h with { EvSpreads = value }, value ? "Helper sets EVs" : "Helper doesn't set EVs");
     }
 
+    public bool MartSpecialist
+    {
+        get => Settings.MartSpecialist;
+        set => Update(s => s with { MartSpecialist = value }, value ? "Mart Specialist added" : "Mart Specialist removed");
+    }
+
     public bool HelperRelearn
     {
         get => Helper.MoveRelearner;
@@ -298,6 +304,11 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
                 }.Where(x => x is not null)) + ".");
             }
 
+            if (s.MartSpecialist)
+            {
+                lines.Add("In every Poké Mart, a Specialist sells held items, special Poké Balls and TMs, more after each badge.");
+            }
+
             return lines;
         }
     }
@@ -326,7 +337,7 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
             row.Refresh();
         }
 
-        foreach (var name in new[] { nameof(NuzlockeShown), nameof(HelperEnabled), nameof(HelperNature), nameof(HelperIvs), nameof(HelperEvs), nameof(HelperRelearn), nameof(NaturePrice), nameof(IvPrice), nameof(EvPrice),
+        foreach (var name in new[] { nameof(NuzlockeShown), nameof(HelperEnabled), nameof(HelperNature), nameof(HelperIvs), nameof(HelperEvs), nameof(HelperRelearn), nameof(MartSpecialist), nameof(NaturePrice), nameof(IvPrice), nameof(EvPrice),
             nameof(HelperAbilityMode), nameof(HelperAbilityShown), nameof(AbilityPrice), nameof(HiddenAbilityPrice), nameof(HiddenAbilityBadge) })
         {
             OnPropertyChanged(name);

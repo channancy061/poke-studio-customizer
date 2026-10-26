@@ -24,7 +24,7 @@ internal static partial class GameOptionsWriter
     public const string Mark = "Poke Studio";
 
     public static IReadOnlyList<string> Files(ExpansionLayout layout) =>
-        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root)];
+        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC];
 
     /// <summary>The scripts the game runs after blacking out (Pokémon Center, or home before any Center).</summary>
     public static IReadOnlyList<string> WhiteOutFiles { get; } = ["data/event_scripts.s", "data/scripts/white_out.inc", "data/scripts/pkmn_center_nurse_frlg.inc"];
@@ -218,7 +218,45 @@ internal static partial class GameOptionsWriter
         }
 
         // 3. the generated script, included by event_scripts.s
-        Put(Script, read(Script), BuildScript(o, ids, layout.IsFireRedBase));
+        var specialist = o.MartSpecialist && (extras ?? Extras.None).SpecialistTiers.Count == 9;
+        Put(Script, read(Script), BuildScript(o, ids, layout.IsFireRedBase) + (specialist ? SpecialistScript((extras ?? Extras.None).SpecialistTiers, layout.IsFireRedBase) : ""));
+
+        // the Mart Specialist: a second person behind every Mart's counter (taken out again when switched off)
+        foreach (var mart in CenterPlacement.MartMaps(layout.Root))
+        {
+            if ((result.TryGetValue(mart, out var plannedMart) ? plannedMart : read(mart)) is not { } martJson)
+            {
+                continue;
+            }
+
+            var clean = CenterPlacement.RemoveObject(martJson, CenterPlacement.SpecialistScript);
+            if (specialist)
+            {
+                var layoutId = Regex.Match(clean, "\"layout\"\\s*:\\s*\"(\\w+)\"").Groups[1].Value;
+                var grid = readBytes is null ? null : CenterPlacement.LoadGrid(read, readBytes, layoutId);
+                if (grid is not null && CenterPlacement.Find(clean, grid, g => g.Contains("CLERK", StringComparison.Ordinal) || g.Contains("MART_EMPLOYEE", StringComparison.Ordinal)) is { } spot)
+                {
+                    var gfx = read("include/constants/event_objects.h")?.Contains("OBJ_EVENT_GFX_GENTLEMAN", StringComparison.Ordinal) == true ? "OBJ_EVENT_GFX_GENTLEMAN" : "OBJ_EVENT_GFX_MAN_1";
+                    clean = CenterPlacement.AddHelper(clean, spot, gfx, CenterPlacement.SpecialistScript);
+                }
+                else
+                {
+                    notes?.Add($"No free spot for the Mart Specialist in {ExpansionModule.MapPlace(mart.Split('/')[2])}.");
+                }
+            }
+
+            Put(mart, martJson, clean);
+        }
+
+        // FireRed's Marts are shops in shops.json: the Specialist's shop has a stage per badge
+        if (layout.IsFireRedBase && (result.TryGetValue(ShopsJson.File, out var plannedShops) ? plannedShops : read(ShopsJson.File)) is { } shops)
+        {
+            Put(ShopsJson.File, shops, ShopsJson.WithSpecialist(shops, specialist ? (extras ?? Extras.None).SpecialistTiers : null));
+            if (specialist && read(ShopsJson.ShopC) is { } shopC && ShopsJson.BadgeFunctionsEdit(shopC) is { } badgeEdit)
+            {
+                Put(ShopsJson.ShopC, shopC, shopC.Remove(badgeEdit.Start, badgeEdit.Length).Insert(badgeEdit.Start, badgeEdit.NewText));
+            }
+        }
         if (read(EventScripts) is { } events && !events.Contains("poke_studio_options.inc", StringComparison.Ordinal))
         {
             var nl = CScanner.LineEnding(events);
@@ -808,6 +846,57 @@ internal static partial class GameOptionsWriter
     }
 
     /// <summary>The Pokémon Center helper: pick a service, a party Pokémon, then the nature or spread.</summary>
+    /// <summary>
+    /// The Mart Specialist's script: FireRed opens its badge-staged shop; Emerald picks the list for the badges won.
+    /// </summary>
+    internal static string SpecialistScript(IReadOnlyList<IReadOnlyList<string>> tiers, bool fireRed)
+    {
+        var sb = new StringBuilder();
+        sb.Append("\n@ The Mart Specialist (held items, special Poké Balls, TMs; more with each badge)\n");
+        sb.Append(CenterPlacement.SpecialistScript).Append("::\n\tlock\n\tfaceplayer\n\tmessage PokeStudio_Text_SpecialistHello\n\twaitmessage\n");
+        if (fireRed)
+        {
+            sb.Append("\tpokemart ").Append(ShopsJson.SpecialistId).Append('\n');
+        }
+        else
+        {
+            for (var b = 8; b >= 1; b--)
+            {
+                sb.Append(CultureInfo.InvariantCulture, $"\tgoto_if_set FLAG_BADGE0{b}_GET, PokeStudio_EventScript_Specialist{b}\n");
+            }
+
+            sb.Append("\tpokemart PokeStudio_Mart_Specialist0\n");
+        }
+
+        sb.Append("\tgoto PokeStudio_EventScript_SpecialistBye\n");
+        if (!fireRed)
+        {
+            for (var b = 1; b <= 8; b++)
+            {
+                sb.Append(CultureInfo.InvariantCulture, $"PokeStudio_EventScript_Specialist{b}:\n\tpokemart PokeStudio_Mart_Specialist{b}\n\tgoto PokeStudio_EventScript_SpecialistBye\n");
+            }
+        }
+
+        sb.Append("PokeStudio_EventScript_SpecialistBye:\n\tmsgbox PokeStudio_Text_SpecialistBye, MSGBOX_DEFAULT\n\trelease\n\tend\n\n");
+        if (!fireRed)
+        {
+            for (var b = 0; b < tiers.Count; b++)
+            {
+                sb.Append(CultureInfo.InvariantCulture, $"\t.align 2\nPokeStudio_Mart_Specialist{b}:\n");
+                foreach (var item in tiers[b])
+                {
+                    sb.Append("\t.2byte ").Append(item).Append('\n');
+                }
+
+                sb.Append("\tpokemartlistend\n\n");
+            }
+        }
+
+        sb.Append("PokeStudio_Text_SpecialistHello:\n\t.string \"I sell items for battle.\\nMore as you earn badges!$\"\n\n");
+        sb.Append("PokeStudio_Text_SpecialistBye:\n\t.string \"Come back after your next badge!$\"\n");
+        return sb.ToString();
+    }
+
     private static string Ordinal(int n) => n switch { 1 => "1st", 2 => "2nd", 3 => "3rd", _ => $"{n}th" };
 
     /// <summary>

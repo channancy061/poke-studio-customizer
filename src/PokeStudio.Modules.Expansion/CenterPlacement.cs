@@ -13,6 +13,25 @@ namespace PokeStudio.Modules.Expansion;
 internal static partial class CenterPlacement
 {
     public const string HelperScript = "PokeStudio_EventScript_CenterHelper";
+    public const string SpecialistScript = "PokeStudio_EventScript_Specialist";
+
+    /// <summary>Every Poké Mart map (data/maps/…_Mart/map.json; department stores aren't Marts).</summary>
+    public static IEnumerable<string> MartMaps(string root)
+    {
+        var maps = Path.Combine(root, "data", "maps");
+        if (!Directory.Exists(maps))
+        {
+            yield break;
+        }
+
+        foreach (var dir in Directory.GetDirectories(maps).Order(StringComparer.Ordinal))
+        {
+            if (Path.GetFileName(dir).EndsWith("_Mart", StringComparison.Ordinal) && File.Exists(Path.Combine(dir, "map.json")))
+            {
+                yield return $"data/maps/{Path.GetFileName(dir)}/map.json";
+            }
+        }
+    }
 
     /// <summary>Every Pokémon Center ground floor map (data/maps/…PokemonCenter_1F…/map.json).</summary>
     public static IEnumerable<string> CenterMaps(string root)
@@ -123,12 +142,19 @@ internal static partial class CenterPlacement
         return result;
     }
 
-    internal sealed record Spot(int X, int Y, int Elevation, bool BehindCounter);
+    internal sealed record Spot(int X, int Y, int Elevation, bool BehindCounter, string Facing = "DOWN");
 
     private sealed record Thing(int X, int Y);
 
-    /// <summary>Where the helper can stand on this map, or null.</summary>
-    internal static Spot? Find(string mapJson, Grid g)
+    /// <summary>Where the helper can stand on this map (next to the nurse), or null.</summary>
+    internal static Spot? Find(string mapJson, Grid g) => Find(mapJson, g, gfx => gfx.Contains("NURSE", StringComparison.Ordinal));
+
+    /// <summary>
+    /// Where someone can stand next to the person whose sprite matches <paramref name="anchor"/> (the nurse, a Mart
+    /// clerk): behind the same counter, which is in front of them (the way they face), or else a free tile on the
+    /// customers' side. Null when there's no such person or room.
+    /// </summary>
+    internal static Spot? Find(string mapJson, Grid g, Func<string, bool> anchor)
     {
         using var doc = JsonDocument.Parse(mapJson);
         var root = doc.RootElement;
@@ -142,7 +168,7 @@ internal static partial class CenterPlacement
         var signs = Things("bg_events");
         var triggers = Things("coord_events");
         var nurse = root.TryGetProperty("object_events", out var objs)
-            ? objs.EnumerateArray().FirstOrDefault(o => o.TryGetProperty("graphics_id", out var gfx) && gfx.GetString()!.Contains("NURSE", StringComparison.Ordinal))
+            ? objs.EnumerateArray().FirstOrDefault(o => o.TryGetProperty("graphics_id", out var gfx) && anchor(gfx.GetString()!))
             : default;
         if (nurse.ValueKind != JsonValueKind.Object || warps.Count == 0)
         {
@@ -152,21 +178,28 @@ internal static partial class CenterPlacement
         var nx = nurse.GetProperty("x").GetInt32();
         var ny = nurse.GetProperty("y").GetInt32();
         var elevation = nurse.TryGetProperty("elevation", out var e) ? e.GetInt32() : 3;
+        // the counter is in front of them: the nurse looks down, a Mart clerk to the right
+        var movement = nurse.TryGetProperty("movement_type", out var mt) ? mt.GetString() ?? "" : "";
+        var (dx, dy, facing) = movement.EndsWith("_RIGHT", StringComparison.Ordinal) ? (1, 0, "RIGHT")
+            : movement.EndsWith("_LEFT", StringComparison.Ordinal) ? (-1, 0, "LEFT")
+            : movement.EndsWith("_UP", StringComparison.Ordinal) ? (0, -1, "UP") : (0, 1, "DOWN");
+        var (px, py) = (dy, dx); // along the counter
         bool Occupied(int x, int y) => objects.Any(o => o.X == x && o.Y == y) || warps.Any(o => o.X == x && o.Y == y)
             || signs.Any(o => o.X == x && o.Y == y) || triggers.Any(o => o.X == x && o.Y == y);
         bool Walkable(int x, int y) => g.Inside(x, y) && g.At(g.Collision, x, y) == 0;
 
-        // 1. behind the counter: the tile in front behaves like the one in front of the nurse (a counter)
-        if (g.Inside(nx, ny + 1))
+        // 1. behind the counter: the tile in front behaves like the one in front of them (a counter)
+        if (g.Inside(nx + dx, ny + dy))
         {
-            var counter = g.Behavior(g.At(g.Metatile, nx, ny + 1));
-            foreach (var x in Enumerable.Range(0, g.Width).Where(x => x != nx).OrderBy(x => Math.Abs(x - nx)))
+            var counter = g.Behavior(g.At(g.Metatile, nx + dx, ny + dy));
+            foreach (var k in Enumerable.Range(1, Math.Max(g.Width, g.Height)).SelectMany(k => new[] { k, -k }))
             {
-                if (Walkable(x, ny) && !Occupied(x, ny) && g.Inside(x, ny + 2)
-                    && g.At(g.Collision, x, ny + 1) != 0 && counter != 0 && g.Behavior(g.At(g.Metatile, x, ny + 1)) == counter
-                    && Walkable(x, ny + 2) && !Occupied(x, ny + 2))
+                var (x, y) = (nx + (k * px), ny + (k * py));
+                if (g.Inside(x, y) && Walkable(x, y) && !Occupied(x, y) && g.Inside(x + (2 * dx), y + (2 * dy))
+                    && g.At(g.Collision, x + dx, y + dy) != 0 && counter != 0 && g.Behavior(g.At(g.Metatile, x + dx, y + dy)) == counter
+                    && Walkable(x + (2 * dx), y + (2 * dy)) && !Occupied(x + (2 * dx), y + (2 * dy)))
                 {
-                    return new Spot(x, ny, elevation, true);
+                    return new Spot(x, y, elevation, true, facing);
                 }
             }
         }
@@ -195,9 +228,11 @@ internal static partial class CenterPlacement
             return false;
         }
 
+        // on the customers' side of the counter, a little to the side
+        var (tx, ty) = (nx + (2 * dx) + (4 * px), ny + (2 * dy) + (4 * py));
         var candidates = before
-            .Where(p => !Occupied(p.X, p.Y) && !NextToSomething(p.X, p.Y) && p.Y > ny)
-            .OrderBy(p => Math.Abs(p.X - (nx + 4)) + Math.Abs(p.Y - (ny + 2)))
+            .Where(p => !Occupied(p.X, p.Y) && !NextToSomething(p.X, p.Y) && ((p.X - nx) * dx) + ((p.Y - ny) * dy) > 0)
+            .OrderBy(p => Math.Abs(p.X - tx) + Math.Abs(p.Y - ty))
             .ThenBy(p => p.Y).ThenBy(p => p.X);
         foreach (var p in candidates)
         {
@@ -206,7 +241,7 @@ internal static partial class CenterPlacement
             var touchable = new[] { (0, 1), (0, -1), (1, 0), (-1, 0) }.Any(d => after.Contains((p.X + d.Item1, p.Y + d.Item2)));
             if (lost == 0 && touchable)
             {
-                return new Spot(p.X, p.Y, elevation, false);
+                return new Spot(p.X, p.Y, elevation, false, facing);
             }
         }
 
@@ -235,10 +270,35 @@ internal static partial class CenterPlacement
         return seen;
     }
 
-    /// <summary>The map.json with the helper added at the end of its object events (unchanged if it is already there).</summary>
-    internal static string AddHelper(string mapJson, Spot spot, string graphicsId)
+    /// <summary>The map.json without the object that runs <paramref name="script"/> (unchanged when there is none).</summary>
+    internal static string RemoveObject(string mapJson, string script)
     {
-        if (mapJson.Contains(HelperScript, StringComparison.Ordinal))
+        var at = mapJson.IndexOf($"\"script\": \"{script}\"", StringComparison.Ordinal);
+        if (at < 0)
+        {
+            return mapJson;
+        }
+
+        var open = mapJson.LastIndexOf('{', at);
+        var close = mapJson.IndexOf('}', at);
+        var before = mapJson.LastIndexOf(',', open);
+        var prevEnd = Math.Max(mapJson.LastIndexOf('}', open), mapJson.LastIndexOf('[', open));
+        if (before > prevEnd)
+        {
+            return mapJson.Remove(before, close + 1 - before); // ", { … }" after another object
+        }
+
+        var after = mapJson.IndexOf(',', close);
+        var arrayEnd = mapJson.IndexOf(']', close);
+        return after >= 0 && after < arrayEnd
+            ? mapJson.Remove(open, mapJson.IndexOf('{', after) - open) // the first of several
+            : mapJson.Remove(open, close + 1 - open);                 // the only one
+    }
+
+    /// <summary>The map.json with the helper added at the end of its object events (unchanged if it is already there).</summary>
+    internal static string AddHelper(string mapJson, Spot spot, string graphicsId, string script = HelperScript)
+    {
+        if (mapJson.Contains(script, StringComparison.Ordinal))
         {
             return mapJson;
         }
@@ -261,12 +321,12 @@ internal static partial class CenterPlacement
             $"  \"x\": {spot.X.ToString(CultureInfo.InvariantCulture)},",
             $"  \"y\": {spot.Y.ToString(CultureInfo.InvariantCulture)},",
             $"  \"elevation\": {spot.Elevation.ToString(CultureInfo.InvariantCulture)},",
-            "  \"movement_type\": \"MOVEMENT_TYPE_FACE_DOWN\",",
+            $"  \"movement_type\": \"MOVEMENT_TYPE_FACE_{spot.Facing}\",",
             "  \"movement_range_x\": 0,",
             "  \"movement_range_y\": 0,",
             "  \"trainer_type\": \"TRAINER_TYPE_NONE\",",
             "  \"trainer_sight_or_berry_tree_id\": \"0\",",
-            $"  \"script\": \"{HelperScript}\",",
+            $"  \"script\": \"{script}\",",
             "  \"flag\": \"0\"",
             "}",
         };

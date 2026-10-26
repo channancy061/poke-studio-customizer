@@ -102,6 +102,55 @@ internal static partial class ShopsJson
         throw new FormatException("Unbalanced brackets in shops.json.");
     }
 
+    public const string SpecialistId = "SHOP_ID_PS_SPECIALIST";
+
+    /// <summary>
+    /// shops.json with the Mart Specialist's shop (a stage per badge, each with the full stock) at the end of the shops,
+    /// or without it when <paramref name="tiers"/> is null. Other shops keep their numbers.
+    /// </summary>
+    public static string WithSpecialist(string text, IReadOnlyList<IReadOnlyList<string>>? tiers)
+    {
+        var nl = CScanner.LineEnding(text);
+        var at = text.IndexOf($"\"{SpecialistId}\"", StringComparison.Ordinal);
+        if (at >= 0)
+        {
+            var open = text.LastIndexOf('{', at);
+            var close = CScanner.FindMatching(text, open);
+            var comma = text.LastIndexOf(',', open);
+            var prevEnd = text.LastIndexOf('}', open);
+            text = comma > prevEnd ? text.Remove(comma, close + 1 - comma) : text.Remove(open, close + 1 - open);
+        }
+
+        if (tiers is null)
+        {
+            return text;
+        }
+
+        var shopsKey = text.IndexOf("\"shops\"", StringComparison.Ordinal);
+        var arrayOpen = text.IndexOf('[', shopsKey);
+        var arrayClose = CScanner.FindMatching(text, arrayOpen);
+        var lastShop = text.LastIndexOf('}', arrayClose);
+        var sb = new StringBuilder();
+        sb.Append(lastShop > arrayOpen ? "," : "").Append(nl).Append("        {").Append(nl)
+            .Append("            \"id\": \"").Append(SpecialistId).Append("\",").Append(nl)
+            .Append("            \"stages\": [");
+        for (var b = 0; b < tiers.Count; b++)
+        {
+            sb.Append(nl).Append("                {");
+            if (b > 0)
+            {
+                sb.Append(nl).Append("                    \"isUnlockedFunc\": \"").Append(BadgeFunc).Append(b.ToString(CultureInfo.InvariantCulture)).Append("\",");
+            }
+
+            sb.Append(nl).Append("                    \"items\": [")
+                .Append(string.Join(",", tiers[b].Select(i => $"{nl}                        \"{i}\"")))
+                .Append(nl).Append("                    ]").Append(nl).Append("                }").Append(b < tiers.Count - 1 ? "," : "");
+        }
+
+        sb.Append(nl).Append("            ]").Append(nl).Append("        }");
+        return text.Insert(lastShop > arrayOpen ? lastShop + 1 : arrayOpen + 1, sb.ToString());
+    }
+
     public static string Place(string shopId)
     {
         var name = shopId.Replace("SHOP_ID_", "", StringComparison.Ordinal);
