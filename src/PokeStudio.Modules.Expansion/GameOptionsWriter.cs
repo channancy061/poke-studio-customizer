@@ -776,8 +776,36 @@ internal static partial class GameOptionsWriter
         ("Calm", "+SpD -Atk"), ("Gentle", "+SpD -Def"), ("Sassy", "+SpD -Spe"), ("Careful", "+SpD -SpA"), ("Quirky", ""),
     ];
 
-    private static readonly string[] EvSpreads =
-        ["Reset to 0", "Attack + Speed", "Sp. Atk + Speed", "HP + Attack", "HP + Sp. Atk", "HP + Defense", "HP + Sp. Def"];
+    /// <summary>
+    /// The helper's EV spreads: every pair of stats at 252 (the common ones first), the last 4 to HP (or to Sp. Def, or
+    /// Defense, when HP is in the pair), and a reset at the end. Shared with the game code's table (same order).
+    /// </summary>
+    internal static readonly (string Label, string Stats)[] EvSpreads = BuildEvSpreads();
+
+    private static (string Label, string Stats)[] BuildEvSpreads()
+    {
+        (string Name, string Stat)[] stats = [("HP", "STAT_HP"), ("Attack", "STAT_ATK"), ("Defense", "STAT_DEF"), ("Sp. Atk", "STAT_SPATK"), ("Sp. Def", "STAT_SPDEF"), ("Speed", "STAT_SPEED")];
+        var pairs = new List<(int A, int B)>();
+        for (var a = 0; a < stats.Length; a++)
+        {
+            for (var b = a + 1; b < stats.Length; b++)
+            {
+                pairs.Add((a, b));
+            }
+        }
+
+        // Attack + Speed, Sp. Atk + Speed, HP + Attack, HP + Sp. Atk, HP + Defense, HP + Sp. Def first: the usual ones
+        (int, int)[] common = [(1, 5), (3, 5), (0, 1), (0, 3), (0, 2), (0, 4)];
+        var ordered = common.Concat(pairs.Except(common)).ToList();
+        var list = ordered.Select(p =>
+        {
+            var rest = p.Item1 != 0 ? 0 : p.Item2 != 4 ? 4 : 2;
+            var label = $"{stats[p.Item1].Name} + {stats[p.Item2].Name}";
+            return (label, $"{{[{stats[p.Item1].Stat}] = 252, [{stats[p.Item2].Stat}] = 252, [{stats[rest].Stat}] = 4}}");
+        }).ToList();
+        list.Add(("Reset to 0", "{0}"));
+        return [.. list];
+    }
 
     /// <summary>The Pokémon Center helper: pick a service, a party Pokémon, then the nature or spread.</summary>
     private static string Ordinal(int n) => n switch { 1 => "1st", 2 => "2nd", 3 => "3rd", _ => $"{n}th" };
@@ -872,6 +900,11 @@ internal static partial class GameOptionsWriter
             services.Add(("Ability", "Change ability", h.AbilityPrice));
         }
 
+        if (h.MoveRelearner)
+        {
+            services.Add(("Relearn", "Remember moves", 0));
+        }
+
         L("PokeStudio_EventScript_CenterHelper::");
         L("\tlock");
         L("\tfaceplayer");
@@ -914,6 +947,16 @@ internal static partial class GameOptionsWriter
         foreach (var s in services)
         {
             L($"PokeStudio_EventScript_Helper{s.Name}:");
+            if (s.Name == "Relearn")
+            {
+                // the game's own move relearner (free): level-up moves, plus egg, TM and tutor moves where the game has them on
+                L("\tclosemessage");
+                L("\trelease");
+                L("\tgoto Common_EventScript_MoveRelearner");
+                L("");
+                continue;
+            }
+
             if (s.Price > 0)
             {
                 L($"\tcheckmoney {s.Price}");
@@ -1003,7 +1046,7 @@ internal static partial class GameOptionsWriter
 
         for (var i = 0; i < EvSpreads.Length; i++)
         {
-            text($"PokeStudio_Text_Evs{i}", EvSpreads[i]);
+            text($"PokeStudio_Text_Evs{i}", EvSpreads[i].Label);
         }
     }
 }

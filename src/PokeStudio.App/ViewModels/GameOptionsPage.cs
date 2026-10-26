@@ -130,6 +130,12 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         set => UpdateHelper(h => h with { EvSpreads = value }, value ? "Helper sets EVs" : "Helper doesn't set EVs");
     }
 
+    public bool HelperRelearn
+    {
+        get => Helper.MoveRelearner;
+        set => UpdateHelper(h => h with { MoveRelearner = value }, value ? "Helper teaches forgotten moves" : "Helper doesn't teach forgotten moves");
+    }
+
     public decimal? NaturePrice
     {
         get => Helper.NaturePrice;
@@ -285,6 +291,7 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
                     s.CenterHelper.Nature ? $"change nature{Cost(s.CenterHelper.NaturePrice)}" : null,
                     s.CenterHelper.PerfectIvs ? $"perfect IVs{Cost(s.CenterHelper.IvPrice)}" : null,
                     s.CenterHelper.EvSpreads ? $"EV spreads{Cost(s.CenterHelper.EvPrice)}" : null,
+                    s.CenterHelper.MoveRelearner ? "remember moves (free)" : null,
                     s.CenterHelper.AbilityService ? $"change ability{Cost(s.CenterHelper.AbilityPrice)}, hidden ability{Cost(s.CenterHelper.HiddenAbilityPrice)}"
                         + (s.CenterHelper.HiddenAbilityBadge > 0 ? $" after badge {s.CenterHelper.HiddenAbilityBadge}" : "")
                         + (s.CenterHelper.Ability == OptionMode.PlayerChooses ? " (if the player says yes at the start)" : "") : null,
@@ -319,7 +326,7 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
             row.Refresh();
         }
 
-        foreach (var name in new[] { nameof(NuzlockeShown), nameof(HelperEnabled), nameof(HelperNature), nameof(HelperIvs), nameof(HelperEvs), nameof(NaturePrice), nameof(IvPrice), nameof(EvPrice),
+        foreach (var name in new[] { nameof(NuzlockeShown), nameof(HelperEnabled), nameof(HelperNature), nameof(HelperIvs), nameof(HelperEvs), nameof(HelperRelearn), nameof(NaturePrice), nameof(IvPrice), nameof(EvPrice),
             nameof(HelperAbilityMode), nameof(HelperAbilityShown), nameof(AbilityPrice), nameof(HiddenAbilityPrice), nameof(HiddenAbilityBadge) })
         {
             OnPropertyChanged(name);

@@ -339,6 +339,15 @@ public class GameOptionsCodeTests
         Assert.Contains("PokeStudio_EventScript_AbilityYes::\n\tsetflag FLAG_PS_ABILITY_ON", options, StringComparison.Ordinal);
         Assert.Contains("\tgoto_if_unset FLAG_PS_ABILITY_ON, PokeStudio_EventScript_HelperMenuNoAbility", options, StringComparison.Ordinal);
         Assert.Contains("\tcallnative PokeStudio_ListAbilities", options, StringComparison.Ordinal);
+        Assert.Contains("PokeStudio_EventScript_HelperRelearn:\n\tclosemessage\n\trelease\n\tgoto Common_EventScript_MoveRelearner", options, StringComparison.Ordinal);
+
+        // EV spreads: every pair of stats (common ones first) and a reset at the end, the same order in the menu and the code
+        var evCode = ReadRel(GameOptionsWriter.CodeFile);
+        Assert.Equal(16, System.Text.RegularExpressions.Regex.Count(evCode, @"^\s+\{(\[STAT_\w+\] = \d+, ){2}\[STAT_\w+\] = 4\}, // |^\s+\{0\}, // Reset to 0", System.Text.RegularExpressions.RegexOptions.Multiline));
+        Assert.Contains("{[STAT_ATK] = 252, [STAT_SPEED] = 252, [STAT_HP] = 4}, // Attack + Speed", evCode, StringComparison.Ordinal);
+        Assert.Contains("{[STAT_DEF] = 252, [STAT_SPDEF] = 252, [STAT_HP] = 4}, // Defense + Sp. Def", evCode, StringComparison.Ordinal);
+        Assert.Contains("PokeStudio_Text_Evs0:\n\t.string \"Attack + Speed$\"", options, StringComparison.Ordinal);
+        Assert.Contains("PokeStudio_Text_Evs15:\n\t.string \"Reset to 0$\"", options, StringComparison.Ordinal);
         Assert.Contains("\tdynmultichoice 0, 0, FALSE, 6, 0, DYN_MULTICHOICE_CB_NONE, gStringVar1, gStringVar2, gStringVar3", options, StringComparison.Ordinal);
         Assert.Contains("\tcheckmoney 20000", options, StringComparison.Ordinal);
         Assert.Contains("#define PS_HIDDEN_ABILITY_BADGE 6", ReadRel(GameOptionsWriter.CodeFile), StringComparison.Ordinal);

@@ -989,19 +989,13 @@ internal static partial class GameOptionsWriter
             // EV spreads offered by the helper, chosen with gSpecialVar_Result.
             static const u8 sEvSpreads[][NUM_STATS] =
             {
-                {0},
-                {[STAT_HP] = 4, [STAT_ATK] = 252, [STAT_SPEED] = 252},
-                {[STAT_HP] = 4, [STAT_SPATK] = 252, [STAT_SPEED] = 252},
-                {[STAT_HP] = 252, [STAT_ATK] = 252, [STAT_SPDEF] = 4},
-                {[STAT_HP] = 252, [STAT_SPATK] = 252, [STAT_SPDEF] = 4},
-                {[STAT_HP] = 252, [STAT_DEF] = 252, [STAT_SPDEF] = 4},
-                {[STAT_HP] = 252, [STAT_DEF] = 4, [STAT_SPDEF] = 252},
+            EV_SPREADS
             };
 
             void PokeStudio_SetEvSpread(void)
             {
                 struct Pokemon *mon = &PS_PLAYER_PARTY[gSpecialVar_0x8004];
-                u32 spread = gSpecialVar_Result < ARRAY_COUNT(sEvSpreads) ? gSpecialVar_Result : 0;
+                u32 spread = gSpecialVar_Result < ARRAY_COUNT(sEvSpreads) ? gSpecialVar_Result : ARRAY_COUNT(sEvSpreads) - 1; // else: reset
                 for (u32 i = 0; i < NUM_STATS; i++)
                 {
                     u32 ev = sEvSpreads[spread][i];
@@ -1009,7 +1003,7 @@ internal static partial class GameOptionsWriter
                 }
                 CalculateMonStats(mon);
             }
-            """.ReplaceLineEndings("\n"));
+            """.ReplaceLineEndings("\n").Replace("EV_SPREADS", string.Join("\n", GameOptionsWriter.EvSpreads.Select(e => $"                {e.Stats}, // {e.Label}"))));
 
         // Pokémon Center helper: the ability changer (its list comes from the game's own species data, so changed
         // abilities are offered as they are now)
