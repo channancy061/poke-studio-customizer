@@ -147,7 +147,7 @@ public static class DifficultyVersions
 {
     public static string KeyFor(Trainer normal, Difficulty d) => $"{Lab.BaseKey(normal)}@{(d == Difficulty.ExtraHard ? "Extra Hard" : d.ToString())}";
 
-    public static Trainer Make(GameData data, LabSettings lab, Trainer normal, Difficulty d)
+    public static Trainer Make(GameData data, LabSettings lab, Trainer normal, Difficulty d, IReadOnlySet<string>? avoid = null)
     {
         var presets = AiPresets.For(data.Catalog);
         string[] Ai(params string[] ids) => (ids.Select(id => presets.FirstOrDefault(p => p.Id == id)).FirstOrDefault(p => p is not null)?.Flags ?? normal.AiFlags).ToArray();
@@ -171,7 +171,7 @@ public static class DifficultyVersions
                 // level, Extra Hard two more and one level up (plus the team builder's stronger ace)
                 var size = boss ? Math.Min(6, normal.Party.Count + (extra ? 2 : 1)) : normal.Party.Count;
                 var level = normal.Party.Count > 0 ? normal.Party.Max(p => p.Level) + (extra ? 1 : 0) : 20;
-                var suggestion = TeamBuilder.Suggest(data, lab, normal, new TeamBuilder.Options(d, size, level));
+                var suggestion = TeamBuilder.Suggest(data, lab, normal, new TeamBuilder.Options(d, size, level, Avoid: avoid));
                 var party = suggestion.Members.Select(m => m.Pokemon).ToList();
                 // never smaller than the original (a double battle needs two): fill from the original team, levelled up
                 foreach (var p in normal.Party.Where(p => party.All(x => x.Species != p.Species)))
@@ -224,17 +224,25 @@ public static class DifficultyVersions
     public static IChange? Generate(GameData data, LabSettings lab, IEnumerable<string> baseKeys, IReadOnlyList<Difficulty> versions)
     {
         var parts = new List<IChange>();
-        foreach (var key in baseKeys)
-        {
-            var normal = data.Trainers.FirstOrDefault(t => t.Key == key && t.LockedReason is null && t.Party.Count > 0);
-            if (normal is null)
-            {
-                continue;
-            }
 
+        // in the order the game meets them (by level), each difficulty's bosses avoid the Pokémon the earlier bosses on that
+        // difficulty use, so two Rock-type bosses in a row don't field the same team (rivals may repeat themselves)
+        var used = versions.ToDictionary(v => v, _ => new HashSet<string>(StringComparer.Ordinal));
+        var ordered = baseKeys.Select(k => data.Trainers.FirstOrDefault(t => t.Key == k && t.LockedReason is null && t.Party.Count > 0))
+            .Where(t => t is not null).Select(t => t!).OrderBy(t => t.Party.Max(p => p.Level)).ToList();
+        foreach (var normal in ordered)
+        {
+            var group = Lab.GroupOf(data, lab, normal);
+            var own = normal.Party.Select(p => TeamBuilder.Root(data, p.Species)).ToHashSet(StringComparer.Ordinal);
             foreach (var d in versions.Where(v => v != Difficulty.Normal))
             {
-                var made = Make(data, lab, normal, d);
+                var avoid = used[d].Except(own).ToHashSet(StringComparer.Ordinal);
+                var made = Make(data, lab, normal, d, avoid);
+                if (group is not (TrainerGroup.Regular or TrainerGroup.Rival))
+                {
+                    used[d].UnionWith(made.Party.Select(p => TeamBuilder.Root(data, p.Species)));
+                }
+
                 var existing = data.Trainers.FindIndex(t => t.Key == made.Key);
                 if (existing >= 0)
                 {
