@@ -129,7 +129,7 @@ public static class TeamBuilder
                 .Where(s => theme is null || s.Types.Contains(theme.Type) || offTypeLeft > 0)
                 .Where(s => Allowed(s, rules, picked))
                 .Where(s => !lab.UniqueTypeCombos || theme is null || picked.All(p => !p.Types.OrderBy(x => x).SequenceEqual(s.Types.OrderBy(x => x))))
-                .Select(s => (Species: s, Score: Score(s, picked, threats) + (rng.NextDouble() * 25 * options.Variant) - (options.Avoid?.Contains(Root(data, s.Key)) == true ? 600 : 0)))
+                .Select(s => (Species: s, Score: Score(s, picked, threats) + (rng.NextDouble() * 25 * options.Variant) - (options.Avoid?.Contains(SameAs(data, s.Key)) == true ? 600 : 0)))
                 .OrderByDescending(x => x.Score)
                 .ToList();
             if (scored.Count == 0 && strongest < 800)
@@ -244,7 +244,7 @@ public static class TeamBuilder
 
             // story battles' teams count as used, so a gym leader doesn't repeat the challenger just before them
             var used = data.Trainers.Where(t => t.Key.StartsWith(Story.StoryBattles.TrainerPrefix, StringComparison.Ordinal))
-                .SelectMany(t => t.Party).Select(p => Root(data, p.Species)).ToHashSet(StringComparer.Ordinal);
+                .SelectMany(t => t.Party).Select(p => SameAs(data, p.Species)).ToHashSet(StringComparer.Ordinal);
             var count = 0;
             foreach (var key in bosses)
             {
@@ -252,7 +252,7 @@ public static class TeamBuilder
                 var suggestion = Suggest(data, themed, t, new Options(Difficulty.Normal, BossTeamSize(data, themed, t), t.Party.Max(p => p.Level), Avoid: used));
                 if (Lab.GroupOf(data, themed, t) != TrainerGroup.Rival)
                 {
-                    used.UnionWith(suggestion.Members.Select(m => Root(data, m.Pokemon.Species)));
+                    used.UnionWith(suggestion.Members.Select(m => SameAs(data, m.Pokemon.Species)));
                 }
 
                 if (suggestion.Members.Count == 0)
@@ -303,6 +303,16 @@ public static class TeamBuilder
         }
 
         return current;
+    }
+
+    /// <summary>
+    /// Which Pokémon this is to the player, for "another boss already uses it": its family, with forms counted as one
+    /// (Wash Rotom and Fan Rotom, the four Oricorio).
+    /// </summary>
+    internal static string SameAs(GameData data, string key)
+    {
+        var root = Root(data, key);
+        return data.Species.FirstOrDefault(s => s.Key == root)?.Name is { Length: > 0 } name ? "NAME:" + name : root;
     }
 
     /// <summary>Types the player's Pokémon can have before this milestone (all types if unknown).</summary>
@@ -542,8 +552,10 @@ public static class TeamBuilder
         // moves it learns by levelling up by now are fair; TMs, tutors and egg moves only up to the power its level allows
         // (a Lv 5 rival with Thunderbolt or a Lv 14 leader with Head Smash outclasses the player's team)
         var natural = learnset.LevelUp.Where(m => m.Level <= level).Select(m => m.Move).ToHashSet(StringComparer.Ordinal);
+        // HMs only by level-up: when every Pokémon can learn them, they'd put Surf on every boss
+        var hms = data.Catalog.Machines.Where(m => m.Label.StartsWith("HM", StringComparison.Ordinal)).Select(m => m.Move).ToHashSet(StringComparer.Ordinal);
         var known = natural
-            .Concat(learnset.Teachable)
+            .Concat(learnset.Teachable.Where(m => !hms.Contains(m)))
             .Concat(difficulty >= Difficulty.Hard ? learnset.EggMoves : [])
             .Distinct().ToHashSet(StringComparer.Ordinal);
         var leftOut = data.Lab?.LeftOutMoves ?? [];

@@ -34,6 +34,16 @@
         </StackPanel>
       </Border>
 
+      <Border Classes="card">
+        <StackPanel Spacing="8">
+          <TextBlock Text="HMs for everyone" Classes="heading" />
+          <TextBlock Text="Every Pokémon can learn Cut, Fly, Surf, Strength and the other HMs, so any team can get around. Bosses don't get HM moves this way (only ones they learn by level-up)."
+                     Classes="small muted" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding HmText}" Classes="small" />
+          <Button Content="Let every Pokémon learn every HM" Command="{Binding HmsForEveryoneCommand}" HorizontalAlignment="Left" IsVisible="{Binding HmsMissing}" />
+        </StackPanel>
+      </Border>
+
       <StackPanel Spacing="8" IsVisible="{Binding HasAbilities}">
         <TextBlock Text="Abilities that hold their Pokémon back" Classes="heading" />
         <TextBlock Text="Regigigas keeps Slow Start: it's part of what it is." Classes="small muted" />

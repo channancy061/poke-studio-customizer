@@ -47,5 +47,13 @@ public class RebalanceTests
         change.Revert();
         Assert.Equal(before, data.Species);
         Assert.Equal(learnsetsBefore, data.Learnsets);
+
+        // every Pokémon can learn every HM, and Undo takes it back
+        var hms = Rebalance.HmsForEveryone(data)!;
+        hms.Apply();
+        Assert.Equal(0, Rebalance.MissingHms(data));
+        Assert.Contains("MOVE_SURF", data.LearnsetFor(data.Species.Single(s => s.Key == "SPECIES_MAGIKARP"))!.Teachable);
+        hms.Revert();
+        Assert.Equal(learnsetsBefore, data.Learnsets);
     }
 }

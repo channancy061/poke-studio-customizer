@@ -40,6 +40,25 @@ public sealed partial class RebalancePageViewModel : ViewModelBase
     [ObservableProperty]
     public partial string? Status { get; set; }
 
+    public string HmText => Rebalance.MissingHms(Data) is var n and > 0
+        ? $"{n} learnsets can't learn every HM yet."
+        : "Every Pokémon can already learn every HM.";
+
+    public bool HmsMissing => Rebalance.MissingHms(Data) > 0;
+
+    [RelayCommand]
+    private void HmsForEveryone()
+    {
+        if (Rebalance.HmsForEveryone(Data) is { } change)
+        {
+            _shell.Execute(change);
+            Status = "Every Pokémon can now learn every HM (one undo step).";
+        }
+
+        OnPropertyChanged(nameof(HmText));
+        OnPropertyChanged(nameof(HmsMissing));
+    }
+
     private void Reload()
     {
         Abilities.Clear();

@@ -1042,6 +1042,11 @@ internal static partial class GameOptionsWriter
             services.Add(("Relearn", "Remember moves", 0));
         }
 
+        if (h.MoveDeleter)
+        {
+            services.Add(("Forget", "Forget a move", 0));
+        }
+
         L("PokeStudio_EventScript_CenterHelper::");
         L("\tlock");
         L("\tfaceplayer");
@@ -1084,6 +1089,16 @@ internal static partial class GameOptionsWriter
         foreach (var s in services)
         {
             L($"PokeStudio_EventScript_Helper{s.Name}:");
+            if (s.Name == "Forget")
+            {
+                // the game's own Move Deleter (free; it forgets HMs too, and Emerald's keeps the last Surf user's Surf)
+                L("\tclosemessage");
+                L("\trelease");
+                L(fireRed ? "\tgoto FuchsiaCity_House3_EventScript_MoveDeleter" : "\tgoto LilycoveCity_MoveDeletersHouse_EventScript_MoveDeleter");
+                L("");
+                continue;
+            }
+
             if (s.Name == "Relearn")
             {
                 // the game's own move relearner (free): level-up moves, plus egg, TM and tutor moves where the game has them on

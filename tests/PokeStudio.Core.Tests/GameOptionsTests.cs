@@ -341,6 +341,7 @@ public class GameOptionsCodeTests
         Assert.Contains("\tgoto_if_unset FLAG_PS_ABILITY_ON, PokeStudio_EventScript_HelperMenuNoAbility", options, StringComparison.Ordinal);
         Assert.Contains("\tcallnative PokeStudio_ListAbilities", options, StringComparison.Ordinal);
         Assert.Contains("PokeStudio_EventScript_HelperRelearn:\n\tclosemessage\n\trelease\n\tgoto Common_EventScript_MoveRelearner", options, StringComparison.Ordinal);
+        Assert.Matches(@"PokeStudio_EventScript_HelperForget:\n\tclosemessage\n\trelease\n\tgoto (FuchsiaCity_House3|LilycoveCity_MoveDeletersHouse)_EventScript_MoveDeleter", options);
 
         // EV spreads: every pair of stats (common ones first) and a reset at the end, the same order in the menu and the code
         var evCode = ReadRel(GameOptionsWriter.CodeFile);

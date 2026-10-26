@@ -233,14 +233,14 @@ public static class DifficultyVersions
         foreach (var normal in ordered)
         {
             var group = Lab.GroupOf(data, lab, normal);
-            var own = normal.Party.Select(p => TeamBuilder.Root(data, p.Species)).ToHashSet(StringComparer.Ordinal);
             foreach (var d in versions.Where(v => v != Difficulty.Normal))
             {
-                var avoid = used[d].Except(own).ToHashSet(StringComparer.Ordinal);
+                // their own Normal team doesn't make an exception: Lt. Surge doesn't bring Dracozolt again after Wattson
+                var avoid = used[d].ToHashSet(StringComparer.Ordinal);
                 var made = Make(data, lab, normal, d, avoid);
                 if (group is not (TrainerGroup.Regular or TrainerGroup.Rival))
                 {
-                    used[d].UnionWith(made.Party.Select(p => TeamBuilder.Root(data, p.Species)));
+                    used[d].UnionWith(made.Party.Select(p => TeamBuilder.SameAs(data, p.Species)));
                 }
 
                 var existing = data.Trainers.FindIndex(t => t.Key == made.Key);

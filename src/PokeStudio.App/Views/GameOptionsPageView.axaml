@@ -75,6 +75,7 @@
           </Grid>
           <StackPanel Spacing="6" IsVisible="{Binding HelperEnabled}">
             <CheckBox IsChecked="{Binding HelperRelearn}" Content="Remember moves (free): the game's own move relearner" />
+            <CheckBox IsChecked="{Binding HelperForget}" Content="Forget a move, HMs too (free): the game's own Move Deleter" />
             <StackPanel Orientation="Horizontal" Spacing="8">
               <TextBlock Text="Change ability" VerticalAlignment="Center" />
               <ComboBox ItemsSource="{Binding HelperAbilityModes}" SelectedItem="{Binding HelperAbilityMode}" MinWidth="240" AutomationProperties.Name="Ability changer">

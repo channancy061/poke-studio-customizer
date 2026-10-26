@@ -120,6 +120,9 @@ public sealed record CenterHelperSettings
     /// <summary>Teaching forgotten moves again for free (the game's own move relearner).</summary>
     public bool MoveRelearner { get; init; } = true;
 
+    /// <summary>Forgetting a move, HMs too, for free (the game's own Move Deleter).</summary>
+    public bool MoveDeleter { get; init; } = true;
+
     /// <summary>
     /// Changing a Pokémon's ability to another one its species has (normal ones, and the hidden one once
     /// <see cref="HiddenAbilityBadge"/> is won): not used, the player chooses at a new game, or always there.
@@ -133,5 +136,5 @@ public sealed record CenterHelperSettings
 
     public bool AbilityService => Ability is OptionMode.PlayerChooses or OptionMode.AlwaysOn;
 
-    public bool AnyService => Enabled && (Nature || PerfectIvs || EvSpreads || MoveRelearner || AbilityService);
+    public bool AnyService => Enabled && (Nature || PerfectIvs || EvSpreads || MoveRelearner || MoveDeleter || AbilityService);
 }

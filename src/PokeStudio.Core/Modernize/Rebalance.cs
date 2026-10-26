@@ -234,6 +234,37 @@ public static class Rebalance
         return result;
     }
 
+    /// <summary>The game's HMs (Cut, Fly, Surf…), from its TM/HM list.</summary>
+    public static IReadOnlyList<string> Hms(GameData data) =>
+        data.Catalog.Machines.Where(m => m.Label.StartsWith("HM", StringComparison.Ordinal)).Select(m => m.Move).Distinct(StringComparer.Ordinal).ToList();
+
+    /// <summary>How many learnsets can't learn every HM yet.</summary>
+    public static int MissingHms(GameData data)
+    {
+        var hms = Hms(data);
+        return data.Learnsets.Count(l => !l.LockedParts.ContainsKey("teachable") && hms.Any(h => !l.Teachable.Contains(h)));
+    }
+
+    /// <summary>Every Pokémon can learn every HM (field moves for any team), as one undo step; null when nothing changes.</summary>
+    public static IChange? HmsForEveryone(GameData data)
+    {
+        var hms = Hms(data);
+        var parts = new List<IChange>();
+        for (var i = 0; i < data.Learnsets.Count; i++)
+        {
+            var l = data.Learnsets[i];
+            if (l.LockedParts.ContainsKey("teachable") || hms.All(l.Teachable.Contains))
+            {
+                continue;
+            }
+
+            var index = i;
+            parts.Add(new ValueChange<Learnset>("Learnsets", l.Key, v => data.Learnsets[index] = v, l, l with { Teachable = l.Teachable.Concat(hms.Where(h => !l.Teachable.Contains(h))).ToList() }));
+        }
+
+        return parts.Count == 0 ? null : new CompositeChange("Learnsets", $"Every Pokémon can learn every HM ({parts.Count} learnsets)", parts);
+    }
+
     /// <summary>The chosen changes as one undo step (null when nothing changes).</summary>
     public static IChange? Build(GameData data, IEnumerable<RebalanceChange> chosen)
     {

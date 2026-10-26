@@ -187,13 +187,31 @@ internal static partial class StoryWriter
         L($"trainerbattle_no_intro {b.TrainerKey}, {label}_Defeat");
         won(script);
         L($"msgbox {label}_After, MSGBOX_DEFAULT");
+        // walking off the screen, or (no dry way off, like Cinnabar's island) back inside through the entrance
+        var goBack = s.WalkAway.Count == 0 && s.PlayerStep is not null;
         if (s.WalkAway.Count > 0)
         {
             L($"applymovement {id}, {label}_WalkAway");
             L("waitmovement 0");
         }
+        else if (goBack)
+        {
+            if (s.Door)
+            {
+                L($"opendoor {dx}, {dy}");
+                L("waitdooranim");
+            }
+
+            L($"applymovement {id}, {label}_GoBack");
+            L("waitmovement 0");
+        }
 
         L($"removeobject {id}");
+        if (goBack && s.Door)
+        {
+            L($"closedoor {dx}, {dy}");
+            L("waitdooranim");
+        }
         L($"setflag {s.TempFlag}");
         L($"setvar {s.TempVar}, 1");
         L("releaseall");
@@ -220,6 +238,11 @@ internal static partial class StoryWriter
         if (s.WalkAway.Count > 0)
         {
             Moves("WalkAway", s.WalkAway);
+        }
+        else if (goBack)
+        {
+            var back = s.ComeOut switch { "down" => "up", "up" => "down", "left" => "right", _ => "left" };
+            Moves("GoBack", ["face_" + back, "walk_" + back]);
         }
     }
 
