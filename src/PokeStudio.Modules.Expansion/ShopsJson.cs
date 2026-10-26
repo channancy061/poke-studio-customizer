@@ -109,6 +109,10 @@ internal static partial class ShopsJson
     /// FireRed's shop.c sells important items again (reusable TMs, which never run out): like Emerald's, it now refuses
     /// one the player already has (bag or PC) and sells only one at a time. Null when already patched or not found.
     /// </summary>
+    /// <summary>shop.c without the one-of-each lines (every line the patch adds carries its mark).</summary>
+    public static string WithoutOneOfEach(string shopC) =>
+        Regex.Replace(shopC, $@"^[^\n]*{OneOfEach}[^\n]*\r?\n", "", RegexOptions.Multiline);
+
     public static string? OneOfEachPatch(string shopC)
     {
         if (shopC.Contains(OneOfEach, StringComparison.Ordinal))
@@ -129,10 +133,10 @@ internal static partial class ShopsJson
         var c = cap.Groups[1].Value;
         // from the end backwards, so earlier insertions don't move the later places
         return shopC
-            .Insert(cap.Index, $"{c}if (GetItemImportance(tItemId)) // {OneOfEach}{nl}{c}    maxQuantity = 1;{nl}")
+            .Insert(cap.Index, $"{c}if (GetItemImportance(tItemId)) // {OneOfEach}{nl}{c}    maxQuantity = 1; // {OneOfEach}{nl}")
             .Insert(pick.Index + pick.Length,
                 $"{i}if (GetItemImportance(itemId) && (CheckBagHasItem(itemId, 1) || CheckPCHasItem(itemId, 1))) // {OneOfEach}{nl}"
-                + $"{i}    BuyMenuDisplayMessage(taskId, sText_PsAlreadyHave, BuyMenuReturnToItemList);{nl}{i}else{nl}")
+                + $"{i}    BuyMenuDisplayMessage(taskId, sText_PsAlreadyHave, BuyMenuReturnToItemList); // {OneOfEach}{nl}{i}else // {OneOfEach}{nl}")
             .Insert(text.Index + text.Length, $"static const u8 sText_PsAlreadyHave[] = _(\"You already have that.{{PAUSE_UNTIL_PRESS}}\"); // {OneOfEach}{nl}");
     }
 

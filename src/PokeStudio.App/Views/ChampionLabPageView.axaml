@@ -71,6 +71,7 @@
             </StackPanel>
             <ToggleSwitch IsChecked="{Binding ChampionLegends}" Content="The Champion has at least one legendary and one mythical (they're above everyone before them)" />
             <ToggleSwitch IsChecked="{Binding OfficialOnly}" Content="Official Pokémon only: suggested teams use main-series Pokémon (National Dex 1–1025, no novelty forms)" />
+            <ToggleSwitch IsChecked="{Binding FairMoves}" Content="Moves fit the level: TMs, tutors and egg moves only up to a power that grows with the level (moves learned by level-up are always fine)" />
             <ToggleSwitch IsChecked="{Binding FairPlay}" Content="Fair play: bosses only use as many legendaries as the player could own by then" />
             <ToggleSwitch IsChecked="{Binding UniqueTypeCombos}" Content="Themed teams use varied second types (no two Water/Ground Pokémon)" />
           </StackPanel>

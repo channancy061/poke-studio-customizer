@@ -98,6 +98,14 @@
 
       <Border Classes="card">
         <StackPanel Spacing="8">
+          <TextBlock Text="Fixes" Classes="heading" />
+          <CheckBox IsChecked="{Binding FixAiSwitchInMemory}" Content="Battle AI forgets the Pokémon that left (otherwise a revealed Levitate makes it skip Earthquake on the next one)" />
+          <CheckBox IsChecked="{Binding OneOfEachImportantItem}" Content="FireRed shops sell an important item, like a reusable TM, only once (as Emerald's do)" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="8">
           <CheckBox IsChecked="{Binding MartSpecialist}" FontWeight="Bold" Content="Mart Specialist" />
           <TextBlock Text="A second person behind every Poké Mart's counter who sells held items (Leftovers, Life Orb, Choice items…), special Poké Balls and TMs at the game's prices. The stock grows with each badge: strong items come later, and a TM is sold once its power is fair for the next boss's level."
                      Classes="small muted" TextWrapping="Wrap" />
@@ -115,6 +123,8 @@
           </StackPanel>
           <CheckBox IsChecked="{Binding OfferExtraHard}" Content="Offer Extra Hard" />
           <CheckBox IsChecked="{Binding TrainerRulesByDifficulty}" Content="Difficulty changes how trainers behave" />
+          <CheckBox IsChecked="{Binding HardChokepoints}" IsEnabled="{Binding TrainerRulesByDifficulty}" Margin="24,0,0,0"
+                    Content="Hard and up: route trainers stand where they can't be walked past (only near their own place)" />
           <TextBlock TextWrapping="Wrap" Classes="caption muted"
                      Text="Easy: only important battles stop the player; other trainers battle when talked to. Normal: as the original game. Hard: every trainer sees far and in every direction (no sneaking past), and Gym Leaders wait until every trainer in their Gym is beaten. Extra Hard: as Hard, with six Pokémon per trainer (make those teams on Plan wild Pokémon)." />
         </StackPanel>

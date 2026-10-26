@@ -62,6 +62,12 @@ public sealed record LabSettings
     /// <summary>The team builder only uses official Pokémon from the main series (National Dex 1–1025, normal forms).</summary>
     public bool OfficialOnly { get; init; } = true;
 
+    /// <summary>
+    /// Trainers' moves fit their level: TMs, tutors and egg moves only up to a power that grows with the level (see
+    /// <see cref="MoveRules"/>). Off: any move the Pokémon can learn.
+    /// </summary>
+    public bool FairMoves { get; init; } = true;
+
     /// <summary>Moves left out of the game (e.g. Dragon Rage): no learnset has them and no trainer gets them.</summary>
     public IReadOnlyList<string> LeftOutMoves { get; init; } = [];
     public bool FairPlay { get; init; } = true;

@@ -181,6 +181,12 @@ public sealed partial class ChampionLabPageViewModel : ViewModelBase
         set => Update(s => s with { ChampionLegends = value }, value ? "Rule on: the Champion has a legendary and a mythical" : "Rule off: the Champion has a legendary and a mythical");
     }
 
+    public bool FairMoves
+    {
+        get => Settings.FairMoves;
+        set => Update(s => s with { FairMoves = value }, value ? "Rule on: moves fit the level" : "Rule off: moves fit the level");
+    }
+
     public bool OfficialOnly
     {
         get => Settings.OfficialOnly;
@@ -280,6 +286,7 @@ public sealed partial class ChampionLabPageViewModel : ViewModelBase
         OnPropertyChanged(nameof(RivalKeepsStarter));
         OnPropertyChanged(nameof(FairPlay));
         OnPropertyChanged(nameof(OfficialOnly));
+        OnPropertyChanged(nameof(FairMoves));
         OnPropertyChanged(nameof(ChampionLegends));
         OnPropertyChanged(nameof(UniqueTypeCombos));
     }

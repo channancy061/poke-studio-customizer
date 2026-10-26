@@ -93,6 +93,18 @@ public sealed record GameOptionsSettings
     /// <summary>A second person in every Poké Mart selling held items, special Poké Balls and TMs, more with each badge.</summary>
     public bool MartSpecialist { get; init; }
 
+    /// <summary>Hard and up: route trainers move onto chokepoints so they can't be walked past (with the difficulty rules).</summary>
+    public bool HardChokepoints { get; init; } = true;
+
+    /// <summary>
+    /// Fix the battle AI's switch-in memory: a Pokémon coming back in kept what the AI knew about the one before it (a
+    /// revealed Levitate made it skip Earthquake).
+    /// </summary>
+    public bool FixAiSwitchInMemory { get; init; } = true;
+
+    /// <summary>FireRed's shops sell an important item (a reusable TM) only once, like Emerald's.</summary>
+    public bool OneOfEachImportantItem { get; init; } = true;
+
     public bool NuzlockeUsed => Nuzlocke != OptionMode.NotUsed;
 
     public bool AnyUsed => Difficulty != OptionMode.NotUsed || TrainingOff != OptionMode.NotUsed || LevelCap != OptionMode.NotUsed

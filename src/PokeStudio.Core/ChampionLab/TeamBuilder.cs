@@ -559,7 +559,7 @@ public static class TeamBuilder
             .Concat(difficulty >= Difficulty.Hard ? learnset.EggMoves : [])
             .Distinct().ToHashSet(StringComparer.Ordinal);
         var leftOut = data.Lab?.LeftOutMoves ?? [];
-        var moves = data.Moves.Where(m => known.Contains(m.Key) && !m.LockedFields.ContainsKey("*") && MoveRules.Allowed(m, level, difficulty, natural, leftOut)).ToList();
+        var moves = data.Moves.Where(m => known.Contains(m.Key) && !m.LockedFields.ContainsKey("*") && MoveRules.Allowed(m, level, difficulty, natural, leftOut, data.Lab?.FairMoves != false)).ToList();
         var category = physical ? MoveCategory.Physical : MoveCategory.Special;
         double Value(Move m) => m.Power * (m.Accuracy == 0 ? 1 : m.Accuracy / 100.0) * (s.Types.Contains(m.Type) ? 1.5 : 1);
         // two-turn, recharge, self-fainting and situational moves make poor picks for a trainer

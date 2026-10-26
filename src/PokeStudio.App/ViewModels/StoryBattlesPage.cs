@@ -85,6 +85,21 @@ public sealed partial class StoryRowViewModel(StoryBattlesPageViewModel page, St
         }
     }
 
+    /// <summary>Waits inside and comes out to meet the player (only for a battle in front of an entrance it knows).</summary>
+    public bool ComesOut
+    {
+        get => Battle.ComesOut;
+        set
+        {
+            if (value != Battle.ComesOut)
+            {
+                page.SetComesOut(Battle.TrainerKey, value);
+            }
+        }
+    }
+
+    public bool CanComeOut => Battle.DoorX is not null && Battle.FrontX is not null && Battle.Hidden is null && Battle.OnWin is null && Battle.AfterTalk is null;
+
     [RelayCommand]
     private void EditTeam() => page.EditTeam(Battle.TrainerKey);
 
@@ -368,6 +383,19 @@ public sealed partial class StoryBattlesPageViewModel : ViewModelBase
         var label = effect.Length == 0 ? "no field effect" : StoryEffects.Label(effect);
         _shell.Execute(new Core.Changes.ValueChange<Trainer>("Story battles", $"{GameCatalog.Prettify(before.Name)}: {label}",
             v => Data.Trainers[Data.Trainers.FindIndex(t => t.Key == trainerKey)] = v, before, before with { StartingStatus = effect.Length == 0 ? [] : [effect] }));
+        Refresh();
+    }
+
+    internal void SetComesOut(string trainerKey, bool comesOut)
+    {
+        if (Data.Story is not { } story)
+        {
+            return;
+        }
+
+        var after = story with { Battles = story.Battles.Select(b => b.TrainerKey == trainerKey ? b with { ComesOut = comesOut } : b).ToList() };
+        _shell.Execute(new Core.Changes.ValueChange<StorySettings?>("Story battles", comesOut ? "Comes out of the entrance" : "Stands outside the entrance",
+            v => Data.Story = v, story, after));
         Refresh();
     }
 

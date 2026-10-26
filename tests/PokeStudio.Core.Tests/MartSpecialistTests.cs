@@ -33,6 +33,27 @@ public class MartSpecialistTests
     }
 
     [Fact]
+    public void Real_shop_and_ai_fixes_go_in_and_come_out_again_when_available()
+    {
+        var fr = Environment.GetEnvironmentVariable("POKESTUDIO_FIRERED_DIR");
+        if (fr is null || !Directory.Exists(fr))
+        {
+            return;
+        }
+
+        var shop = File.ReadAllText(Path.Combine(fr, "src", "shop.c"));
+        var patched = ShopsJson.OneOfEachPatch(shop)!;
+        Assert.Contains("sText_PsAlreadyHave", patched, StringComparison.Ordinal);
+        Assert.Null(ShopsJson.OneOfEachPatch(patched)); // once only
+        Assert.Equal(shop, ShopsJson.WithoutOneOfEach(patched));
+
+        var ai = File.ReadAllText(Path.Combine(fr, "src", "battle_ai_main.c"));
+        var fixedAi = GameOptionsWriter.AiMemoryFix(ai)!;
+        Assert.Contains("ClearBattlerAbilityHistory(battler); // Poke Studio: forget the Pokémon that left", fixedAi, StringComparison.Ordinal);
+        Assert.Equal(ai, System.Text.RegularExpressions.Regex.Replace(fixedAi, @"^[^\n]*Poke Studio: forget the Pokémon that left[^\n]*\r?\n", "", System.Text.RegularExpressions.RegexOptions.Multiline));
+    }
+
+    [Fact]
     public void Real_firered_marts_get_the_specialist_behind_the_counter_when_available() => RealProject(Environment.GetEnvironmentVariable("POKESTUDIO_FIRERED_DIR"));
 
     [Fact]

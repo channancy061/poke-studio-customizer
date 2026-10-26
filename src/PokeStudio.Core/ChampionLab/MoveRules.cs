@@ -35,14 +35,14 @@ public static class MoveRules
     /// the game; any move it learns by levelling up by then; other attacks (TMs, tutors, egg moves) up to
     /// <see cref="MaxPower"/>; set-up and other status moves from Lv 25 (Lv 20 on Hard and up).
     /// </summary>
-    public static bool Allowed(Move move, int level, Difficulty difficulty, IReadOnlySet<string> naturalMoves, IReadOnlyCollection<string> leftOut)
+    public static bool Allowed(Move move, int level, Difficulty difficulty, IReadOnlySet<string> naturalMoves, IReadOnlyCollection<string> leftOut, bool fair = true)
     {
         if (leftOut.Contains(move.Key))
         {
             return false;
         }
 
-        if (naturalMoves.Contains(move.Key))
+        if (!fair || naturalMoves.Contains(move.Key))
         {
             return true;
         }

@@ -281,18 +281,20 @@ internal static partial class GameOptionsWriter
         }
 
         // the battle AI forgets the Pokémon that left a position (a bug in the AI's switch-in memory)
-        if ((result.TryGetValue(AiMain, out var plannedAi) ? plannedAi : read(AiMain)) is { } aiMain && AiMemoryFix(aiMain) is { } fixedAi)
+        if ((result.TryGetValue(AiMain, out var plannedAi) ? plannedAi : read(AiMain)) is { } aiMain)
         {
-            Put(AiMain, aiMain, fixedAi);
+            var aiClean = Regex.Replace(aiMain, $@"^[^\n]*{AiMemoryMark}[^\n]*\r?\n", "", RegexOptions.Multiline);
+            Put(AiMain, aiMain, o.FixAiSwitchInMemory ? AiMemoryFix(aiClean) ?? aiClean : aiClean);
         }
 
         // FireRed's Marts are shops in shops.json: the Specialist's shop has a stage per badge
         if (layout.IsFireRedBase && (result.TryGetValue(ShopsJson.File, out var plannedShops) ? plannedShops : read(ShopsJson.File)) is { } shops)
         {
             Put(ShopsJson.File, shops, ShopsJson.WithSpecialist(shops, specialist ? (extras ?? Extras.None).SpecialistTiers : null));
-            if ((result.TryGetValue(ShopsJson.ShopC, out var plannedShopC) ? plannedShopC : read(ShopsJson.ShopC)) is { } shopCode && ShopsJson.OneOfEachPatch(shopCode) is { } oneEach)
+            if ((result.TryGetValue(ShopsJson.ShopC, out var plannedShopC) ? plannedShopC : read(ShopsJson.ShopC)) is { } shopCode)
             {
-                Put(ShopsJson.ShopC, shopCode, oneEach);
+                var shopClean = ShopsJson.WithoutOneOfEach(shopCode);
+                Put(ShopsJson.ShopC, shopCode, o.OneOfEachImportantItem ? ShopsJson.OneOfEachPatch(shopClean) ?? shopClean : shopClean);
             }
             if (specialist && (result.TryGetValue(ShopsJson.ShopC, out var patchedShopC) ? patchedShopC : read(ShopsJson.ShopC)) is { } shopC && ShopsJson.BadgeFunctionsEdit(shopC) is { } badgeEdit)
             {
@@ -352,7 +354,7 @@ internal static partial class GameOptionsWriter
                     continue;
                 }
 
-                var plan = TrainerRules(o) && readBytes is not null ? Chokepoints.PlanRoute(route, read, readBytes, behaviors) : null;
+                var plan = TrainerRules(o) && o.HardChokepoints && readBytes is not null ? Chokepoints.PlanRoute(route, read, readBytes, behaviors) : null;
                 Put(file, routeScript, Chokepoints.Script(routeScript, route, plan?.Moves ?? []));
                 if (plan is not null)
                 {
@@ -365,7 +367,7 @@ internal static partial class GameOptionsWriter
                 }
             }
 
-            if (TrainerRules(o) && readBytes is not null)
+            if (TrainerRules(o) && o.HardChokepoints && readBytes is not null)
             {
                 notes?.Add($"Hard: {movedCount} route trainers on {routesMoved} routes stand where they can't be walked past."
                     + (keptRoutes.Count == 0 ? "" : $" No chokepoint was free for some, who keep their place: {string.Join(", ", keptRoutes)}."));

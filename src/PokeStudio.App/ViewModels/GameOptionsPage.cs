@@ -222,6 +222,24 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         set => Update(s => s with { FixedDifficulty = value.Choice }, $"Difficulty is always {value.Label}");
     }
 
+    public bool HardChokepoints
+    {
+        get => Settings.HardChokepoints;
+        set => Update(s => s with { HardChokepoints = value }, value ? "Hard: trainers on chokepoints" : "Hard: trainers keep their places");
+    }
+
+    public bool FixAiSwitchInMemory
+    {
+        get => Settings.FixAiSwitchInMemory;
+        set => Update(s => s with { FixAiSwitchInMemory = value }, value ? "AI switch-in memory fixed" : "AI switch-in memory as it was");
+    }
+
+    public bool OneOfEachImportantItem
+    {
+        get => Settings.OneOfEachImportantItem;
+        set => Update(s => s with { OneOfEachImportantItem = value }, value ? "Important items sold once" : "Important items sold again");
+    }
+
     public bool TrainerRulesByDifficulty
     {
         get => Settings.TrainerRulesByDifficulty;
@@ -357,6 +375,9 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         OnPropertyChanged(nameof(FixedDifficulty));
         OnPropertyChanged(nameof(OfferExtraHard));
         OnPropertyChanged(nameof(TrainerRulesByDifficulty));
+        OnPropertyChanged(nameof(HardChokepoints));
+        OnPropertyChanged(nameof(FixAiSwitchInMemory));
+        OnPropertyChanged(nameof(OneOfEachImportantItem));
         OnPropertyChanged(nameof(NoItemsAlsoWild));
         OnPropertyChanged(nameof(Preview));
     }
