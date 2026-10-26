@@ -853,7 +853,11 @@ internal static partial class GameOptionsWriter
     {
         var sb = new StringBuilder();
         sb.Append("\n@ The Mart Specialist (held items, special Poké Balls, TMs; more with each badge)\n");
-        sb.Append(CenterPlacement.SpecialistScript).Append("::\n\tlock\n\tfaceplayer\n\tmessage PokeStudio_Text_SpecialistHello\n\twaitmessage\n");
+        sb.Append(CenterPlacement.SpecialistScript).Append("::\n\tlock\n\tfaceplayer\n");
+
+        // nothing for sale before the player has the Pokédex (and Poké Balls): a Nuzlocke's first encounters start then
+        sb.Append("\tgoto_if_unset FLAG_SYS_POKEDEX_GET, PokeStudio_EventScript_SpecialistNotYet\n");
+        sb.Append("\tmessage PokeStudio_Text_SpecialistHello\n\twaitmessage\n");
         if (fireRed)
         {
             sb.Append("\tpokemart ").Append(ShopsJson.SpecialistId).Append('\n');
@@ -878,6 +882,7 @@ internal static partial class GameOptionsWriter
         }
 
         sb.Append("PokeStudio_EventScript_SpecialistBye:\n\tmsgbox PokeStudio_Text_SpecialistBye, MSGBOX_DEFAULT\n\trelease\n\tend\n\n");
+        sb.Append("PokeStudio_EventScript_SpecialistNotYet:\n\tmsgbox PokeStudio_Text_SpecialistNotYet, MSGBOX_DEFAULT\n\trelease\n\tend\n\n");
         if (!fireRed)
         {
             for (var b = 0; b < tiers.Count; b++)
@@ -894,6 +899,7 @@ internal static partial class GameOptionsWriter
 
         sb.Append("PokeStudio_Text_SpecialistHello:\n\t.string \"I sell items for battle.\\nMore as you earn badges!$\"\n\n");
         sb.Append("PokeStudio_Text_SpecialistBye:\n\t.string \"Come back after your next badge!$\"\n");
+        sb.Append("\nPokeStudio_Text_SpecialistNotYet:\n\t.string \"Come back once you have\\na Pokédex and Poké Balls.$\"\n");
         return sb.ToString();
     }
 

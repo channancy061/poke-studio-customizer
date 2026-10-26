@@ -351,7 +351,7 @@ public class GameOptionsCodeTests
         Assert.Contains("PokeStudio_Text_Evs15:\n\t.string \"Reset to 0$\"", options, StringComparison.Ordinal);
 
         // the Mart Specialist: in every Mart, with stock that grows by badge (FireRed: a staged shop; Emerald: nine lists)
-        Assert.Contains("PokeStudio_EventScript_Specialist::", options, StringComparison.Ordinal);
+        Assert.Contains("PokeStudio_EventScript_Specialist::\n\tlock\n\tfaceplayer\n\tgoto_if_unset FLAG_SYS_POKEDEX_GET, PokeStudio_EventScript_SpecialistNotYet", options, StringComparison.Ordinal);
         var marts = Directory.GetDirectories(Path.Combine(root, "data", "maps")).Where(d => Path.GetFileName(d).EndsWith("_Mart", StringComparison.Ordinal)).ToList();
         Assert.NotEmpty(marts);
         Assert.True(marts.Count(d => File.ReadAllText(Path.Combine(d, "map.json")).Contains("PokeStudio_EventScript_Specialist", StringComparison.Ordinal)) >= marts.Count - 2);
