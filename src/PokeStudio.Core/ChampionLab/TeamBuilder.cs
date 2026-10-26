@@ -129,7 +129,7 @@ public static class TeamBuilder
                 .Where(s => theme is null || s.Types.Contains(theme.Type) || offTypeLeft > 0)
                 .Where(s => Allowed(s, rules, picked))
                 .Where(s => !lab.UniqueTypeCombos || theme is null || picked.All(p => !p.Types.OrderBy(x => x).SequenceEqual(s.Types.OrderBy(x => x))))
-                .Select(s => (Species: s, Score: Score(s, picked, threats) + (rng.NextDouble() * 25 * options.Variant) - (options.Avoid?.Contains(Root(data, s.Key)) == true ? 120 : 0)))
+                .Select(s => (Species: s, Score: Score(s, picked, threats) + (rng.NextDouble() * 25 * options.Variant) - (options.Avoid?.Contains(Root(data, s.Key)) == true ? 600 : 0)))
                 .OrderByDescending(x => x.Score)
                 .ToList();
             if (scored.Count == 0 && strongest < 800)
