@@ -24,7 +24,39 @@ internal static partial class GameOptionsWriter
     public const string Mark = "Poke Studio";
 
     public static IReadOnlyList<string> Files(ExpansionLayout layout) =>
-        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC];
+        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC, AiMain];
+
+    /// <summary>The battle AI's main file (for the switch-in memory fix).</summary>
+    public const string AiMain = "src/battle_ai_main.c";
+    private const string AiMemoryMark = "Poke Studio: forget the Pokémon that left";
+
+    /// <summary>
+    /// The battle AI's memory fix: when a Pokémon that was out earlier in the battle comes back, the AI copied only what it
+    /// knew about it, so what it didn't know (often the ability) stayed from the Pokémon that left that position, e.g.
+    /// Levitate, and the AI wouldn't use Earthquake on the newcomer. That position's memory is cleared first now. Null
+    /// when already fixed or not found.
+    /// </summary>
+    internal static string? AiMemoryFix(string aiMain)
+    {
+        if (aiMain.Contains(AiMemoryMark, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var at = Regex.Match(aiMain, @"^([ \t]*)if \(aiMon->wasSentInBattle\)\r?\n[ \t]*\{\r?\n", RegexOptions.Multiline);
+        if (!at.Success)
+        {
+            return null;
+        }
+
+        var nl = CScanner.LineEnding(aiMain);
+        var i = at.Groups[1].Value + "    ";
+        return aiMain.Insert(at.Index + at.Length,
+            $"{i}// {AiMemoryMark}: what isn't known about this one mustn't stay from the one before (Levitate…){nl}"
+            + $"{i}ClearBattlerMoveHistory(battler); // {AiMemoryMark}{nl}"
+            + $"{i}ClearBattlerAbilityHistory(battler); // {AiMemoryMark}{nl}"
+            + $"{i}ClearBattlerItemEffectHistory(battler); // {AiMemoryMark}{nl}");
+    }
 
     /// <summary>The scripts the game runs after blacking out (Pokémon Center, or home before any Center).</summary>
     public static IReadOnlyList<string> WhiteOutFiles { get; } = ["data/event_scripts.s", "data/scripts/white_out.inc", "data/scripts/pkmn_center_nurse_frlg.inc"];
@@ -248,11 +280,21 @@ internal static partial class GameOptionsWriter
             Put(mart, martJson, clean);
         }
 
+        // the battle AI forgets the Pokémon that left a position (a bug in the AI's switch-in memory)
+        if ((result.TryGetValue(AiMain, out var plannedAi) ? plannedAi : read(AiMain)) is { } aiMain && AiMemoryFix(aiMain) is { } fixedAi)
+        {
+            Put(AiMain, aiMain, fixedAi);
+        }
+
         // FireRed's Marts are shops in shops.json: the Specialist's shop has a stage per badge
         if (layout.IsFireRedBase && (result.TryGetValue(ShopsJson.File, out var plannedShops) ? plannedShops : read(ShopsJson.File)) is { } shops)
         {
             Put(ShopsJson.File, shops, ShopsJson.WithSpecialist(shops, specialist ? (extras ?? Extras.None).SpecialistTiers : null));
-            if (specialist && read(ShopsJson.ShopC) is { } shopC && ShopsJson.BadgeFunctionsEdit(shopC) is { } badgeEdit)
+            if ((result.TryGetValue(ShopsJson.ShopC, out var plannedShopC) ? plannedShopC : read(ShopsJson.ShopC)) is { } shopCode && ShopsJson.OneOfEachPatch(shopCode) is { } oneEach)
+            {
+                Put(ShopsJson.ShopC, shopCode, oneEach);
+            }
+            if (specialist && (result.TryGetValue(ShopsJson.ShopC, out var patchedShopC) ? patchedShopC : read(ShopsJson.ShopC)) is { } shopC && ShopsJson.BadgeFunctionsEdit(shopC) is { } badgeEdit)
             {
                 Put(ShopsJson.ShopC, shopC, shopC.Remove(badgeEdit.Start, badgeEdit.Length).Insert(badgeEdit.Start, badgeEdit.NewText));
             }

@@ -350,6 +350,9 @@ public class GameOptionsCodeTests
         Assert.Contains("PokeStudio_Text_Evs0:\n\t.string \"Attack + Speed$\"", options, StringComparison.Ordinal);
         Assert.Contains("PokeStudio_Text_Evs15:\n\t.string \"Reset to 0$\"", options, StringComparison.Ordinal);
 
+        // the battle AI forgets the Pokémon that left a position (it kept a revealed Levitate for the next one)
+        Assert.Matches(@"if \(aiMon->wasSentInBattle\)\r?\n\s*\{\r?\n[^\n]*forget the Pokémon that left[^\n]*\n\s*ClearBattlerMoveHistory\(battler\);", ReadRel("src/battle_ai_main.c"));
+
         // the Mart Specialist: in every Mart, with stock that grows by badge (FireRed: a staged shop; Emerald: nine lists)
         Assert.Contains("PokeStudio_EventScript_Specialist::\n\tlock\n\tfaceplayer\n\tgoto_if_unset FLAG_SYS_POKEDEX_GET, PokeStudio_EventScript_SpecialistNotYet", options, StringComparison.Ordinal);
         var marts = Directory.GetDirectories(Path.Combine(root, "data", "maps")).Where(d => Path.GetFileName(d).EndsWith("_Mart", StringComparison.Ordinal)).ToList();
@@ -365,6 +368,7 @@ public class GameOptionsCodeTests
             Assert.True(stages[8].GetProperty("items").GetArrayLength() > stages[0].GetProperty("items").GetArrayLength());
             Assert.Contains("\tpokemart SHOP_ID_PS_SPECIALIST", options, StringComparison.Ordinal);
             Assert.Contains("PokeStudio_HasBadge8", ReadRel("src/shop.c"), StringComparison.Ordinal);
+            Assert.Contains("BuyMenuDisplayMessage(taskId, sText_PsAlreadyHave, BuyMenuReturnToItemList);", ReadRel("src/shop.c"), StringComparison.Ordinal); // a reusable TM only once
         }
         else
         {

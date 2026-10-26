@@ -178,15 +178,28 @@ internal static partial class CenterPlacement
         var nx = nurse.GetProperty("x").GetInt32();
         var ny = nurse.GetProperty("y").GetInt32();
         var elevation = nurse.TryGetProperty("elevation", out var e) ? e.GetInt32() : 3;
-        // the counter is in front of them: the nurse looks down, a Mart clerk to the right
+        // the way they look (the nurse down, most Mart clerks right) is where the counter usually is
         var movement = nurse.TryGetProperty("movement_type", out var mt) ? mt.GetString() ?? "" : "";
         var (dx, dy, facing) = movement.EndsWith("_RIGHT", StringComparison.Ordinal) ? (1, 0, "RIGHT")
             : movement.EndsWith("_LEFT", StringComparison.Ordinal) ? (-1, 0, "LEFT")
             : movement.EndsWith("_UP", StringComparison.Ordinal) ? (0, -1, "UP") : (0, 1, "DOWN");
-        var (px, py) = (dy, dx); // along the counter
         bool Occupied(int x, int y) => objects.Any(o => o.X == x && o.Y == y) || warps.Any(o => o.X == x && o.Y == y)
             || signs.Any(o => o.X == x && o.Y == y) || triggers.Any(o => o.X == x && o.Y == y);
         bool Walkable(int x, int y) => g.Inside(x, y) && g.At(g.Collision, x, y) == 0;
+
+        // but not always (Vermilion's clerk is set to look right with the counter below): the counter is the side with a
+        // blocked tile and floor beyond it for customers, the way they look first (Emerald's Mart counters have no behaviour)
+        foreach (var (cx, cy, name) in new[] { (dx, dy, facing), (0, 1, "DOWN"), (1, 0, "RIGHT"), (-1, 0, "LEFT"), (0, -1, "UP") })
+        {
+            if (g.Inside(nx + cx, ny + cy) && g.At(g.Collision, nx + cx, ny + cy) != 0
+                && Walkable(nx + (2 * cx), ny + (2 * cy)))
+            {
+                (dx, dy, facing) = (cx, cy, name);
+                break;
+            }
+        }
+
+        var (px, py) = (dy, dx); // along the counter
 
         // 1. behind the counter: the tile in front behaves like the one in front of them (a counter)
         if (g.Inside(nx + dx, ny + dy))
@@ -196,7 +209,7 @@ internal static partial class CenterPlacement
             {
                 var (x, y) = (nx + (k * px), ny + (k * py));
                 if (g.Inside(x, y) && Walkable(x, y) && !Occupied(x, y) && g.Inside(x + (2 * dx), y + (2 * dy))
-                    && g.At(g.Collision, x + dx, y + dy) != 0 && counter != 0 && g.Behavior(g.At(g.Metatile, x + dx, y + dy)) == counter
+                    && g.At(g.Collision, x + dx, y + dy) != 0 && g.Behavior(g.At(g.Metatile, x + dx, y + dy)) == counter
                     && Walkable(x + (2 * dx), y + (2 * dy)) && !Occupied(x + (2 * dx), y + (2 * dy)))
                 {
                     return new Spot(x, y, elevation, true, facing);

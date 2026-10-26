@@ -103,6 +103,38 @@ internal static partial class ShopsJson
     }
 
     public const string SpecialistId = "SHOP_ID_PS_SPECIALIST";
+    private const string OneOfEach = "Poke Studio: one of each important item";
+
+    /// <summary>
+    /// FireRed's shop.c sells important items again (reusable TMs, which never run out): like Emerald's, it now refuses
+    /// one the player already has (bag or PC) and sells only one at a time. Null when already patched or not found.
+    /// </summary>
+    public static string? OneOfEachPatch(string shopC)
+    {
+        if (shopC.Contains(OneOfEach, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var nl = CScanner.LineEnding(shopC);
+        var text = Regex.Match(shopC, @"^static const u8 sText_YouDontHaveMoney\[\][^\n]*\n", RegexOptions.Multiline);
+        var pick = Regex.Match(shopC, @"^([ \t]*)sShopData\.itemPrice = GetItemPrice\(itemId\);[^\n]*\n(?=[ \t]*if \(!IsEnoughMoney)", RegexOptions.Multiline);
+        var cap = Regex.Match(shopC, @"^([ \t]*)if \(maxQuantity > MAX_BAG_ITEM_CAPACITY\)", RegexOptions.Multiline);
+        if (!text.Success || !pick.Success || !cap.Success || !(text.Index < pick.Index && pick.Index < cap.Index))
+        {
+            return null;
+        }
+
+        var i = pick.Groups[1].Value;
+        var c = cap.Groups[1].Value;
+        // from the end backwards, so earlier insertions don't move the later places
+        return shopC
+            .Insert(cap.Index, $"{c}if (GetItemImportance(tItemId)) // {OneOfEach}{nl}{c}    maxQuantity = 1;{nl}")
+            .Insert(pick.Index + pick.Length,
+                $"{i}if (GetItemImportance(itemId) && (CheckBagHasItem(itemId, 1) || CheckPCHasItem(itemId, 1))) // {OneOfEach}{nl}"
+                + $"{i}    BuyMenuDisplayMessage(taskId, sText_PsAlreadyHave, BuyMenuReturnToItemList);{nl}{i}else{nl}")
+            .Insert(text.Index + text.Length, $"static const u8 sText_PsAlreadyHave[] = _(\"You already have that.{{PAUSE_UNTIL_PRESS}}\"); // {OneOfEach}{nl}");
+    }
 
     /// <summary>
     /// shops.json with the Mart Specialist's shop (a stage per badge, each with the full stock) at the end of the shops,
