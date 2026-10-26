@@ -18,6 +18,7 @@ internal static partial class Chokepoints
     public const string Native = "PokeStudio_HardTrainers";
     private const int SightAcross = 7, SightAlong = 5; // what Hard trainers see: as far as the screen shows
     private const int Spacing = 5;                     // tiles between two trainers' lines
+    private const int MaxShift = 15;                   // steps a trainer may move from its own place
 
     /// <summary>A trainer moved: local id (1-based object number), new tile and the way they look.</summary>
     internal sealed record Move(int LocalId, string Script, int FromX, int FromY, int X, int Y, string Facing);
@@ -287,44 +288,31 @@ internal static partial class Chokepoints
             }
         }
 
-        // the best spots (splitting the most, shortest), spaced out from each other and from trainers already in the way
-        var chosen = new List<Spot>();
-        foreach (var spot in spots.OrderByDescending(l => l.Separated).ThenBy(l => l.Tiles.Count))
-        {
-            if (chosen.Count < toPlace.Count && chosen.All(c => Gap(c.Tiles, spot.Tiles) >= Spacing)
-                && inTheWay.All(t => Gap([(t.X, t.Y)], spot.Tiles) >= Spacing))
-            {
-                chosen.Add(spot);
-            }
-        }
-
-        // trainers and spots in the same order along the route, from its first way in
+        // each trainer takes the best free spot near its own place, so it stays in its own part of the route: a strong
+        // trainer from a corner reached later in the game (FireRed's Lv 31 Crissy on Route 4) never ends up on the way in
         var start = exits.Count > 0 ? exits[0] : [];
         var distance = Distances(g, start, Floor, warps);
         int Along((int X, int Y) t) => distance.GetValueOrDefault(t, int.MaxValue);
-        var orderedTrainers = toPlace.OrderBy(t => Along((t.X, t.Y))).ToList();
-        var orderedSpots = chosen.OrderBy(l => l.Tiles.Min(Along)).ToList();
         var moves = new List<Move>();
         var kept = new List<string>();
         var occupied = new HashSet<(int X, int Y)>();
-        var s = 0;
-        foreach (var t in orderedTrainers)
+        var chosen = new List<Spot>();
+        foreach (var t in toPlace.OrderBy(t => Along((t.X, t.Y))))
         {
+            var near = Distances(g, [(t.X, t.Y)], Floor, warps);
+            int Steps((int X, int Y) tile) => near.GetValueOrDefault(tile, int.MaxValue);
             Move? move = null;
-            while (move is null && s < orderedSpots.Count)
+            var candidates = spots
+                .Where(sp => t.Elevation == g.At(g.Elevation, sp.Tiles[0].X, sp.Tiles[0].Y) && sp.Tiles.Any(x => Steps(x) <= MaxShift)
+                    && chosen.All(c => Gap(c.Tiles, sp.Tiles) >= Spacing) && inTheWay.All(w => Gap([(w.X, w.Y)], sp.Tiles) >= Spacing))
+                .OrderByDescending(sp => sp.Separated).ThenBy(sp => sp.Tiles.Min(Steps)).ThenBy(sp => sp.Tiles.Count);
+            foreach (var spot in candidates)
             {
-                var spot = orderedSpots[s++];
-                if (t.Elevation != g.At(g.Elevation, spot.Tiles[0].X, spot.Tiles[0].Y))
-                {
-                    s--;
-                    break;
-                }
-
                 // a tile inside the run that sees both ends, nearest the trainer's own place; never closing the way
                 var range = spot.Horizontal ? SightAcross : SightAlong;
                 var n = spot.Tiles.Count;
-                foreach (var i in Enumerable.Range(0, n).Where(i => i <= range && n - 1 - i <= range)
-                             .OrderBy(i => Math.Abs(spot.Tiles[i].X - t.X) + Math.Abs(spot.Tiles[i].Y - t.Y)))
+                foreach (var i in Enumerable.Range(0, n).Where(i => i <= range && n - 1 - i <= range && Steps(spot.Tiles[i]) <= MaxShift)
+                             .OrderBy(i => Steps(spot.Tiles[i])))
                 {
                     var tile = spot.Tiles[i];
                     if (occupied.Contains(tile) || people.Any(p => p != t && p.X == tile.X && p.Y == tile.Y) || ClosesAlone(tile))
@@ -335,6 +323,12 @@ internal static partial class Chokepoints
                     // looking along the longer side (Hard trainers see every way anyway)
                     var facing = spot.Horizontal ? (n - 1 - i >= i ? "RIGHT" : "LEFT") : (n - 1 - i >= i ? "DOWN" : "UP");
                     move = new Move(t.LocalId, t.Script, t.X, t.Y, tile.X, tile.Y, facing);
+                    break;
+                }
+
+                if (move is not null)
+                {
+                    chosen.Add(spot);
                     break;
                 }
             }

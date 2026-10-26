@@ -45,6 +45,8 @@ public class ChokepointTests
             var plan = Chokepoints.PlanRoute(map, Read, ReadBytes, behaviors);
             Assert.NotNull(plan);
             Assert.Equal(plan.Moves.Count, plan.Moves.Select(m => (m.X, m.Y)).Distinct().Count());
+            // trainers stay in their own part of the route (FireRed's Lv 31 Crissy stays in her corner of Route 4)
+            Assert.All(plan.Moves, m => Assert.True(Math.Abs(m.X - m.FromX) + Math.Abs(m.Y - m.FromY) <= 15, $"{m.Script} moved from ({m.FromX},{m.FromY}) to ({m.X},{m.Y})"));
             moved += plan.Moves.Count;
             report.Add($"{map}: {plan.Moves.Count} moved, {plan.AlreadyInTheWay.Count} in the way, {plan.Kept.Count} kept [{plan.Why}]"
                 + string.Concat(plan.Moves.Select(m => $"\n  {m.Script} #{m.LocalId}: ({m.FromX},{m.FromY}) -> ({m.X},{m.Y}) facing {m.Facing}"))
