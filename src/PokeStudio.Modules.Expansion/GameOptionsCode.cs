@@ -79,7 +79,7 @@ internal static partial class GameOptionsWriter
     /// <summary>Flag names the code needs beyond the base options.</summary>
     internal static IEnumerable<string> ExtraFlagNames(GameOptionsSettings o, Extras x)
     {
-        string[] dexNav = o.DexNav ? ["FLAG_PS_DEXNAV_SEARCHING", "FLAG_PS_DEXNAV_DETECTOR"] : [];
+        string[] dexNav = o.DexNav ? ["FLAG_PS_DEXNAV_SEARCHING", "FLAG_PS_DEXNAV_DETECTOR", "VAR_PS_DEXNAV_SPECIES", "VAR_PS_DEXNAV_STEPS"] : [];
         if (!CodeUsed(o))
         {
             return dexNav;

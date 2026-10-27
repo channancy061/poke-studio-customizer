@@ -203,7 +203,7 @@ internal static partial class GameOptionsWriter
     public sealed record Ids(IReadOnlyDictionary<string, string> Flags, IReadOnlyDictionary<string, string> Vars);
 
     private static readonly string[] FlagNames = ["FLAG_PS_TRAINING_OFF", "FLAG_PS_LEVEL_CAP_OFF"];
-    private static readonly string[] VarNames = ["VAR_PS_OPTIONS_STATE", "VAR_PS_DIFFICULTY", "VAR_PS_NO_BAG", "VAR_PS_DEXNAV_SPECIES", "VAR_PS_DEXNAV_STEPS"];
+    private static readonly string[] VarNames = ["VAR_PS_OPTIONS_STATE", "VAR_PS_DIFFICULTY", "VAR_PS_NO_BAG"];
 
     // Emerald names free ones FLAG_UNUSED_0x020 / VAR_UNUSED_0x404E; FireRed leaves them as FLAG_0x4AB / VAR_0x4029
     [GeneratedRegex(@"^#define\s+(FLAG_(?:UNUSED_)?0x[0-9A-Fa-f]+)\s+(0x[0-9A-Fa-f]+)\b", RegexOptions.Multiline)]
@@ -233,13 +233,15 @@ internal static partial class GameOptionsWriter
         var freeVars = UnusedVar().Matches(read(VarsFile) ?? "")
             .Where(m => SafeVar(m.Groups[2].Value) && !takenValues.Contains(m.Groups[2].Value) && !usedElsewhere(m.Groups[1].Value)).Select(m => m.Groups[2].Value).ToQueue();
         // names already in the header keep their numbers even when an option is switched off for now
-        var wanted = FlagNames.Concat(extraFlags ?? []).Concat(existing.Keys.Where(k => k.StartsWith("FLAG_", StringComparison.Ordinal))).Distinct(StringComparer.Ordinal);
+        // the extra names: flags, and variables for the features that need them (the DexNav's)
+        var extra = (extraFlags ?? []).ToList();
+        var wanted = FlagNames.Concat(extra.Where(n => !n.StartsWith("VAR_", StringComparison.Ordinal))).Concat(existing.Keys.Where(k => k.StartsWith("FLAG_", StringComparison.Ordinal))).Distinct(StringComparer.Ordinal);
         foreach (var name in wanted)
         {
             flags[name] = existing.GetValueOrDefault(name) ?? (freeFlags.Count > 0 ? freeFlags.Dequeue() : throw new InvalidOperationException("The project has no unused flags left for the new-game options."));
         }
 
-        foreach (var name in VarNames)
+        foreach (var name in VarNames.Concat(extra.Where(n => n.StartsWith("VAR_", StringComparison.Ordinal))).Concat(existing.Keys.Where(k => k.StartsWith("VAR_", StringComparison.Ordinal))).Distinct(StringComparer.Ordinal))
         {
             vars[name] = existing.GetValueOrDefault(name) ?? (freeVars.Count > 0 ? freeVars.Dequeue() : throw new InvalidOperationException("The project has no unused variables left for the new-game options."));
         }
@@ -440,7 +442,7 @@ internal static partial class GameOptionsWriter
         // the DexNav (in the start menu once the player has the Pokédex)
         if ((result.TryGetValue(DexNavConfig, out var plannedDexNav) ? plannedDexNav : read(DexNavConfig)) is { } dexNav)
         {
-            Put(DexNavConfig, dexNav, WithDexNav(dexNav, o.DexNav && ids.Flags.ContainsKey("FLAG_PS_DEXNAV_SEARCHING") ? ids : null));
+            Put(DexNavConfig, dexNav, WithDexNav(dexNav, o.DexNav && ids.Flags.ContainsKey("FLAG_PS_DEXNAV_SEARCHING") && ids.Vars.ContainsKey("VAR_PS_DEXNAV_SPECIES") ? ids : null));
         }
 
         // the expansion's debug menus: off in a build for players

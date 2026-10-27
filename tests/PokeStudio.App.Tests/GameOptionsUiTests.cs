@@ -47,7 +47,7 @@ public class GameOptionsUiTests
         page.DefaultDifficulty = page.DifficultyChoices[2];
         var cap = page.Rows.Single(r => r.Title == "Hard level cap");
         cap.Mode = cap.Modes.Single(m => m.Mode == OptionMode.AlwaysOn);
-        Assert.Contains(page.Preview, l => l.StartsWith("Which difficulty? Easy / Normal / Hard / Extra Hard (starts on Hard)", StringComparison.Ordinal));
+        Assert.Contains(page.Preview, l => l.StartsWith("Which difficulty? Easy / Normal / Hard / Nightmare (starts on Hard)", StringComparison.Ordinal));
         Assert.Contains(page.Preview, l => l.Contains("hard level cap", StringComparison.Ordinal));
 
         shell.UndoCommand.Execute(null);
