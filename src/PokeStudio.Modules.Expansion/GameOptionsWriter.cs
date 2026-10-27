@@ -24,7 +24,7 @@ internal static partial class GameOptionsWriter
     public const string Mark = "Poke Studio";
 
     public static IReadOnlyList<string> Files(ExpansionLayout layout) =>
-        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC, AiMain, GlobalConstants, NamingScreen, DebugConfig];
+        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC, AiMain, GlobalConstants, NamingScreen, DebugConfig, BiggerBag.Global, BiggerBag.Item, BiggerBag.ItemMenu];
 
     /// <summary>The expansion's debug settings.</summary>
     public const string DebugConfig = "include/config/debug.h";
@@ -352,10 +352,19 @@ internal static partial class GameOptionsWriter
             Put(mart, martJson, clean);
         }
 
-        // the bag's Items pocket and the PC's item storage (more evolution items and held items than the originals had)
+        // the bag's Items pocket (a bigger one in save block 3, where there's room) and the PC's item storage
         if ((result.TryGetValue(GlobalConstants, out var plannedGlobal) ? plannedGlobal : read(GlobalConstants)) is { } global)
         {
-            Put(GlobalConstants, global, WithSize(WithSize(global, "BAG_ITEMS_COUNT", o.BagItemsSlots), "PC_ITEMS_COUNT", o.PcItemsSlots));
+            var sized = WithSize(WithSize(global, "BAG_ITEMS_COUNT", 0), "PC_ITEMS_COUNT", o.PcItemsSlots);
+            Put(GlobalConstants, global, BiggerBag.Apply(BiggerBag.Constants, sized, o.BagItemsSlots));
+        }
+
+        foreach (var file in new[] { BiggerBag.Global, BiggerBag.Item, BiggerBag.ItemMenu })
+        {
+            if ((result.TryGetValue(file, out var planned) ? planned : read(file)) is { } text)
+            {
+                Put(file, text, BiggerBag.Apply(file, text, o.BagItemsSlots));
+            }
         }
 
         // the expansion's debug menus: off in a build for players

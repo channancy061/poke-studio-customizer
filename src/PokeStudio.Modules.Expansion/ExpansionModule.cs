@@ -1243,7 +1243,7 @@ public sealed partial class ExpansionModule : IGameModule, ISpriteSource
             return null;
         }
 
-        var unused = Regex.Match(block.Value, @"u8 unused\[(\d+)\];");
+        var unused = Regex.Match(block.Value, @"u8 unused\[(\d+)([^\]\n]*)\];");
         if (!unused.Success)
         {
             return null;
@@ -1251,7 +1251,7 @@ public sealed partial class ExpansionModule : IGameModule, ISpriteSource
 
         var at = block.Index + unused.Index;
         return header.Remove(at, unused.Length).Insert(at,
-            $"u8 unused[{unused.Groups[1].Value} - (OW_USE_FAKE_RTC ? sizeof(struct SiiRtcInfo) : 0)]; // Poke Studio: room for the game clock");
+            $"u8 unused[{unused.Groups[1].Value} - (OW_USE_FAKE_RTC ? sizeof(struct SiiRtcInfo) : 0){unused.Groups[2].Value}]; // Poke Studio: room for the game clock");
     }
 
     private static bool? GameClockSetting(ExpansionLayout layout) =>

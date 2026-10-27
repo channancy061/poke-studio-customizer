@@ -43,6 +43,48 @@ public class MartSpecialistTests
         Assert.Equal(global, GameOptionsWriter.WithSize(GameOptionsWriter.WithSize(bigger, "BAG_ITEMS_COUNT", 0), "PC_ITEMS_COUNT", 0));
     }
 
+    private static void RealBag(string? root, bool hasFiller)
+    {
+        if (root is null || !Directory.Exists(root))
+        {
+            return;
+        }
+
+        foreach (var file in BiggerBag.Files)
+        {
+            var text = File.ReadAllText(Path.Combine(root, file));
+            var original = BiggerBag.Clean(text);
+            var bigger = BiggerBag.Apply(file, original, 150);
+            Assert.NotEqual(original, bigger);
+            Assert.Equal(bigger, BiggerBag.Apply(file, bigger, 150)); // the same when saved again
+            Assert.Equal(original, BiggerBag.Apply(file, bigger, 0));
+            switch (file)
+            {
+                case BiggerBag.Constants:
+                    Assert.Contains("#define PS_BAG_ITEMS_COUNT 150 // Poke Studio: bigger bag", bigger, StringComparison.Ordinal);
+                    break;
+                case BiggerBag.Global:
+                    Assert.Contains("struct ItemSlot psBagItems[PS_BAG_ITEMS_COUNT];", bigger, StringComparison.Ordinal);
+                    Assert.Equal(hasFiller, bigger.Contains("- sizeof(struct ItemSlot) * PS_BAG_ITEMS_COUNT]", StringComparison.Ordinal));
+                    break;
+                case BiggerBag.Item:
+                    Assert.Contains("gBagPockets[POCKET_ITEMS].itemSlots = gSaveBlock3Ptr->psBagItems;", bigger, StringComparison.Ordinal);
+                    Assert.Contains("CpuFastFill(0, gSaveBlock3Ptr->psBagItems", bigger, StringComparison.Ordinal);
+                    break;
+                case BiggerBag.ItemMenu:
+                    Assert.DoesNotContain("gSaveBlock1Ptr->bag.items", bigger, StringComparison.Ordinal);
+                    Assert.Contains("max(PS_BAG_ITEMS_COUNT,", bigger, StringComparison.Ordinal);
+                    break;
+            }
+        }
+    }
+
+    [Fact]
+    public void Real_firered_bag_moves_to_save_block_3_when_available() => RealBag(Environment.GetEnvironmentVariable("POKESTUDIO_FIRERED_DIR"), hasFiller: true);
+
+    [Fact]
+    public void Real_emerald_bag_moves_to_save_block_3_when_available() => RealBag(Environment.GetEnvironmentVariable("POKESTUDIO_EXPANSION_DIR"), hasFiller: false);
+
     [Fact]
     public void Real_shop_and_ai_fixes_go_in_and_come_out_again_when_available()
     {

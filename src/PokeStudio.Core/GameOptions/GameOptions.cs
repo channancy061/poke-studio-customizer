@@ -118,8 +118,8 @@ public sealed record GameOptionsSettings
     public bool DebugMenus { get; init; }
 
     /// <summary>
-    /// How many different items the bag's Items pocket holds (0 = the game's own: FireRed 42, Emerald 30). Bigger needs
-    /// room in the save; existing saves of the hack stop loading correctly when it changes.
+    /// How many different items the bag's Items pocket holds (0 = the game's own: FireRed 42, Emerald 30; at most 150, as
+    /// many as fit). The bigger pocket lives in save block 3, and an older save's items move into it on load.
     /// </summary>
     public int BagItemsSlots { get; init; }
 

@@ -225,7 +225,7 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
     public decimal? BagItemsSlots
     {
         get => Settings.BagItemsSlots;
-        set => Update(s => s with { BagItemsSlots = (int)Math.Clamp(value ?? 0, 0, 250) }, $"Bag Items pocket: {(int)Math.Clamp(value ?? 0, 0, 250)}");
+        set => Update(s => s with { BagItemsSlots = (int)Math.Clamp(value ?? 0, 0, 150) }, $"Bag Items pocket: {(int)Math.Clamp(value ?? 0, 0, 150)}");
     }
 
     public decimal? PcItemsSlots
