@@ -134,7 +134,7 @@ internal static class ToolsWriter
         L("PokeStudio_Text_ToolsHealed:");
         L("\t.string \"Your Pokémon are fully healed.$\"");
         L("PokeStudio_Text_ToolsBlocked:");
-        L("\t.string \"Not while trainers here are still\n\"");
+        L("\t.string \"Not while trainers here are still\\n\"");
         L("\t.string \"waiting to battle you!$\"");
         L("");
         return b.ToString();
