@@ -70,6 +70,12 @@ internal static class LegendWriter
             }
 
             L("\tspecialvar VAR_RESULT, GetBattleOutcome");
+
+            // the flag hides it only when the map loads again, so it's taken off the map now (or it could be fought again
+            // straight away); removeobject sets the flag, so a Pokémon that got away has it cleared after
+            L("\tfadescreen FADE_TO_BLACK");
+            L("\tremoveobject VAR_LAST_TALKED");
+            L("\tfadescreen FADE_FROM_BLACK");
             L($"\tgoto_if_eq VAR_RESULT, B_OUTCOME_CAUGHT, {label}_Caught");
             L($"\tclearflag {flag}");
             L($"\tmsgbox {label}_Away, MSGBOX_DEFAULT");
