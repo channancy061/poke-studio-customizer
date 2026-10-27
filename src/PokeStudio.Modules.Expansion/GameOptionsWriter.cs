@@ -914,7 +914,7 @@ internal static partial class GameOptionsWriter
             }
         }
 
-        Ask(o.TrainingOff, "TrainingOff", "Switch off EVs and IVs?\\nEveryone gets equal stats.", "\tsetflag FLAG_PS_TRAINING_OFF\n");
+        Ask(o.TrainingOff, "TrainingOff", "Remove EVs and IVs?\\nAll get perfect IVs and no EVs.", "\tsetflag FLAG_PS_TRAINING_OFF\n");
         Ask(o.LevelCap, "LevelCap", "Use a hard level cap?\\nNo EXP above the next cap.", "\tclearflag FLAG_PS_LEVEL_CAP_OFF\n", "\tsetflag FLAG_PS_LEVEL_CAP_OFF\n");
         Ask(o.NoItemsInBattle, "NoItems", o.NoItemsAlsoWild ? "No items in any battle?" : "No items in trainer battles?",
             $"\tsetvar VAR_PS_NO_BAG, {(o.NoItemsAlsoWild ? 2 : 1)}\n");
@@ -1005,7 +1005,7 @@ internal static partial class GameOptionsWriter
         L("");
         if (o.CenterHelper.AnyService)
         {
-            CenterHelperScript(o.CenterHelper, fireRed, L, Text);
+            CenterHelperScript(o.CenterHelper, fireRed, o.TrainingOff != OptionMode.NotUsed, L, Text);
         }
 
         if (TrainerRules(o))
@@ -1214,7 +1214,7 @@ internal static partial class GameOptionsWriter
         L("");
     }
 
-    private static void CenterHelperScript(CenterHelperSettings h, bool fireRed, Action<string> L, Action<string, string> text)
+    private static void CenterHelperScript(CenterHelperSettings h, bool fireRed, bool trainingCanBeOff, Action<string> L, Action<string, string> text)
     {
         var services = new List<(string Name, string Label, int Price)>();
         if (h.Nature)
@@ -1264,18 +1264,36 @@ internal static partial class GameOptionsWriter
             L("\tgoto PokeStudio_EventScript_HelperEnd");
         }
 
-        // the ability changer only for players who said yes at the start (or always, when the creator decided so)
-        var withoutAbility = services.Where(s => s.Name != "Ability").ToList();
-        if (h.AbilityService && withoutAbility.Count > 0)
+        // the ability changer only for players who said yes at the start (or always, when the creator decided so); IVs and
+        // EVs not for players who removed them (every Pokémon counts as perfect IVs and no EVs, so they'd change nothing)
+        var abilityChoice = h.AbilityService && services.Any(s => s.Name != "Ability");
+        var trainingChoice = trainingCanBeOff && services.Any(s => s.Name is "Ivs" or "Evs") && services.Any(s => s.Name is not ("Ivs" or "Evs"));
+        List<(string Name, string Label, int Price)> Without(bool ability, bool training) =>
+            services.Where(s => !(ability && s.Name == "Ability") && !(training && s.Name is "Ivs" or "Evs")).ToList();
+        foreach (var (noAbility, noTraining) in new[] { (false, false), (true, false), (false, true), (true, true) })
         {
-            L("\tgoto_if_unset FLAG_PS_ABILITY_ON, PokeStudio_EventScript_HelperMenuNoAbility");
-        }
+            if ((noAbility && !abilityChoice) || (noTraining && !trainingChoice))
+            {
+                continue;
+            }
 
-        Menu(services);
-        if (h.AbilityService && withoutAbility.Count > 0)
-        {
-            L("PokeStudio_EventScript_HelperMenuNoAbility:");
-            Menu(withoutAbility);
+            if (noAbility || noTraining)
+            {
+                L($"PokeStudio_EventScript_HelperMenu{(noAbility ? "NoAbility" : "")}{(noTraining ? "NoTraining" : "")}:");
+            }
+
+            // the first menu that fits: the ability question, then the training one
+            if (!noAbility && abilityChoice)
+            {
+                L($"\tgoto_if_unset FLAG_PS_ABILITY_ON, PokeStudio_EventScript_HelperMenuNoAbility{(noTraining ? "NoTraining" : "")}");
+            }
+
+            if (!noTraining && trainingChoice)
+            {
+                L($"\tgoto_if_set FLAG_PS_TRAINING_OFF, PokeStudio_EventScript_HelperMenu{(noAbility ? "NoAbility" : "")}NoTraining");
+            }
+
+            Menu(Without(noAbility, noTraining));
         }
 
         L("");

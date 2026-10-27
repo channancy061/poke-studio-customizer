@@ -418,7 +418,8 @@ public static class PlayersGuide
             }
         }
 
-        Add(o.TrainingOff, "EVs and IVs off", "Say yes and every Pokémon has perfect stats from the start - no training needed.", "Every Pokémon has perfect stats from the start - no training needed.");
+        Add(o.TrainingOff, "Remove EVs and IVs", "Say yes and every Pokémon (yours, wild ones and every trainer's) counts as having perfect IVs and no EVs, so there's nothing to train and the Pokémon Center helper skips IVs and EVs. Say no for the usual rules: EVs from battles, vitamins and the helper all count. (Hidden Power's type always follows a Pokémon's own IVs.)",
+            "Every Pokémon (yours, wild ones and every trainer's) counts as having perfect IVs and no EVs, so there's nothing to train. (Hidden Power's type follows a Pokémon's own IVs.)");
         Add(o.LevelCap, "Hard level cap", "Say yes and your Pokémon stop at the cap for the next important battle.", "Your Pokémon stop at the cap for the next important battle.", "off - no level cap.");
         Add(o.NoItemsInBattle, "No items in battle", o.NoItemsAlsoWild ? "Say yes and you can't use your bag in any battle." : "Say yes and you can't use your bag in trainer battles.",
             o.NoItemsAlsoWild ? "You can't use your bag in any battle." : "You can't use your bag in trainer battles.");

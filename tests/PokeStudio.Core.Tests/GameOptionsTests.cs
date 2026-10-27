@@ -166,6 +166,23 @@ public class GameOptionsTests
     }
 
     [Fact]
+    public void The_center_helper_skips_ivs_and_evs_for_players_who_removed_them()
+    {
+        var ids = GameOptionsWriter.AllocateIds(f => Read(Project, f), _ => false);
+        var helper = new CenterHelperSettings { Enabled = true };
+        var script = GameOptionsWriter.BuildScript(Everything with { CenterHelper = helper }, ids);
+        Assert.Contains("\tgoto_if_set FLAG_PS_TRAINING_OFF, PokeStudio_EventScript_HelperMenuNoTraining", script, StringComparison.Ordinal);
+        var noTraining = script[script.IndexOf("PokeStudio_EventScript_HelperMenuNoTraining:", StringComparison.Ordinal)..];
+        var menu = noTraining[..noTraining.IndexOf('\n', noTraining.IndexOf("dynmultichoice", StringComparison.Ordinal))];
+        Assert.DoesNotContain("PokeStudio_Text_HelperIvs", menu, StringComparison.Ordinal);
+        Assert.DoesNotContain("PokeStudio_Text_HelperEvs", menu, StringComparison.Ordinal);
+        Assert.Contains("PokeStudio_Text_HelperNature", menu, StringComparison.Ordinal);
+
+        // without the question, the helper never needs the second menu
+        Assert.DoesNotContain("FLAG_PS_TRAINING_OFF, PokeStudio_EventScript_HelperMenu", GameOptionsWriter.BuildScript(Everything with { CenterHelper = helper, TrainingOff = OptionMode.NotUsed }, ids), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void The_script_asks_what_the_player_chooses_and_applies_the_rest()
     {
         var ids = GameOptionsWriter.AllocateIds(f => Read(Project, f), _ => false);

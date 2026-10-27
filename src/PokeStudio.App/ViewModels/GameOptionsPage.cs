@@ -64,7 +64,7 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         Rows =
         [
             Difficulty,
-            new(this, "Switch off EVs & IVs", "On: every Pokémon (the player's and the trainers') has perfect IVs and no EVs, so nobody needs to train stats.",
+            new(this, "Remove EVs & IVs", "On: every Pokémon (the player's, wild ones and every trainer's) counts as perfect IVs and no EVs, so nobody needs to train stats; the Pokémon Center helper then skips IVs and EVs. Hidden Power keeps following a Pokémon's own IVs.",
                 [NotUsed, Asked, new("Always switched off", OptionMode.AlwaysOn)], s => s.TrainingOff, (s, m) => s with { TrainingOff = m }),
             new(this, "Hard level cap", "On: Pokémon get no experience above the next important battle's level cap (set the caps on Levels & caps). Rare Candies stop at the cap too.",
                 [NotUsed, Asked, new("Always on", OptionMode.AlwaysOn), new("Always off", OptionMode.AlwaysOff)], s => s.LevelCap, (s, m) => s with { LevelCap = m }),
@@ -392,7 +392,7 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
                 lines.Add($"Which difficulty? {string.Join(" / ", choices)} (starts on {Label(s.DefaultDifficulty)})");
             }
 
-            if (s.TrainingOff == OptionMode.PlayerChooses) { lines.Add("Switch off EVs and IVs? Yes / No"); }
+            if (s.TrainingOff == OptionMode.PlayerChooses) { lines.Add("Remove EVs and IVs? Yes / No"); }
             if (s.LevelCap == OptionMode.PlayerChooses) { lines.Add("Use a hard level cap? Yes / No"); }
             if (s.NoItemsInBattle == OptionMode.PlayerChooses) { lines.Add((s.NoItemsAlsoWild ? "No items in any battle?" : "No items in trainer battles?") + " Yes / No"); }
             if (s.InfiniteCandy == OptionMode.PlayerChooses) { lines.Add("Take an Infinite Candy? Yes / No"); }
