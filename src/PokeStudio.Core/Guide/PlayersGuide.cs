@@ -76,7 +76,11 @@ public static class PlayersGuide
             blocks.Add(new GuideText(data.Rules!.ExpCap == ExpCapKind.Hard || data.GameOptions?.LevelCapCodeUsed == true
                 ? "Your Pokémon stop gaining experience at the cap for the next important battle (when the level cap is on). Here are the caps:"
                 : "The highest level of each important battle, so you know what to aim for:"));
-            blocks.Add(new GuideTable(["Before", "Level"], caps.Select(c => (IReadOnlyList<string>)[c.Label, c.Level.ToString(CultureInfo.InvariantCulture)]).ToList()));
+            // "Gym 1" names its leader ("Gym 1 (Brock)")
+            var leaders = EncounterPlanner.Check(data, lab).ToDictionary(r => r.Index);
+            blocks.Add(new GuideTable(["Before", "Level"], caps.Select((c, i) => (IReadOnlyList<string>)[
+                leaders.TryGetValue(i, out var r) && r.Bosses.Count > 0 && !r.Bosses.Contains(c.Label, StringComparer.OrdinalIgnoreCase) ? $"{c.Label} ({string.Join(", ", r.Bosses)})" : c.Label,
+                c.Level.ToString(CultureInfo.InvariantCulture)]).ToList()));
         }
 
         // ---- bosses ----
@@ -230,16 +234,24 @@ public static class PlayersGuide
                 var rows = new List<IReadOnlyList<string>>();
                 foreach (var method in table.Methods.Where(m => m.Slots.Count > 0))
                 {
-                    var chances = data.EncounterChances.FirstOrDefault(c => c.Type == method.Type)?.Percent ?? [];
+                    var rates = data.EncounterChances.FirstOrDefault(c => c.Type == method.Type);
+                    var chances = rates?.Percent ?? [];
                     var slots = method.Slots.Select((s, i) => (s, i, chance: i < chances.Count ? chances[i] : 0)).ToList();
-                    var bySpecies = slots
-                        .GroupBy(x => x.s.Species)
-                        .Select(g => (Species: g.Key, Min: g.Min(x => x.s.MinLevel), Max: g.Max(x => x.s.MaxLevel), Chance: g.Sum(x => x.chance),
-                            Later: caps.Count > 0 && g.Min(x => next(map, x.s.MinLevel, method.Type, x.i)) > here))
-                        .OrderByDescending(x => x.Chance).ThenBy(x => x.Species, StringComparer.Ordinal);
-                    foreach (var x in bySpecies)
+                    // fishing has a group of slots per rod, each adding up to 100% on its own
+                    var groups = rates?.Groups is { Count: > 0 } g0
+                        ? g0.Select(kv => (Name: GameCatalog.Prettify(kv.Key.ToUpperInvariant()), Slots: slots.Where(x => kv.Value.Contains(x.i)).ToList())).ToList()
+                        : [(Name: MethodName(method.Type), Slots: slots)];
+                    foreach (var group in groups)
                     {
-                        rows.Add([MethodName(method.Type) + (x.Later ? " (later)" : ""), Species(x.Species), Types(x.Species), x.Min == x.Max ? $"{x.Min}" : $"{x.Min}–{x.Max}", x.Chance > 0 ? $"{x.Chance}%" : ""]);
+                        var bySpecies = group.Slots
+                            .GroupBy(x => x.s.Species)
+                            .Select(g => (Species: g.Key, Min: g.Min(x => x.s.MinLevel), Max: g.Max(x => x.s.MaxLevel), Chance: g.Sum(x => x.chance),
+                                Later: caps.Count > 0 && g.Min(x => next(map, x.s.MinLevel, method.Type, x.i)) > here))
+                            .OrderByDescending(x => x.Chance).ThenBy(x => x.Species, StringComparer.Ordinal);
+                        foreach (var x in bySpecies)
+                        {
+                            rows.Add([group.Name + (x.Later ? " (later)" : ""), Species(x.Species), Types(x.Species), x.Min == x.Max ? $"{x.Min}" : $"{x.Min}–{x.Max}", x.Chance > 0 ? $"{x.Chance}%" : ""]);
+                        }
                     }
                 }
 

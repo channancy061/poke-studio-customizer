@@ -160,7 +160,7 @@ public static class TeamBuilder
         {
             var s = ordered[i];
             var isAce = i == ordered.Count - 1;
-            members.Add(Build(data, s, level + (isAce && hard ? 2 : 0), options.Difficulty, threats, picked, rules.ItemClause ? usedItems : null, isAce));
+            members.Add(Build(data, s, level + (isAce && hard ? 2 : 0), options.Difficulty, threats, picked, rules.ItemClause ? usedItems : null, isAce, lab.FullyEvolvedFrom));
         }
 
         var weak = TypeChart.Types.Where(t => picked.Count(p => TypeChart.Multiplier(t, p.Types) > 1) >= 3).ToList();
@@ -323,8 +323,8 @@ public static class TeamBuilder
     }
 
     /// <summary>A fully trained team member (Nightmare route trainers): the boss builder's moves, nature, ability, item, IVs and EVs.</summary>
-    internal static TrainerPokemon Trained(GameData data, Species s, int level, IReadOnlyList<string> threats, List<Species> team, HashSet<string> usedItems) =>
-        Build(data, s, level, Difficulty.ExtraHard, threats, team, usedItems, isAce: false).Pokemon;
+    internal static TrainerPokemon Trained(GameData data, Species s, int level, IReadOnlyList<string> threats, List<Species> team, HashSet<string> usedItems, int fullyEvolvedFrom) =>
+        Build(data, s, level, Difficulty.ExtraHard, threats, team, usedItems, isAce: false, fullyEvolvedFrom).Pokemon;
 
     /// <summary>Species reachable by this level: evolutions from level-up up to the level, item/trade ones from level 36.</summary>
     // forms that only exist in battle, need a story event or special item, or aren't meant for trainers
@@ -444,7 +444,7 @@ public static class TeamBuilder
         return score;
     }
 
-    private static Suggestion Build(GameData data, Species s, int level, Difficulty difficulty, IReadOnlyList<string> threats, List<Species> team, HashSet<string>? usedItems, bool isAce)
+    private static Suggestion Build(GameData data, Species s, int level, Difficulty difficulty, IReadOnlyList<string> threats, List<Species> team, HashSet<string>? usedItems, bool isAce, int fullyEvolvedFrom)
     {
         var reasons = new List<string>();
         var c = data.Catalog;
@@ -496,7 +496,9 @@ public static class TeamBuilder
 
         // item
         string? item = null;
-        if (difficulty >= Difficulty.Hard || isAce || !Defaults.FullyEvolved(data, s.Key))
+        // from the "fully evolved" level, a Pokémon that can still evolve is there for an Eviolite
+        var eviolite = fullyEvolvedFrom > 0 && level >= fullyEvolvedFrom && !Defaults.FullyEvolved(data, s.Key);
+        if (difficulty >= Difficulty.Hard || isAce || eviolite)
         {
             string[] prefs = difficulty switch
             {
@@ -507,8 +509,7 @@ public static class TeamBuilder
                 Difficulty.Hard => ["ITEM_LIFE_ORB", "ITEM_SITRUS_BERRY", "ITEM_LEFTOVERS"],
                 _ => ["ITEM_SITRUS_BERRY", "ITEM_ORAN_BERRY"],
             };
-            // a Pokémon that can still evolve holds an Eviolite
-            if (!Defaults.FullyEvolved(data, s.Key))
+            if (eviolite)
             {
                 prefs = ["ITEM_EVIOLITE", .. prefs];
             }

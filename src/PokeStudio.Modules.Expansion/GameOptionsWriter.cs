@@ -24,11 +24,43 @@ internal static partial class GameOptionsWriter
     public const string Mark = "Poke Studio";
 
     public static IReadOnlyList<string> Files(ExpansionLayout layout) =>
-        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC, AiMain, GlobalConstants, NamingScreen, DebugConfig, BiggerBag.Global, BiggerBag.Item, BiggerBag.ItemMenu, .. AideWriter.Files(layout.Root), .. TradeWriter.Files(layout.Root),
+        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC, AiMain, GlobalConstants, NamingScreen, DebugConfig, DexNavConfig, BiggerBag.Global, BiggerBag.Item, BiggerBag.ItemMenu, .. AideWriter.Files(layout.Root), .. TradeWriter.Files(layout.Root),
          .. Chokepoints.Routes(layout.Root, indoors: true).Select(m => $"data/maps/{m}/map.json")];
 
     /// <summary>The expansion's debug settings.</summary>
     public const string DebugConfig = "include/config/debug.h";
+    public const string DexNavConfig = "include/config/dexnav.h";
+    private const string DexNavMark = "Poke Studio: DexNav";
+
+    /// <summary>
+    /// include/config/dexnav.h with the DexNav on (in the start menu once the player has the Pokédex, using our flags and
+    /// variables by number, as the header is read where our names aren't known) or as it was.
+    /// </summary>
+    internal static string WithDexNav(string text, Ids? ids)
+    {
+        // back to the original values first
+        text = Regex.Replace(text, $@"^(#define \w+[ \t]+)\S+(.*?) // {DexNavMark} \(was (\S+)\)$", "${1}$3$2", RegexOptions.Multiline);
+        if (ids is null)
+        {
+            return text;
+        }
+
+        var values = new Dictionary<string, string>
+        {
+            ["DEXNAV_ENABLED"] = "TRUE",
+            ["DN_FLAG_SEARCHING"] = ids.Flags["FLAG_PS_DEXNAV_SEARCHING"],
+            ["DN_FLAG_DEXNAV_GET"] = "FLAG_SYS_POKEDEX_GET",
+            ["DN_FLAG_DETECTOR_MODE"] = ids.Flags["FLAG_PS_DEXNAV_DETECTOR"],
+            ["DN_VAR_SPECIES"] = ids.Vars["VAR_PS_DEXNAV_SPECIES"],
+            ["DN_VAR_STEP_COUNTER"] = ids.Vars["VAR_PS_DEXNAV_STEPS"],
+        };
+        foreach (var (name, value) in values)
+        {
+            text = Regex.Replace(text, $@"^(#define {name}[ \t]+)(\S+)([^\r\n]*)", m => $"{m.Groups[1].Value}{value}{m.Groups[3].Value} // {DexNavMark} (was {m.Groups[2].Value})", RegexOptions.Multiline);
+        }
+
+        return text;
+    }
     private const string DebugMark = "Poke Studio: debug menus off";
     private static readonly string[] DebugMenusDefines = ["DEBUG_OVERWORLD_MENU", "DEBUG_BATTLE_MENU", "DEBUG_POKEMON_SPRITE_VISUALIZER"];
 
@@ -171,7 +203,7 @@ internal static partial class GameOptionsWriter
     public sealed record Ids(IReadOnlyDictionary<string, string> Flags, IReadOnlyDictionary<string, string> Vars);
 
     private static readonly string[] FlagNames = ["FLAG_PS_TRAINING_OFF", "FLAG_PS_LEVEL_CAP_OFF"];
-    private static readonly string[] VarNames = ["VAR_PS_OPTIONS_STATE", "VAR_PS_DIFFICULTY", "VAR_PS_NO_BAG"];
+    private static readonly string[] VarNames = ["VAR_PS_OPTIONS_STATE", "VAR_PS_DIFFICULTY", "VAR_PS_NO_BAG", "VAR_PS_DEXNAV_SPECIES", "VAR_PS_DEXNAV_STEPS"];
 
     // Emerald names free ones FLAG_UNUSED_0x020 / VAR_UNUSED_0x404E; FireRed leaves them as FLAG_0x4AB / VAR_0x4029
     [GeneratedRegex(@"^#define\s+(FLAG_(?:UNUSED_)?0x[0-9A-Fa-f]+)\s+(0x[0-9A-Fa-f]+)\b", RegexOptions.Multiline)]
@@ -385,6 +417,12 @@ internal static partial class GameOptionsWriter
             {
                 Put(file, text, BiggerBag.Apply(file, text, o.BagItemsSlots));
             }
+        }
+
+        // the DexNav (in the start menu once the player has the Pokédex)
+        if ((result.TryGetValue(DexNavConfig, out var plannedDexNav) ? plannedDexNav : read(DexNavConfig)) is { } dexNav)
+        {
+            Put(DexNavConfig, dexNav, WithDexNav(dexNav, o.DexNav && ids.Flags.ContainsKey("FLAG_PS_DEXNAV_SEARCHING") ? ids : null));
         }
 
         // the expansion's debug menus: off in a build for players

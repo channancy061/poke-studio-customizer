@@ -110,6 +110,18 @@ public class MartSpecialistTests
         Assert.Equal(2, System.Text.RegularExpressions.Regex.Count(asked, "SPECIES_BUDEW"));
         Assert.Equal(trades, TradeWriter.Apply(asked, new Dictionary<string, string>(), false));
 
+        // the DexNav: on with our flags and variables by number, and back as it was
+        var dexNav = File.ReadAllText(Path.Combine(fr, "include", "config", "dexnav.h"));
+        var ids = new GameOptionsWriter.Ids(
+            new Dictionary<string, string> { ["FLAG_PS_DEXNAV_SEARCHING"] = "0x500", ["FLAG_PS_DEXNAV_DETECTOR"] = "0x501" },
+            new Dictionary<string, string> { ["VAR_PS_DEXNAV_SPECIES"] = "0x40F0", ["VAR_PS_DEXNAV_STEPS"] = "0x40F1" });
+        var on = GameOptionsWriter.WithDexNav(dexNav, ids);
+        Assert.Matches(@"#define DEXNAV_ENABLED\s+TRUE .*// Poke Studio: DexNav \(was FALSE\)", on);
+        Assert.Matches(@"#define DN_FLAG_DEXNAV_GET\s+FLAG_SYS_POKEDEX_GET", on);
+        Assert.Matches(@"#define DN_VAR_STEP_COUNTER\s+0x40F1", on);
+        Assert.Equal(on, GameOptionsWriter.WithDexNav(on, ids));
+        Assert.Equal(dexNav, GameOptionsWriter.WithDexNav(on, null));
+
         var shop = File.ReadAllText(Path.Combine(fr, "src", "shop.c"));
         var patched = ShopsJson.OneOfEachPatch(shop)!;
         Assert.Contains("sText_PsAlreadyHave", patched, StringComparison.Ordinal);

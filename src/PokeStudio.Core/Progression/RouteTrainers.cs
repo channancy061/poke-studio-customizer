@@ -164,7 +164,7 @@ public static class RouteTrainers
                         threats[milestone] = th = TeamBuilder.ThreatTypes(data, milestone);
                     }
 
-                    var trained = TeamBuilder.Trained(data, species[pick], old.Level, th, [.. party.Select(p => species[p.Species])], usedItems);
+                    var trained = TeamBuilder.Trained(data, species[pick], old.Level, th, [.. party.Select(p => species[p.Species])], usedItems, lab.FullyEvolvedFrom);
                     member = member with
                     {
                         Moves = trained.Moves.Count > 0 ? trained.Moves : member.Moves,

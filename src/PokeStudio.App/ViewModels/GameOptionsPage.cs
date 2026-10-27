@@ -222,6 +222,12 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         set => Update(s => s with { FixedDifficulty = value.Choice }, $"Difficulty is always {value.Label}");
     }
 
+    public bool DexNav
+    {
+        get => Settings.DexNav;
+        set => Update(s => s with { DexNav = value }, value ? "DexNav on" : "DexNav off");
+    }
+
     public bool AidesCountEveryPokemon
     {
         get => Settings.AidesCountEveryPokemon;
@@ -475,6 +481,7 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         OnPropertyChanged(nameof(QuietNamingWhenPartyFull));
         OnPropertyChanged(nameof(BagItemsSlots));
         OnPropertyChanged(nameof(AidesCountEveryPokemon));
+        OnPropertyChanged(nameof(DexNav));
         OnPropertyChanged(nameof(TradesAskForWildPokemon));
         OnPropertyChanged(nameof(AideFlash));
         OnPropertyChanged(nameof(AideEverstone));

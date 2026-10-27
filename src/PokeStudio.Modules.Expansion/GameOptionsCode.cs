@@ -76,14 +76,15 @@ internal static partial class GameOptionsWriter
     /// <summary>Flag names the code needs beyond the base options.</summary>
     internal static IEnumerable<string> ExtraFlagNames(GameOptionsSettings o, Extras x)
     {
+        string[] dexNav = o.DexNav ? ["FLAG_PS_DEXNAV_SEARCHING", "FLAG_PS_DEXNAV_DETECTOR"] : [];
         if (!CodeUsed(o))
         {
-            return [];
+            return dexNav;
         }
 
         var areas = o.NuzRuleUsed(o.NuzFirstEncounter) ? x.EncounterAreas.Select(AreaFlag) : [];
         string[] ability = o.CenterHelper.AnyService && o.CenterHelper.AbilityService ? ["FLAG_PS_ABILITY_ON"] : [];
-        return [.. CodeFlagNames, .. ability, .. areas];
+        return [.. CodeFlagNames, .. ability, .. dexNav, .. areas];
     }
 
     /// <summary>Areas with wild Pokémon (region map sections of the maps in wild_encounters.json) and evolution families.</summary>
