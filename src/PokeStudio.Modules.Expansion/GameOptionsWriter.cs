@@ -24,7 +24,55 @@ internal static partial class GameOptionsWriter
     public const string Mark = "Poke Studio";
 
     public static IReadOnlyList<string> Files(ExpansionLayout layout) =>
-        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC, AiMain, GlobalConstants];
+        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC, AiMain, GlobalConstants, NamingScreen, DebugConfig];
+
+    /// <summary>The expansion's debug settings.</summary>
+    public const string DebugConfig = "include/config/debug.h";
+    private const string DebugMark = "Poke Studio: debug menus off";
+    private static readonly string[] DebugMenusDefines = ["DEBUG_OVERWORLD_MENU", "DEBUG_BATTLE_MENU", "DEBUG_POKEMON_SPRITE_VISUALIZER"];
+
+    /// <summary>debug.h with the debug menus off (the original value kept in the comment), or as it was.</summary>
+    internal static string WithDebugMenus(string text, bool on)
+    {
+        foreach (var name in DebugMenusDefines)
+        {
+            var line = Regex.Match(text, $@"^#define {name}([ \t]+)(\w+)([^\r\n]*)", RegexOptions.Multiline);
+            if (!line.Success)
+            {
+                continue;
+            }
+
+            var was = Regex.Match(line.Groups[3].Value, $@"^ // {DebugMark} \(was (\w+)\)(.*)$");
+            var original = was.Success ? was.Groups[1].Value : line.Groups[2].Value;
+            var rest = was.Success ? was.Groups[2].Value : line.Groups[3].Value;
+            var after = on || original == "FALSE"
+                ? $"#define {name}{line.Groups[1].Value}{original}{rest}"
+                : $"#define {name}{line.Groups[1].Value}FALSE // {DebugMark} (was {original}){rest}";
+            text = text.Remove(line.Index, line.Length).Insert(line.Index, after);
+        }
+
+        return text;
+    }
+
+    /// <summary>The naming screen (FireRed's tells of the PC before the battle's swap question).</summary>
+    public const string NamingScreen = "src/naming_screen.c";
+    private const string NamingMark = "Poke Studio: the battle asks first";
+
+    /// <summary>
+    /// naming_screen.c that doesn't say "sent to the PC" when the battle then asks to add the Pokémon to the party
+    /// (B_CATCH_SWAP_INTO_PARTY), or as it was. Unchanged when the check isn't there (Emerald's has none).
+    /// </summary>
+    internal static string QuietNaming(string naming, bool on)
+    {
+        var clean = Regex.Replace(naming, $@"^[^\n]*{NamingMark}[^\n]*\r?\n", "", RegexOptions.Multiline);
+        var at = Regex.Match(clean, @"^([ \t]*)&& CalculatePlayerPartyCount\(\) >= PARTY_SIZE\)", RegexOptions.Multiline);
+        if (!on || !at.Success || !clean[..at.Index].TrimEnd().EndsWith("NAMING_SCREEN_CAUGHT_MON", StringComparison.Ordinal))
+        {
+            return clean;
+        }
+
+        return clean.Insert(at.Index, $"{at.Groups[1].Value}&& B_CATCH_SWAP_INTO_PARTY < GEN_7 // {NamingMark} (whether to add it to the party){CScanner.LineEnding(clean)}");
+    }
 
     /// <summary>The game's constants with the bag and PC sizes.</summary>
     public const string GlobalConstants = "include/constants/global.h";
@@ -308,6 +356,18 @@ internal static partial class GameOptionsWriter
         if ((result.TryGetValue(GlobalConstants, out var plannedGlobal) ? plannedGlobal : read(GlobalConstants)) is { } global)
         {
             Put(GlobalConstants, global, WithSize(WithSize(global, "BAG_ITEMS_COUNT", o.BagItemsSlots), "PC_ITEMS_COUNT", o.PcItemsSlots));
+        }
+
+        // the expansion's debug menus: off in a build for players
+        if ((result.TryGetValue(DebugConfig, out var plannedDebug) ? plannedDebug : read(DebugConfig)) is { } debug)
+        {
+            Put(DebugConfig, debug, WithDebugMenus(debug, o.DebugMenus));
+        }
+
+        // FireRed's naming screen said "sent to the PC" before the battle asked to add the Pokémon to the party
+        if ((result.TryGetValue(NamingScreen, out var plannedNaming) ? plannedNaming : read(NamingScreen)) is { } naming)
+        {
+            Put(NamingScreen, naming, QuietNaming(naming, o.QuietNamingWhenPartyFull));
         }
 
         // the battle AI forgets the Pokémon that left a position (a bug in the AI's switch-in memory)

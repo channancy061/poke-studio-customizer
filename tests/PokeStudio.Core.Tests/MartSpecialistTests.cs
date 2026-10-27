@@ -58,6 +58,19 @@ public class MartSpecialistTests
         Assert.Null(ShopsJson.OneOfEachPatch(patched)); // once only
         Assert.Equal(shop, ShopsJson.WithoutOneOfEach(patched));
 
+        // FireRed's naming screen stays quiet before the battle's "add to your party?" question
+        var naming = File.ReadAllText(Path.Combine(fr, "src", "naming_screen.c"));
+        var quiet = GameOptionsWriter.QuietNaming(naming, true);
+        Assert.Contains("&& B_CATCH_SWAP_INTO_PARTY < GEN_7 // Poke Studio: the battle asks first", quiet, StringComparison.Ordinal);
+        Assert.Equal(naming, GameOptionsWriter.QuietNaming(quiet, false));
+
+        // the expansion's debug menus are off for players, and come back as they were
+        var debug = File.ReadAllText(Path.Combine(fr, "include", "config", "debug.h"));
+        var off = GameOptionsWriter.WithDebugMenus(debug, false);
+        Assert.Matches(@"#define DEBUG_OVERWORLD_MENU\s+FALSE // Poke Studio: debug menus off \(was DISABLED_ON_RELEASE\)", off);
+        Assert.Matches(@"#define DEBUG_BATTLE_MENU\s+FALSE", off);
+        Assert.Equal(debug, GameOptionsWriter.WithDebugMenus(off, true));
+
         var ai = File.ReadAllText(Path.Combine(fr, "src", "battle_ai_main.c"));
         var fixedAi = GameOptionsWriter.AiMemoryFix(ai)!;
         Assert.Contains("ClearBattlerAbilityHistory(battler); // Poke Studio: forget the Pokémon that left", fixedAi, StringComparison.Ordinal);

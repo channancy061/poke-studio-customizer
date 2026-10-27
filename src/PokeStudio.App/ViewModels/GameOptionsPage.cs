@@ -234,6 +234,18 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         set => Update(s => s with { PcItemsSlots = (int)Math.Clamp(value ?? 0, 0, 250) }, $"PC item storage: {(int)Math.Clamp(value ?? 0, 0, 250)}");
     }
 
+    public bool QuietNamingWhenPartyFull
+    {
+        get => Settings.QuietNamingWhenPartyFull;
+        set => Update(s => s with { QuietNamingWhenPartyFull = value }, value ? "Naming screen quiet when the party is full" : "Naming screen tells of the PC");
+    }
+
+    public bool DebugMenus
+    {
+        get => Settings.DebugMenus;
+        set => Update(s => s with { DebugMenus = value }, value ? "Debug menus on" : "Debug menus off");
+    }
+
     public bool HardChokepoints
     {
         get => Settings.HardChokepoints;
@@ -388,6 +400,8 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         OnPropertyChanged(nameof(OfferExtraHard));
         OnPropertyChanged(nameof(TrainerRulesByDifficulty));
         OnPropertyChanged(nameof(HardChokepoints));
+        OnPropertyChanged(nameof(DebugMenus));
+        OnPropertyChanged(nameof(QuietNamingWhenPartyFull));
         OnPropertyChanged(nameof(BagItemsSlots));
         OnPropertyChanged(nameof(PcItemsSlots));
         OnPropertyChanged(nameof(FixAiSwitchInMemory));

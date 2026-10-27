@@ -110,6 +110,8 @@
           <TextBlock Text="Fixes" Classes="heading" Margin="0,8,0,0" />
           <CheckBox IsChecked="{Binding FixAiSwitchInMemory}" Content="Battle AI forgets the Pokémon that left (otherwise a revealed Levitate makes it skip Earthquake on the next one)" />
           <CheckBox IsChecked="{Binding OneOfEachImportantItem}" Content="FireRed shops sell an important item, like a reusable TM, only once (as Emerald's do)" />
+          <CheckBox IsChecked="{Binding DebugMenus}" Content="Debug menus, for testing only (B or R + Start, Select in battle): leave off in a build for players" />
+          <CheckBox IsChecked="{Binding QuietNamingWhenPartyFull}" Content="FireRed: with a full party, no &quot;sent to the PC&quot; on the naming screen before the battle asks to add the Pokémon to the party" />
         </StackPanel>
       </Border>
 

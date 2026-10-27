@@ -106,6 +106,18 @@ public sealed record GameOptionsSettings
     public bool OneOfEachImportantItem { get; init; } = true;
 
     /// <summary>
+    /// FireRed's naming screen says a caught Pokémon went to the PC (party full) before the battle asks whether to add
+    /// it to the party; with that question the naming screen stays quiet.
+    /// </summary>
+    public bool QuietNamingWhenPartyFull { get; init; } = true;
+
+    /// <summary>
+    /// pokeemerald-expansion's debug menus (overworld B/R + Start, Select in battle, Select on the summary screen). Off: a
+    /// build for players can't open them (the expansion only switches them off for "make release").
+    /// </summary>
+    public bool DebugMenus { get; init; }
+
+    /// <summary>
     /// How many different items the bag's Items pocket holds (0 = the game's own: FireRed 42, Emerald 30). Bigger needs
     /// room in the save; existing saves of the hack stop loading correctly when it changes.
     /// </summary>
