@@ -99,6 +99,7 @@
       <Border Classes="card">
         <StackPanel Spacing="8">
           <TextBlock Text="DexNav, Professor Oak's aides and in-game trades" Classes="heading" />
+          <CheckBox IsChecked="{Binding DayAndNight}" Content="Day and night: about a third of each area's grass Pokémon change at night (Ghost, Dark, owls, bats…), picked by the same rules as the wild plan" />
           <CheckBox IsChecked="{Binding DexNav}" Content="DexNav in the start menu once you have the Pokédex: each area's Pokémon, seen and caught, and a search for one" />
           <CheckBox IsChecked="{Binding AidesCountEveryPokemon}" Content="Oak's aides count every kind of Pokémon caught, not just Kanto's 151" />
           <TextBlock Text="Kinds of Pokémon each aide asks for (0 = the game's own: 10, 20, 30, 40, 50)" Classes="small muted" />

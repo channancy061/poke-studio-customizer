@@ -97,6 +97,16 @@ public class EncounterPlannerTests
         EncounterPlanner.ToChange(data, EncounterPlanner.Plan(data, lab, new EncounterPlanner.Options()))!.Apply();
         var after = EncounterPlanner.Check(data, lab);
         Assert.All(after, r => Assert.True(r.Ready, $"{r.Label}: {r.Counters.Count} counters"));
+        // night tables: about a third of the grass slots become night Pokémon, never a legendary or a starter
+        var nightTables = EncounterPlanner.NightTables(data, lab);
+        Assert.True(nightTables.Count > 30, $"{nightTables.Count} night tables");
+        var route1Night = nightTables.First(t => t.Map == "MAP_ROUTE1");
+        var route1Day = data.Encounters.First(t => t.Key + "_Night" == route1Night.Key).Methods.First(m => m.Type == "land_mons");
+        var nightSlots = route1Night.Methods.Single().Slots;
+        Assert.Equal(route1Day.Slots.Count, nightSlots.Count);
+        Assert.InRange(nightSlots.Where((s, i) => s.Species != route1Day.Slots[i].Species).Count(), 1, route1Day.Slots.Count / 2);
+        Assert.All(nightTables.SelectMany(t => t.Methods).SelectMany(m => m.Slots), s => Assert.False(data.Species.Single(x => x.Key == s.Species).Tags.HasFlag(Core.Models.SpeciesTags.RestrictedLegendary), s.Species));
+
         // in-game trades then ask for a Pokémon met before the trader
         var metBy = EncounterPlanner.Met(data);
         var asks = TradePlanner.Requests(data, [new InGameTrade("T1", "Route 2 House", "SPECIES_MAGIKARP", "SPECIES_MR_MIME"), new InGameTrade("T2", "Cerulean City House3", "SPECIES_POLIWHIRL", "SPECIES_JYNX")]);

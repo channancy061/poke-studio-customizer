@@ -14,7 +14,7 @@ internal sealed class EncountersFile
 {
     public const string File = "src/data/wild_encounters.json";
 
-    private static readonly JsonSerializerOptions WriteOptions = new()
+    internal static readonly JsonSerializerOptions WriteOptions = new()
     {
         WriteIndented = true,
         IndentSize = 2,
@@ -80,6 +80,12 @@ internal sealed class EncountersFile
 
             foreach (var e in group?["encounters"]?.AsArray() ?? [])
             {
+                // the night tables Poke Studio makes are the game options' (remade on every save), not the area's own
+                if (e?[NightWriter.MarkKey] is not null)
+                {
+                    continue;
+                }
+
                 var methods = new List<EncounterMethodTable>();
                 foreach (var (prop, value) in e!.AsObject())
                 {

@@ -110,6 +110,22 @@ public class MartSpecialistTests
         Assert.Equal(2, System.Text.RegularExpressions.Regex.Count(asked, "SPECIES_BUDEW"));
         Assert.Equal(trades, TradeWriter.Apply(asked, new Dictionary<string, string>(), false));
 
+        // night tables go in after their day table, marked, and come out again; the time-of-day switch too
+        var wild = File.ReadAllText(Path.Combine(fr, "src", "data", "wild_encounters.json"));
+        var night = new Core.Models.EncounterTable
+        {
+            Key = "sRoute1_FireRed_Night", Map = "MAP_ROUTE1",
+            Methods = [new Core.Models.EncounterMethodTable { Type = "land_mons", Rate = 21, Slots = [new Core.Models.EncounterSlot("SPECIES_HOOTHOOT", 2, 3)] }],
+        };
+        var withNight = NightWriter.Encounters(wild, [night], true);
+        Assert.Contains("\"base_label\": \"sRoute1_FireRed_Night\"", withNight, StringComparison.Ordinal);
+        Assert.Contains("\"poke_studio\": \"night\"", withNight, StringComparison.Ordinal);
+        Assert.Equal(withNight, NightWriter.Encounters(withNight, [night], true));
+        Assert.Equal(wild, NightWriter.Encounters(withNight, [], false));
+        var ow = File.ReadAllText(Path.Combine(fr, "include", "config", "overworld.h"));
+        Assert.Matches(@"#define OW_TIME_OF_DAY_ENCOUNTERS\s+TRUE", NightWriter.Config(ow, true));
+        Assert.Equal(ow, NightWriter.Config(NightWriter.Config(ow, true), false));
+
         // the DexNav: on with our flags and variables by number, and back as it was
         var dexNav = File.ReadAllText(Path.Combine(fr, "include", "config", "dexnav.h"));
         var ids = new GameOptionsWriter.Ids(

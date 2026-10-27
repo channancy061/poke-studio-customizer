@@ -222,6 +222,12 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         set => Update(s => s with { FixedDifficulty = value.Choice }, $"Difficulty is always {value.Label}");
     }
 
+    public bool DayAndNight
+    {
+        get => Settings.DayAndNight;
+        set => Update(s => s with { DayAndNight = value }, value ? "Day and night encounters on" : "Day and night encounters off");
+    }
+
     public bool DexNav
     {
         get => Settings.DexNav;
@@ -482,6 +488,7 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         OnPropertyChanged(nameof(BagItemsSlots));
         OnPropertyChanged(nameof(AidesCountEveryPokemon));
         OnPropertyChanged(nameof(DexNav));
+        OnPropertyChanged(nameof(DayAndNight));
         OnPropertyChanged(nameof(TradesAskForWildPokemon));
         OnPropertyChanged(nameof(AideFlash));
         OnPropertyChanged(nameof(AideEverstone));

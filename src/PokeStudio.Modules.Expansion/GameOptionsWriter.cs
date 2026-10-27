@@ -24,7 +24,7 @@ internal static partial class GameOptionsWriter
     public const string Mark = "Poke Studio";
 
     public static IReadOnlyList<string> Files(ExpansionLayout layout) =>
-        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC, AiMain, GlobalConstants, NamingScreen, DebugConfig, DexNavConfig, BiggerBag.Global, BiggerBag.Item, BiggerBag.ItemMenu, .. AideWriter.Files(layout.Root), .. TradeWriter.Files(layout.Root),
+        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC, AiMain, GlobalConstants, NamingScreen, DebugConfig, DexNavConfig, EncountersFile.File, NightWriter.Overworld, BiggerBag.Global, BiggerBag.Item, BiggerBag.ItemMenu, .. AideWriter.Files(layout.Root), .. TradeWriter.Files(layout.Root),
          .. Chokepoints.Routes(layout.Root, indoors: true).Select(m => $"data/maps/{m}/map.json")];
 
     /// <summary>The expansion's debug settings.</summary>
@@ -416,6 +416,17 @@ internal static partial class GameOptionsWriter
             if ((result.TryGetValue(file, out var planned) ? planned : read(file)) is { } text)
             {
                 Put(file, text, BiggerBag.Apply(file, text, o.BagItemsSlots));
+            }
+        }
+
+        // day and night: night tables for every area with grass, and the time-of-day switch (left alone without the plan's data)
+        var nights = (extras ?? Extras.None).NightTables;
+        if ((nights.Count > 0 || !o.DayAndNight) && (result.TryGetValue(EncountersFile.File, out var plannedWild) ? plannedWild : read(EncountersFile.File)) is { } wild)
+        {
+            Put(EncountersFile.File, wild, NightWriter.Encounters(wild, nights, o.DayAndNight));
+            if ((result.TryGetValue(NightWriter.Overworld, out var plannedOw) ? plannedOw : read(NightWriter.Overworld)) is { } ow)
+            {
+                Put(NightWriter.Overworld, ow, NightWriter.Config(ow, o.DayAndNight));
             }
         }
 

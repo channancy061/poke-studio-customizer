@@ -204,6 +204,11 @@ public static class PlayersGuide
                 ? "In the order you reach each place, chapter by chapter up to each important battle. Each chapter starts with good catches for that battle. A way of meeting Pokémon marked \"later\" opens up further on (a fishing rod, Surf or Rock Smash)."
                 : "Every place with wild Pokémon, how you meet them and how often (the chance of each Pokémon when you meet one)."));
             var readiness = caps.Count > 0 ? EncounterPlanner.Check(data, lab).ToDictionary(r => r.Index) : [];
+            var nights = data.GameOptions?.DayAndNight == true ? EncounterPlanner.NightTables(data, lab).ToDictionary(t => t.Key, StringComparer.Ordinal) : [];
+            if (nights.Count > 0)
+            {
+                blocks.Add(new GuideText("At night about a third of the grass and cave Pokémon change: those rows say \"at night\"."));
+            }
 
             // the chapter of each place: the first important battle after it (from the grass, before any rod or Surf);
             // a chapter leads up to every battle until the next chapter's places (Roxanne and Brock both in Pewter City)
@@ -252,6 +257,19 @@ public static class PlayersGuide
                         {
                             rows.Add([group.Name + (x.Later ? " (later)" : ""), Species(x.Species), Types(x.Species), x.Min == x.Max ? $"{x.Min}" : $"{x.Min}–{x.Max}", x.Chance > 0 ? $"{x.Chance}%" : ""]);
                         }
+                    }
+                }
+
+                // the night Pokémon (the slots they take over keep their chances)
+                if (nights.TryGetValue(table.Key + "_Night", out var night) && night.Methods.FirstOrDefault() is { } nightLand)
+                {
+                    var landChances = data.EncounterChances.FirstOrDefault(c => c.Type == nightLand.Type)?.Percent ?? [];
+                    var daySpecies = table.Methods.Where(m => m.Type == nightLand.Type).SelectMany(m => m.Slots).Select(x => x.Species).ToHashSet(StringComparer.Ordinal);
+                    foreach (var g in nightLand.Slots.Select((x, i) => (x, chance: i < landChances.Count ? landChances[i] : 0)).Where(y => !daySpecies.Contains(y.x.Species)).GroupBy(y => y.x.Species))
+                    {
+                        var min = g.Min(y => y.x.MinLevel);
+                        var max = g.Max(y => y.x.MaxLevel);
+                        rows.Add([MethodName(nightLand.Type) + " at night", Species(g.Key), Types(g.Key), min == max ? $"{min}" : $"{min}–{max}", $"{g.Sum(y => y.chance)}%"]);
                     }
                 }
 

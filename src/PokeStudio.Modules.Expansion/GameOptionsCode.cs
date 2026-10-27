@@ -45,6 +45,9 @@ internal static partial class GameOptionsWriter
         /// <summary>The Mart Specialist's stock for 0…8 badges.</summary>
         public IReadOnlyList<IReadOnlyList<string>> SpecialistTiers { get; init; } = [];
 
+        /// <summary>Each area's night table, for <see cref="GameOptionsSettings.DayAndNight"/>.</summary>
+        public IReadOnlyList<Core.Models.EncounterTable> NightTables { get; init; } = [];
+
         /// <summary>The playthrough's order of places (for the area lock's "onward"), or null without one.</summary>
         public IReadOnlyList<string>? StoryOrder { get; init; }
 
@@ -167,6 +170,7 @@ internal static partial class GameOptionsWriter
             Gyms = data is null ? [] : Gyms(layout, data),
             SpecialistTiers = data is null ? [] : Core.Progression.SpecialistStock.Tiers(data),
             StoryOrder = data is null ? null : Core.Progression.StoryOrder.For(data),
+            NightTables = data is null ? [] : Core.Progression.EncounterPlanner.NightTables(data, data.Lab ?? new Core.ChampionLab.LabSettings()),
             TradeRequests = data is null ? new Dictionary<string, string>() : TradeWriter.Requests(layout, data),
         };
     }

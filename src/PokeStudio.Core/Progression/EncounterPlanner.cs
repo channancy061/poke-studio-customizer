@@ -371,4 +371,102 @@ public static class EncounterPlanner
     private static string Short(string type) => GameCatalog.Prettify(type.Replace("TYPE_", "", StringComparison.Ordinal));
 
     private static string Title(EncounterTable t) => t.Map.Length > 0 ? StoryOrder.AreaName(t.Map) : t.Key;
+
+    /// <summary>Night-themed families besides every Ghost and Dark type: owls, bats, moths, glowing and moon Pokémon.</summary>
+    public static readonly IReadOnlyList<string> NightFamilies =
+    [
+        "SPECIES_HOOTHOOT", "SPECIES_ZUBAT", "SPECIES_NOIBAT", "SPECIES_WOOBAT", "SPECIES_SPINARAK", "SPECIES_VENONAT", "SPECIES_ODDISH",
+        "SPECIES_KRICKETOT", "SPECIES_VOLBEAT", "SPECIES_ILLUMISE", "SPECIES_MORELULL", "SPECIES_CLEFFA", "SPECIES_CLEFAIRY", "SPECIES_MEOWTH",
+        "SPECIES_RATTATA", "SPECIES_DUSKULL", "SPECIES_LITWICK", "SPECIES_SNEASEL",
+    ];
+
+    /// <summary>The grass slots a night table changes: every third one from the second (about a third of the encounters).</summary>
+    private static bool NightSlot(int i) => i % 3 == 1;
+
+    /// <summary>
+    /// A night version of each area's grass (and cave) table: about a third of the encounters become night Pokémon (Ghost and
+    /// Dark types and <see cref="NightFamilies"/>) that fit the place by the same rules as the plan (as strong as a wild
+    /// Pokémon at that level can be, not a legendary or a starter, not before its story lock), one family each per area.
+    /// Keyed like the game's own time tables ("gRoute1_Night"); the other ways of meeting Pokémon stay as by day.
+    /// </summary>
+    public static IReadOnlyList<EncounterTable> NightTables(GameData data, LabSettings lab)
+    {
+        var species = data.Species.ToDictionary(s => s.Key, StringComparer.Ordinal);
+        var next = data.Rules?.LevelCaps.Count > 0 ? NextBattles(data) : null;
+        var officialOnly = lab.OfficialOnly && data.Species.Any(s => s.NationalDex is not null);
+        var starters = data.Starters.Concat(Starters).Where(species.ContainsKey).Select(k => TeamBuilder.FamilyRoot(data, k)).ToHashSet(StringComparer.Ordinal);
+        bool Night(Species s) => s.Types.Any(t => t is "TYPE_GHOST" or "TYPE_DARK") || NightFamilies.Contains(TeamBuilder.FamilyRoot(data, s.Key));
+        var roots = data.Species.Where(s => s.IsEnabled && !s.LockedFields.ContainsKey("*") && s.Stats.Total > 0 && (s.Tags & Special) == 0
+                && TeamBuilder.IsRegularForm(s) && (!officialOnly || TeamBuilder.IsOfficial(s)) && !Regional.Any(r => s.Key.Contains(r, StringComparison.Ordinal)))
+            .Select(s => TeamBuilder.FamilyRoot(data, s.Key)).Distinct(StringComparer.Ordinal)
+            .Where(r => species.TryGetValue(r, out var s) && (s.Tags & Special) == 0 && !starters.Contains(r)
+                && data.Species.Any(x => x.IsEnabled && TeamBuilder.FamilyRoot(data, x.Key) == r && Night(x)))
+            .OrderBy(r => r, StringComparer.Ordinal).ToList();
+
+        var result = new List<EncounterTable>();
+        foreach (var table in data.Encounters.Where(t => t.Map.Length > 0 && !t.Key.EndsWith("_Night", StringComparison.Ordinal)))
+        {
+            if (table.Methods.FirstOrDefault(m => m.Type == "land_mons" && m.Slots.Count > 0) is not { } land)
+            {
+                continue;
+            }
+
+            var inArea = land.Slots.Select(s => TeamBuilder.FamilyRoot(data, s.Species)).ToHashSet(StringComparer.Ordinal);
+            var picked = new Dictionary<string, string>(StringComparer.Ordinal); // day species → night one, so a species' slots change together
+            var slots = new List<EncounterSlot>();
+            for (var i = 0; i < land.Slots.Count; i++)
+            {
+                var day = land.Slots[i];
+                if (!NightSlot(i))
+                {
+                    slots.Add(day);
+                    continue;
+                }
+
+                if (!picked.TryGetValue(day.Species, out var night))
+                {
+                    var milestone = next?.Invoke(table.Map, day.MinLevel, "land_mons", i) ?? int.MaxValue;
+                    var maxTotal = Math.Max(species.TryGetValue(day.Species, out var o) ? o.Stats.Total : 0, 260 + (7 * day.MaxLevel));
+                    night = roots
+                        .Where(r => !inArea.Contains(r) && !(lab.StoryLocks.TryGetValue(r, out var unlock) && milestone < unlock))
+                        .Select(r => EvolutionPaths.EvolvedForm(data, r, day.MaxLevel, 99))
+                        .Where(k => species.TryGetValue(k, out var s) && s.Stats.Total <= maxTotal && Night(s))
+                        .OrderBy(k => StableHash($"{table.Key}/{day.Species}/{k}")).FirstOrDefault() ?? day.Species;
+                    picked[day.Species] = night;
+                    inArea.Add(TeamBuilder.FamilyRoot(data, night));
+                }
+
+                slots.Add(day with { Species = night });
+            }
+
+            if (slots.SequenceEqual(land.Slots))
+            {
+                continue;
+            }
+
+            result.Add(new EncounterTable
+            {
+                Key = table.Key + "_Night",
+                Map = table.Map,
+                Group = table.Group,
+                Methods = [land with { Slots = slots }],
+            });
+        }
+
+        return result;
+    }
+
+    private static int StableHash(string text)
+    {
+        unchecked
+        {
+            var h = 17;
+            foreach (var c in text)
+            {
+                h = (h * 31) + c;
+            }
+
+            return h & 0x7FFFFFFF;
+        }
+    }
 }
