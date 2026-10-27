@@ -184,6 +184,15 @@ public class StoryBattleTests
         Assert.Contains(own.Success ? $"\tgoto {own.Groups[1].Value}\n" : "\tend\n", script[script.IndexOf("_OnTransition::", StringComparison.Ordinal)..], StringComparison.Ordinal);
 
         // without the battle the map is as it was
+        Assert.DoesNotContain("_NotYet", script, StringComparison.Ordinal); // the first challenger is there from the start
+
+        // a challenger meant for after the 1st badge turns the player back before it (their level would come too early)
+        data.Story = data.Story with { Battles = [data.Story.Battles[0] with { Before = "FLAG_BADGE02_GET" }] };
+        var later = StoryWriter.Plan(root, data, Read)[StoryWriter.Script];
+        Assert.Contains("PokeStudio_Story_ROXANNE_Scene::\n\tlockall\n\tgoto_if_unset FLAG_BADGE01_GET, PokeStudio_Story_ROXANNE_NotYet\n", later, StringComparison.Ordinal);
+        Assert.Contains("Come back after your 1st badge.", later, StringComparison.Ordinal);
+        Assert.Contains("PokeStudio_Story_ROXANNE_TurnBack:\n\twalk_down\n", later, StringComparison.Ordinal);
+
         Assert.Equal(Read("data/maps/PewterCity/map.json"), StoryWriter.SceneTriggers(StoryWriter.MapObjects(json, Array.Empty<StoryWriter.MapPerson>()), []));
         Assert.Equal(Read("data/maps/PewterCity/scripts.inc"), StoryWriter.SceneTable(mapScripts, "PewterCity", false));
     }

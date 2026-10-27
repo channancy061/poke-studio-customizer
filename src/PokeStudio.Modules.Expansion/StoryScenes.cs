@@ -20,7 +20,37 @@ internal static partial class StoryWriter
 
     /// <summary>A planned scene: the person's local id, their temporary flag and variable, and the moves.</summary>
     internal sealed record Scene(StoryBattle Battle, int LocalId, string TempFlag, string TempVar, string ComeOut, bool Door,
-        string? PlayerStep, IReadOnlyList<string> WalkAway);
+        string? PlayerStep, IReadOnlyList<string> WalkAway)
+    {
+        /// <summary>
+        /// The step of the story before this battle (e.g. FLAG_BADGE04_GET): until it's done the player is turned back at
+        /// the entrance, so the battle (and its level) can't come too early. Null: from the start.
+        /// </summary>
+        public string? Required { get; init; }
+    }
+
+    /// <summary>The level-cap step just before a battle's own (not another story battle's), or null for the first.</summary>
+    internal static string? RequiredStep(Core.Modules.GameData data, StoryBattle b)
+    {
+        var caps = data.Rules?.LevelCaps ?? [];
+        if (!b.TurnsBackEarly)
+        {
+            return null;
+        }
+
+        var at = caps.ToList().FindIndex(c => c.Milestone == b.Before);
+        for (var i = at - 1; i >= 0; i--)
+        {
+            if (!caps[i].Milestone.StartsWith("FLAG_PS_BEAT_", StringComparison.Ordinal))
+            {
+                return caps[i].Milestone;
+            }
+        }
+
+        return null;
+    }
+
+    private static string Ordinal(int n) => n switch { 1 => "1st", 2 => "2nd", 3 => "3rd", _ => $"{n}th" };
 
     private static string Way(int dx, int dy) => (dx, dy) switch { (0, 1) => "down", (0, -1) => "up", (1, 0) => "right", _ => "left" };
 
@@ -159,6 +189,10 @@ internal static partial class StoryWriter
         void L(string line) => script.Append('\t').Append(line).Append('\n');
         script.Append('\n').Append(label).Append("_Scene::\n");
         L("lockall");
+        if (s.Required is { } required)
+        {
+            L($"goto_if_unset {required}, {label}_NotYet");
+        }
         if (s.Door)
         {
             L($"opendoor {dx}, {dy}");
@@ -232,6 +266,29 @@ internal static partial class StoryWriter
         {
             Moves("StepBack", ["lock_facing_direction", "walk_" + step, "unlock_facing_direction"]);
             Moves("ComeOut", ["walk_" + s.ComeOut]);
+        }
+
+        // too early: turned back at the entrance
+        if (s.Required is { } requiredStep)
+        {
+            script.Append('\n').Append(label).Append("_NotYet:\n");
+            L($"msgbox {label}_NotYetText, MSGBOX_DEFAULT");
+            if (s.PlayerStep is not null)
+            {
+                L($"applymovement OBJ_EVENT_ID_PLAYER, {label}_TurnBack");
+                L("waitmovement 0");
+            }
+
+            L("releaseall");
+            L("end");
+            var badge = System.Text.RegularExpressions.Regex.Match(requiredStep, @"^FLAG_BADGE0(\d)_GET$");
+            var when = badge.Success ? $"after your {Ordinal(int.Parse(badge.Groups[1].Value, CultureInfo.InvariantCulture))} badge" : "later";
+            script.Append('\n').Append(label).Append("_NotYetText:\n")
+                .Append(CultureInfo.InvariantCulture, $"\t.string \"Not yet! You're not ready for this.\\nCome back {when}.$\"\n");
+            if (s.PlayerStep is { } away)
+            {
+                Moves("TurnBack", ["walk_" + away]);
+            }
         }
 
         Moves("Notice", ["emote_exclamation_mark"]);

@@ -114,6 +114,8 @@
                     <TextBlock Text="{Binding Major}" Classes="caption muted" TextWrapping="Wrap" />
                     <CheckBox IsChecked="{Binding ComesOut}" IsVisible="{Binding CanComeOut}"
                               Content="Waits inside and comes out to meet the player, then walks away after losing" />
+                    <CheckBox IsChecked="{Binding TurnsBackEarly}" IsVisible="{Binding ComesOut}" IsEnabled="{Binding CanComeOut}"
+                              Content="Turns the player back if they come before the story step just before this battle (so its level can't come too early)" />
                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
                       <ComboBox ItemsSource="{Binding EffectOptions}" SelectedItem="{Binding Effect}" Width="300" AutomationProperties.Name="Field effect for the whole battle"
                                 ToolTip.Tip="Lasts the whole battle">

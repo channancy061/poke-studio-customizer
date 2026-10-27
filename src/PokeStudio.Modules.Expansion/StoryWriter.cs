@@ -413,7 +413,7 @@ internal static partial class StoryWriter
             {
                 var first = OwnObjectCount(mapJson) + 1;
                 var onMap = battles.Where(b => b.Map == map).Select((b, i) => (Battle: b, LocalId: first + i)).Where(x => x.Battle.UsesScene).ToList();
-                scenes[map] = PlanScenes(root, map, onMap, read, commonTemps);
+                scenes[map] = PlanScenes(root, map, onMap, read, commonTemps).Select(s => s with { Required = RequiredStep(data, s.Battle) }).ToList();
             }
         }
 

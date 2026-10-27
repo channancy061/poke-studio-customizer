@@ -98,6 +98,18 @@ public sealed partial class StoryRowViewModel(StoryBattlesPageViewModel page, St
         }
     }
 
+    public bool TurnsBackEarly
+    {
+        get => Battle.TurnsBackEarly;
+        set
+        {
+            if (value != Battle.TurnsBackEarly)
+            {
+                page.SetTurnsBackEarly(Battle.TrainerKey, value);
+            }
+        }
+    }
+
     public bool CanComeOut => Battle.DoorX is not null && Battle.FrontX is not null && Battle.Hidden is null && Battle.OnWin is null && Battle.AfterTalk is null;
 
     [RelayCommand]
@@ -383,6 +395,19 @@ public sealed partial class StoryBattlesPageViewModel : ViewModelBase
         var label = effect.Length == 0 ? "no field effect" : StoryEffects.Label(effect);
         _shell.Execute(new Core.Changes.ValueChange<Trainer>("Story battles", $"{GameCatalog.Prettify(before.Name)}: {label}",
             v => Data.Trainers[Data.Trainers.FindIndex(t => t.Key == trainerKey)] = v, before, before with { StartingStatus = effect.Length == 0 ? [] : [effect] }));
+        Refresh();
+    }
+
+    internal void SetTurnsBackEarly(string trainerKey, bool turnsBack)
+    {
+        if (Data.Story is not { } story)
+        {
+            return;
+        }
+
+        var after = story with { Battles = story.Battles.Select(b => b.TrainerKey == trainerKey ? b with { TurnsBackEarly = turnsBack } : b).ToList() };
+        _shell.Execute(new Core.Changes.ValueChange<StorySettings?>("Story battles", turnsBack ? "Turns the player back if too early" : "Battles whenever the player comes",
+            v => Data.Story = v, story, after));
         Refresh();
     }
 

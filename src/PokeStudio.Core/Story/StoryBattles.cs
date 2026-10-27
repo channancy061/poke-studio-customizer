@@ -74,6 +74,12 @@ public sealed record StoryBattle
     /// </summary>
     public bool ComesOut { get; init; } = true;
 
+    /// <summary>
+    /// With the scene: a player who comes before the story step just before this battle (e.g. the badge before it) is
+    /// turned back at the entrance, so the battle and its level can't come too early.
+    /// </summary>
+    public bool TurnsBackEarly { get; init; } = true;
+
     /// <summary>Whether the come-out-and-battle scene is used (the final chapter's guide keeps its own ways).</summary>
     public bool UsesScene => ComesOut && DoorX is not null && DoorY is not null && FrontX is not null && FrontY is not null
         && Hidden is null && OnWin is null && AfterTalk is null;
