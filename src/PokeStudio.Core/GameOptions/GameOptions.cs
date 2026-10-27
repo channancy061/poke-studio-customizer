@@ -99,6 +99,9 @@ public sealed record GameOptionsSettings
     /// <summary>Hard and up: route trainers move onto chokepoints so they can't be walked past (with the difficulty rules).</summary>
     public bool HardChokepoints { get; init; } = true;
 
+    /// <summary>The chokepoints also in caves and buildings (Rocket Hideout, Silph Co., Mt. Moon), never in a Gym.</summary>
+    public bool ChokepointsIndoors { get; init; }
+
     /// <summary>
     /// Fix the battle AI's switch-in memory: a Pokémon coming back in kept what the AI knew about the one before it (a
     /// revealed Levitate made it skip Earthquake).

@@ -36,8 +36,11 @@ internal static partial class Chokepoints
 
     private sealed record Spot(List<(int X, int Y)> Tiles, bool Horizontal, int Separated);
 
-    /// <summary>The route maps (MAP_TYPE_ROUTE) of a project.</summary>
-    public static IEnumerable<string> Routes(string root)
+    /// <summary>
+    /// The route maps (MAP_TYPE_ROUTE) of a project; with <paramref name="indoors"/> also caves and buildings (Rocket
+    /// Hideout, Silph Co., Mt. Moon), never a Gym, whose trainers are its puzzle.
+    /// </summary>
+    public static IEnumerable<string> Routes(string root, bool indoors = false)
     {
         var dir = Path.Combine(root, "data", "maps");
         if (!Directory.Exists(dir))
@@ -48,7 +51,8 @@ internal static partial class Chokepoints
         foreach (var folder in Directory.GetDirectories(dir).Order(StringComparer.Ordinal))
         {
             var file = Path.Combine(folder, "map.json");
-            if (File.Exists(file) && RouteType().IsMatch(File.ReadAllText(file)))
+            if (File.Exists(file) && File.ReadAllText(file) is var json
+                && (RouteType().IsMatch(json) || indoors && IndoorType().IsMatch(json) && !Path.GetFileName(folder).Contains("Gym", StringComparison.Ordinal)))
             {
                 yield return Path.GetFileName(folder);
             }
@@ -135,9 +139,10 @@ internal static partial class Chokepoints
             return Regex.IsMatch(body, @"\btrainerbattle_single\b|\btrainerbattle\s+TRAINER_BATTLE_SINGLE\b") && !body.Contains("_double", StringComparison.Ordinal);
         }
 
-        // regular one-on-one trainers that are always there (not the app's own story trainers, not a pair of twins)
+        // regular one-on-one trainers that are there from the start (not the app's own story trainers, not a pair of twins);
+        // a FLAG_HIDE_ one leaves after the story (Rocket Hideout's grunts), which moving doesn't change
         var trainers = people.Where(p => p.TrainerType is "TRAINER_TYPE_NORMAL" or "TRAINER_TYPE_SEE_ALL_DIRECTIONS"
-                && p.Flag is "0" or "" && !p.Script.StartsWith(StoryWriter.ScriptPrefix, StringComparison.Ordinal) && Battles(p)
+                && (p.Flag is "0" or "" || p.Flag.StartsWith("FLAG_HIDE_", StringComparison.Ordinal)) && !p.Script.StartsWith(StoryWriter.ScriptPrefix, StringComparison.Ordinal) && Battles(p)
                 && !people.Any(q => q != p && q.Script == p.Script))
             .ToList();
         if (trainers.Count == 0)
@@ -443,4 +448,7 @@ internal static partial class Chokepoints
 
     [GeneratedRegex("\"map_type\"\\s*:\\s*\"MAP_TYPE_ROUTE\"")]
     private static partial Regex RouteType();
+
+    [GeneratedRegex("\"map_type\"\\s*:\\s*\"MAP_TYPE_(INDOOR|UNDERGROUND)\"")]
+    private static partial Regex IndoorType();
 }

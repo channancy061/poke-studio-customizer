@@ -463,7 +463,8 @@ internal static partial class GameOptionsWriter
         {
             var behaviors = Chokepoints.Behaviors(read("include/constants/metatile_behaviors.h"));
             var (movedCount, routesMoved, keptRoutes) = (0, 0, new List<string>());
-            foreach (var route in Chokepoints.Routes(layout.Root))
+            var outdoors = Chokepoints.Routes(layout.Root).ToHashSet(StringComparer.Ordinal);
+            foreach (var route in Chokepoints.Routes(layout.Root, indoors: true))
             {
                 var file = $"data/maps/{route}/scripts.inc";
                 if ((result.TryGetValue(file, out var planned) ? planned : read(file)) is not { } routeScript)
@@ -471,7 +472,7 @@ internal static partial class GameOptionsWriter
                     continue;
                 }
 
-                var plan = TrainerRules(o) && o.HardChokepoints && readBytes is not null ? Chokepoints.PlanRoute(route, read, readBytes, behaviors) : null;
+                var plan = TrainerRules(o) && o.HardChokepoints && (o.ChokepointsIndoors || outdoors.Contains(route)) && readBytes is not null ? Chokepoints.PlanRoute(route, read, readBytes, behaviors) : null;
                 Put(file, routeScript, Chokepoints.Script(routeScript, route, plan?.Moves ?? []));
                 if (plan is not null)
                 {

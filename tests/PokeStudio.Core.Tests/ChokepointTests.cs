@@ -40,9 +40,9 @@ public class ChokepointTests
         Assert.Contains("MB_POND_WATER", behaviors.Keys);
         var report = new List<string>();
         var moved = 0;
-        foreach (var map in Chokepoints.Routes(root))
+        foreach (var map in Chokepoints.Routes(root, indoors: true))
         {
-            var plan = Chokepoints.PlanRoute(map, Read, ReadBytes, behaviors);
+            var plan = Chokepoints.PlanRoute(map, Read, ReadBytes, behaviors, picture: map.StartsWith("RocketHideout", StringComparison.Ordinal));
             Assert.NotNull(plan);
             Assert.Equal(plan.Moves.Count, plan.Moves.Select(m => (m.X, m.Y)).Distinct().Count());
             // trainers stay in their own part of the route (FireRed's Lv 31 Crissy stays in her corner of Route 4)
