@@ -143,6 +143,13 @@ public class EncounterPlannerTests
         Assert.Equal(3, brock.Party.Count);
         Assert.All(brock.Party, p => Assert.True(data.Species.Single(s => s.Key == p.Species).Stats.Total <= Core.ChampionLab.TeamBuilder.MaxStatTotal(14, Core.ChampionLab.Difficulty.Normal), p.Species));
         Assert.Equal(6, data.Trainers.Single(t => t.Key == "TRAINER_LEADER_GIOVANNI").Party.Count);
+
+        // from Lv 35 everyone's Pokémon are fully evolved, unless one holds an Eviolite
+        var notFinal = data.Trainers.Where(t => !t.NeverFought && t.LockedReason is null && !t.Key.Contains('@'))
+            .SelectMany(t => t.Party.Select(p => (t.Key, p)))
+            .Where(x => x.p.Level >= 35 && x.p.HeldItem != "ITEM_EVIOLITE" && !Core.ChampionLab.Defaults.FullyEvolved(data, x.p.Species))
+            .Select(x => $"{x.Key}: {x.p.Species} Lv {x.p.Level}").ToList();
+        Assert.True(notFinal.Count <= 5, string.Join(", ", notFinal.Take(20)));
         Assert.Empty(data.Trainers.Where(t => !t.Key.Contains('@') && !t.NeverFought && t.Party.Any(p => p.Moves.Any(unfair.Contains)))
             .Select(t => $"{t.Key} ({Core.ChampionLab.Lab.GroupOf(data, lab, t)}): {string.Join(",", t.Party.SelectMany(p => p.Moves).Where(unfair.Contains))}"));
         Assert.Equal("Route 1", StoryOrder.AreaName("MAP_ROUTE1"));

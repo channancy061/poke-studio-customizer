@@ -58,6 +58,39 @@ public class ChokepointTests
     }
 
     [Fact]
+    public void Real_firered_areas_lock_the_way_on_until_their_trainers_are_beaten_when_available()
+    {
+        var root = Environment.GetEnvironmentVariable("POKESTUDIO_FIRERED_DIR");
+        if (root is null || !Directory.Exists(root))
+        {
+            return;
+        }
+
+        string? Read(string rel) => File.Exists(Path.Combine(root, rel)) ? File.ReadAllText(Path.Combine(root, rel)) : null;
+        byte[]? ReadBytes(string rel) => File.Exists(Path.Combine(root, rel)) ? File.ReadAllBytes(Path.Combine(root, rel)) : null;
+        var behaviors = Chokepoints.Behaviors(Read("include/constants/metatile_behaviors.h"));
+        var world = AreaLock.World.Load(root, Core.Progression.StoryOrder.FireRed);
+        var plans = Chokepoints.Routes(root, indoors: true).Select(m => AreaLock.PlanArea(m, world, Read, ReadBytes!, behaviors)).OfType<AreaLock.Plan>().ToList();
+        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "arealock-firered.txt"), string.Join("\n", plans.Select(p => $"{p.Map}: {p.Why}; {p.Flag}, {p.Var}; guards at {string.Join(" ", p.Guards.Select(g => $"({g.X},{g.Y})"))}")));
+
+        // Route 3 opens toward Mt. Moon only after its trainers; the Rocket Hideout's floors lock their stairs down
+        Assert.Contains(plans, p => p.Map == "Route3");
+        Assert.Contains(plans, p => p.Map == "RocketHideout_B2F" && p.Guards.Count > 0);
+        Assert.DoesNotContain(plans, p => p.Map.Contains("PokemonCenter", StringComparison.Ordinal) || p.Map.Contains("Gym", StringComparison.Ordinal));
+
+        // the map and the script take the lock, and give it back
+        var plan = plans.First(p => p.Map == "Route3");
+        var json = Read("data/maps/Route3/map.json")!;
+        var locked = AreaLock.MapJson(json, plan, "OBJ_EVENT_GFX_POLICEMAN");
+        Assert.Contains("PokeStudio_AreaGuard_Route3", locked, StringComparison.Ordinal);
+        Assert.DoesNotContain("PokeStudio_Area", AreaLock.MapJson(locked, null, "OBJ_EVENT_GFX_POLICEMAN"), StringComparison.Ordinal);
+        var script = Read("data/maps/Route3/scripts.inc")!;
+        var lockedScript = AreaLock.Script(script, "Route3", plan, AreaLock.FirstGuardId(json));
+        Assert.Contains("goto_if_undefeated TRAINER_", lockedScript, StringComparison.Ordinal);
+        Assert.Equal(script, AreaLock.Script(lockedScript, "Route3", null, 0));
+    }
+
+    [Fact]
     public void Real_firered_route_trainers_get_chokepoints_when_available() => RealProject(Environment.GetEnvironmentVariable("POKESTUDIO_FIRERED_DIR"));
 
     [Fact]

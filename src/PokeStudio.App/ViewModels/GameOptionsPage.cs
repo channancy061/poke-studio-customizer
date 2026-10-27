@@ -296,6 +296,12 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         set => Update(s => s with { DebugMenus = value }, value ? "Debug menus on" : "Debug menus off");
     }
 
+    public bool AreaLock
+    {
+        get => Settings.AreaLock;
+        set => Update(s => s with { AreaLock = value }, value ? "Hard and up: the way on opens once the area's trainers are beaten" : "Area lock off");
+    }
+
     public bool ChokepointsIndoors
     {
         get => Settings.ChokepointsIndoors;
@@ -464,6 +470,7 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         OnPropertyChanged(nameof(TrainerRulesByDifficulty));
         OnPropertyChanged(nameof(HardChokepoints));
         OnPropertyChanged(nameof(ChokepointsIndoors));
+        OnPropertyChanged(nameof(AreaLock));
         OnPropertyChanged(nameof(DebugMenus));
         OnPropertyChanged(nameof(QuietNamingWhenPartyFull));
         OnPropertyChanged(nameof(BagItemsSlots));

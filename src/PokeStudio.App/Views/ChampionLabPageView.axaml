@@ -75,6 +75,13 @@
             <ToggleSwitch IsChecked="{Binding FairPlay}" Content="Fair play: bosses only use as many legendaries as the player could own by then" />
             <ToggleSwitch IsChecked="{Binding UniqueTypeCombos}" Content="Themed teams use varied second types (no two Water/Ground Pokémon)" />
             <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Trainers' Pokémon are fully evolved from level" VerticalAlignment="Center" />
+              <NumericUpDown Value="{Binding FullyEvolvedFrom}" Minimum="0" Maximum="100" Increment="1" FormatString="0" Width="110" AutomationProperties.Name="Fully evolved from level" />
+              <TextBlock Text="(0 = off)" Classes="small muted" VerticalAlignment="Center" />
+            </StackPanel>
+            <TextBlock Text="Except these, which hold an Eviolite instead:" Classes="small muted" />
+            <TextBox Text="{Binding EvioliteUsers, UpdateSourceTrigger=LostFocus}" TextWrapping="Wrap" AutomationProperties.Name="Pokémon that use an Eviolite" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
               <ToggleSwitch IsChecked="{Binding RouteTypeSpread}" Content="Route trainers' types are spread out: no type on more than" />
               <NumericUpDown Value="{Binding RouteTypeShare}" Minimum="5" Maximum="100" Increment="5" FormatString="0" Width="110" IsEnabled="{Binding RouteTypeSpread}" AutomationProperties.Name="Most of one type, percent" />
               <TextBlock Text="% of the Pokémon between two level caps" VerticalAlignment="Center" />

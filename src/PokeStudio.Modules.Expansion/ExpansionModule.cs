@@ -657,6 +657,7 @@ public sealed partial class ExpansionModule : IGameModule, ISpriteSource
         ("B_SHOW_EFFECTIVENESS", BattleConfig, "Show how well each move will work", "Super effective, not very effective or no effect, shown on the move list.", "SHOW_EFFECTIVENESS_ALWAYS", "SHOW_EFFECTIVENESS_NEVER"),
         ("P_SUMMARY_SCREEN_IV_EV_INFO", "include/config/summary_screen.h", "IVs and EVs on the summary screen", "The player can switch the stats page between stats, IVs and EVs.", "TRUE", "FALSE"),
         ("OW_SHOW_ITEM_DESCRIPTIONS", "include/config/overworld.h", "Item descriptions when found", "Says what an item does when the player picks it up.", "OW_ITEM_DESCRIPTIONS_ALWAYS", "OW_ITEM_DESCRIPTIONS_OFF"),
+        ("B_AFFECTION_MECHANICS", BattleConfig, "Affection in battle", "Pokémon that love their trainer can land critical hits, shake off a status, dodge moves and hold on at 1 HP. Off: battles go by the numbers alone.", "TRUE", "FALSE"),
         ("B_FAST_INTRO_NO_SLIDE", BattleConfig, "Skip the battle slide-in", "Battles start straight away, without the sliding animation.", "TRUE", "FALSE"),
     ];
 

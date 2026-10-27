@@ -364,8 +364,10 @@ public static class TeamBuilder
                 continue;
             }
 
-            // fully evolved (or not evolving any further by this level)
-            if (Progression.EvolutionPaths.EvolvedForm(data, s.Key, level, 36) != s.Key)
+            // fully evolved (or not evolving any further by this level); from the "fully evolved" level only the final
+            // stage, or an Eviolite user
+            if (Progression.EvolutionPaths.EvolvedForm(data, s.Key, level, 36) != s.Key
+                || lab.FullyEvolvedFrom > 0 && level >= lab.FullyEvolvedFrom && !lab.EvioliteUsers.Contains(s.Key) && !Defaults.FullyEvolved(data, s.Key))
             {
                 continue;
             }
@@ -494,7 +496,7 @@ public static class TeamBuilder
 
         // item
         string? item = null;
-        if (difficulty >= Difficulty.Hard || isAce)
+        if (difficulty >= Difficulty.Hard || isAce || !Defaults.FullyEvolved(data, s.Key))
         {
             string[] prefs = difficulty switch
             {
@@ -505,6 +507,12 @@ public static class TeamBuilder
                 Difficulty.Hard => ["ITEM_LIFE_ORB", "ITEM_SITRUS_BERRY", "ITEM_LEFTOVERS"],
                 _ => ["ITEM_SITRUS_BERRY", "ITEM_ORAN_BERRY"],
             };
+            // a Pokémon that can still evolve holds an Eviolite
+            if (!Defaults.FullyEvolved(data, s.Key))
+            {
+                prefs = ["ITEM_EVIOLITE", .. prefs];
+            }
+
             item = prefs.FirstOrDefault(i => c.Items.Any(x => x.Key == i) && (usedItems is null || !usedItems.Contains(i)));
             if (item is not null)
             {

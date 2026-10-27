@@ -223,6 +223,18 @@ public sealed partial class ChampionLabPageViewModel : ViewModelBase
         set => Update(s => s with { Nightmare = s.Nightmare with { SmartAi = value } }, $"Nightmare route trainers: Expert AI {(value ? "on" : "off")}");
     }
 
+    public decimal? FullyEvolvedFrom
+    {
+        get => Settings.FullyEvolvedFrom;
+        set => Update(s => s with { FullyEvolvedFrom = (int)Math.Clamp(value ?? 0, 0, 100) }, $"Fully evolved from level {(int)Math.Clamp(value ?? 0, 0, 100)}");
+    }
+
+    public string EvioliteUsers
+    {
+        get => string.Join(", ", Settings.EvioliteUsers.Select(k => k.Replace("SPECIES_", "", StringComparison.Ordinal)));
+        set => Update(s => s with { EvioliteUsers = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(k => "SPECIES_" + k.ToUpperInvariant().Replace(' ', '_').Replace("SPECIES_", "", StringComparison.Ordinal)).ToList() }, "Eviolite users changed");
+    }
+
     public bool RouteTypeSpread
     {
         get => Settings.RouteTypeSpread;
@@ -342,6 +354,8 @@ public sealed partial class ChampionLabPageViewModel : ViewModelBase
         OnPropertyChanged(nameof(OfficialOnly));
         OnPropertyChanged(nameof(FairMoves));
         OnPropertyChanged(nameof(RouteTypeSpread));
+        OnPropertyChanged(nameof(FullyEvolvedFrom));
+        OnPropertyChanged(nameof(EvioliteUsers));
         OnPropertyChanged(nameof(NightmareAtLevelCap));
         OnPropertyChanged(nameof(NightmareFullTraining));
         OnPropertyChanged(nameof(NightmareHeldItems));

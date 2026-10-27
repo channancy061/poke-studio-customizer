@@ -162,6 +162,8 @@
                     Content="Hard and up: route trainers stand where they can't be walked past (only near their own place)" />
           <CheckBox IsChecked="{Binding ChokepointsIndoors}" IsEnabled="{Binding HardChokepoints}" Margin="48,0,0,0"
                     Content="Also in caves and buildings (Rocket Hideout, Silph Co., Mt. Moon; never in a Gym)" />
+          <CheckBox IsChecked="{Binding AreaLock}" IsEnabled="{Binding TrainerRulesByDifficulty}" Margin="24,0,0,0"
+                    Content="Hard and up: the way on to the next place opens only once every trainer of the area is beaten (a guard stands in it)" />
           <TextBlock TextWrapping="Wrap" Classes="caption muted"
                      Text="Easy: only important battles stop the player; other trainers battle when talked to. Normal: as the original game. Hard: every trainer sees far and in every direction (no sneaking past), and Gym Leaders wait until every trainer in their Gym is beaten. Nightmare (the hardest): as Hard, with six fully trained Pokémon per trainer at the level cap (make those teams on Plan wild Pokémon; what goes into them is on Champion Lab)." />
         </StackPanel>

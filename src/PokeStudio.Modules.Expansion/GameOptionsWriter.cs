@@ -24,7 +24,8 @@ internal static partial class GameOptionsWriter
     public const string Mark = "Poke Studio";
 
     public static IReadOnlyList<string> Files(ExpansionLayout layout) =>
-        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC, AiMain, GlobalConstants, NamingScreen, DebugConfig, BiggerBag.Global, BiggerBag.Item, BiggerBag.ItemMenu, .. AideWriter.Files(layout.Root), .. TradeWriter.Files(layout.Root)];
+        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC, AiMain, GlobalConstants, NamingScreen, DebugConfig, BiggerBag.Global, BiggerBag.Item, BiggerBag.ItemMenu, .. AideWriter.Files(layout.Root), .. TradeWriter.Files(layout.Root),
+         .. Chokepoints.Routes(layout.Root, indoors: true).Select(m => $"data/maps/{m}/map.json")];
 
     /// <summary>The expansion's debug settings.</summary>
     public const string DebugConfig = "include/config/debug.h";
@@ -323,7 +324,8 @@ internal static partial class GameOptionsWriter
 
         // 3. the generated script, included by event_scripts.s
         var specialist = o.MartSpecialist && (extras ?? Extras.None).SpecialistTiers.Count == 9;
-        Put(Script, read(Script), BuildScript(o, ids, layout.IsFireRedBase) + (specialist ? SpecialistScript((extras ?? Extras.None).SpecialistTiers, layout.IsFireRedBase) : ""));
+        Put(Script, read(Script), BuildScript(o, ids, layout.IsFireRedBase) + (specialist ? SpecialistScript((extras ?? Extras.None).SpecialistTiers, layout.IsFireRedBase) : "")
+            + (TrainerRules(o) && o.AreaLock ? AreaLock.Shared("\n") : ""));
 
         // the Mart Specialist: a second person behind every Mart's counter (taken out again when switched off)
         foreach (var mart in CenterPlacement.MartMaps(layout.Root))
@@ -464,6 +466,10 @@ internal static partial class GameOptionsWriter
             var behaviors = Chokepoints.Behaviors(read("include/constants/metatile_behaviors.h"));
             var (movedCount, routesMoved, keptRoutes) = (0, 0, new List<string>());
             var outdoors = Chokepoints.Routes(layout.Root).ToHashSet(StringComparer.Ordinal);
+            var locking = TrainerRules(o) && o.AreaLock && readBytes is not null && (extras ?? Extras.None).StoryOrder is { Count: > 0 };
+            var world = locking ? AreaLock.World.Load(layout.Root, (extras ?? Extras.None).StoryOrder!) : null;
+            var guardGfx = read("include/constants/event_objects.h")?.Contains("OBJ_EVENT_GFX_POLICEMAN", StringComparison.Ordinal) == true ? "OBJ_EVENT_GFX_POLICEMAN" : "OBJ_EVENT_GFX_MAN_1";
+            var locked = 0;
             foreach (var route in Chokepoints.Routes(layout.Root, indoors: true))
             {
                 var file = $"data/maps/{route}/scripts.inc";
@@ -473,7 +479,23 @@ internal static partial class GameOptionsWriter
                 }
 
                 var plan = TrainerRules(o) && o.HardChokepoints && (o.ChokepointsIndoors || outdoors.Contains(route)) && readBytes is not null ? Chokepoints.PlanRoute(route, read, readBytes, behaviors) : null;
-                Put(file, routeScript, Chokepoints.Script(routeScript, route, plan?.Moves ?? []));
+                // the area lock goes on top of the chokepoints (taken off first, as it runs before them)
+                var withChokepoints = Chokepoints.Script(AreaLock.CleanScript(routeScript), route, plan?.Moves ?? []);
+                var jsonFile = $"data/maps/{route}/map.json";
+                var lockPlan = world is not null ? AreaLock.PlanArea(route, world, read, readBytes!, behaviors) : null;
+                var firstGuard = 0;
+                if ((result.TryGetValue(jsonFile, out var plannedJson) ? plannedJson : read(jsonFile)) is { } mapJson)
+                {
+                    firstGuard = AreaLock.FirstGuardId(AreaLock.MapJson(mapJson, null, guardGfx));
+                    Put(jsonFile, mapJson, AreaLock.MapJson(mapJson, lockPlan, guardGfx));
+                }
+                else
+                {
+                    lockPlan = null;
+                }
+
+                locked += lockPlan is null ? 0 : 1;
+                Put(file, routeScript, AreaLock.Script(withChokepoints, route, lockPlan, firstGuard));
                 if (plan is not null)
                 {
                     movedCount += plan.Moves.Count;

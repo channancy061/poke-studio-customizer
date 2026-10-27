@@ -43,8 +43,10 @@ public static class RouteTrainers
         var roots = met.Select(m => (Root: TeamBuilder.FamilyRoot(data, m.Species), m.From))
             .GroupBy(x => x.Root).Select(g => (Root: g.Key, From: g.Min(x => x.From))).ToList();
         var forms = new Dictionary<(string, int), string>();
+        // evolved as far as the level allows; fully from the "fully evolved" level
         string FormAt(string root, int level) =>
-            forms.TryGetValue((root, level), out var f) ? f : forms[(root, level)] = EvolutionPaths.EvolvedForm(data, root, level, 36);
+            forms.TryGetValue((root, level), out var f) ? f
+            : forms[(root, level)] = lab.FullyEvolvedFrom > 0 && level >= lab.FullyEvolvedFrom ? EvolutionPaths.EvolvedForm(data, root, 100, 0) : EvolutionPaths.EvolvedForm(data, root, level, 36);
 
         // a trainer's place in the playthrough: the area of the same name (a city's trainers count with its own area)
         var order = StoryOrder.For(data);

@@ -79,6 +79,13 @@ public sealed record LabSettings
     public bool RouteTypeSpread { get; init; } = true;
     public int RouteTypeShare { get; init; } = 20;
 
+    /// <summary>
+    /// From this level trainers' Pokémon are fully evolved (0 = off), except the ones in <see cref="EvioliteUsers"/>, which
+    /// hold an Eviolite instead (Chansey, Porygon2, Dusclops…).
+    /// </summary>
+    public int FullyEvolvedFrom { get; init; } = 35;
+    public IReadOnlyList<string> EvioliteUsers { get; init; } = Defaults.EvioliteUsers;
+
     /// <summary>What makes the hardest difficulty (Nightmare) harder for route trainers, each its own switch.</summary>
     public NightmareRules Nightmare { get; init; } = new();
 
@@ -122,6 +129,16 @@ public static class Defaults
         "HIKER", "RUIN_MANIAC", "BLACK_BELT", "BATTLE_GIRL", "CRUSH_GIRL", "CUE_BALL", "PSYCHIC", "HEX_MANIAC", "CHANNELER",
         "KINDLER", "BURGLAR", "GUITARIST", "ENGINEER", "DRAGON_TAMER", "AROMA_LADY", "BIKER",
     ];
+
+    /// <summary>Pokémon that are better not fully evolved, holding an Eviolite.</summary>
+    public static readonly IReadOnlyList<string> EvioliteUsers =
+    [
+        "SPECIES_CHANSEY", "SPECIES_PORYGON2", "SPECIES_DUSCLOPS", "SPECIES_DOUBLADE", "SPECIES_GLIGAR", "SPECIES_SCYTHER",
+        "SPECIES_MAGNETON", "SPECIES_RHYDON", "SPECIES_SNEASEL", "SPECIES_MURKROW", "SPECIES_MISDREAVUS", "SPECIES_TOGETIC",
+    ];
+
+    /// <summary>Fully evolved: nothing left to evolve into by any means.</summary>
+    public static bool FullyEvolved(GameData data, string species) => Progression.EvolutionPaths.EvolvedForm(data, species, 100, 0) == species;
 
     /// <summary>A class's theme counts by the end of its constant (TRAINER_CLASS_BIRD_KEEPER).</summary>
     public static bool IsThemed(IEnumerable<string> classes, string trainerClass) =>

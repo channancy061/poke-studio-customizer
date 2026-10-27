@@ -103,6 +103,12 @@ public sealed record GameOptionsSettings
     public bool ChokepointsIndoors { get; init; }
 
     /// <summary>
+    /// Hard and up: the way on to the next place opens only once every trainer of the area is beaten; a guard stands in
+    /// it and leaves when talked to after (see the module's area lock).
+    /// </summary>
+    public bool AreaLock { get; init; }
+
+    /// <summary>
     /// Fix the battle AI's switch-in memory: a Pokémon coming back in kept what the AI knew about the one before it (a
     /// revealed Levitate made it skip Earthquake).
     /// </summary>
