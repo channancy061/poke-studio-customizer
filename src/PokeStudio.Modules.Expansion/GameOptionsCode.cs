@@ -44,6 +44,9 @@ internal static partial class GameOptionsWriter
 
         /// <summary>The Mart Specialist's stock for 0…8 badges.</summary>
         public IReadOnlyList<IReadOnlyList<string>> SpecialistTiers { get; init; } = [];
+
+        /// <summary>In-game trades' new requests (trade id → species), for <see cref="GameOptionsSettings.TradesAskForWildPokemon"/>.</summary>
+        public IReadOnlyDictionary<string, string> TradeRequests { get; init; } = new Dictionary<string, string>();
     }
 
     public static IReadOnlyList<string> CodeFiles => [CodeFile, CodeHeader, BattleSetup, BattleScripts, PoolsSource, PoolsHeader, WildConfig, ItemUse, DataSource, Healing, WildEncounters, TrainerSee];
@@ -159,6 +162,7 @@ internal static partial class GameOptionsWriter
             MajorTrainers = data is null ? [] : MajorTrainers(data),
             Gyms = data is null ? [] : Gyms(layout, data),
             SpecialistTiers = data is null ? [] : Core.Progression.SpecialistStock.Tiers(data),
+            TradeRequests = data is null ? new Dictionary<string, string>() : TradeWriter.Requests(layout, data),
         };
     }
 

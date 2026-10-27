@@ -97,6 +97,16 @@ public class EncounterPlannerTests
         EncounterPlanner.ToChange(data, EncounterPlanner.Plan(data, lab, new EncounterPlanner.Options()))!.Apply();
         var after = EncounterPlanner.Check(data, lab);
         Assert.All(after, r => Assert.True(r.Ready, $"{r.Label}: {r.Counters.Count} counters"));
+        // in-game trades then ask for a Pokémon met before the trader
+        var metBy = EncounterPlanner.Met(data);
+        var asks = TradePlanner.Requests(data, [new InGameTrade("T1", "Route 2 House", "SPECIES_MAGIKARP", "SPECIES_MR_MIME"), new InGameTrade("T2", "Cerulean City House3", "SPECIES_POLIWHIRL", "SPECIES_JYNX")]);
+        foreach (var (id, ask) in asks)
+        {
+            var place = id == "T1" ? "Route 2 House" : "Cerulean City House3";
+            var by = StoryOrder.MilestoneOfPlace(data, place)!.Value;
+            Assert.Contains(metBy, m => m.From <= by && Core.ChampionLab.TeamBuilder.FamilyRoot(data, m.Species) == Core.ChampionLab.TeamBuilder.FamilyRoot(data, ask));
+        }
+
         // route trainers then use those wild Pokémon, with fair moves (no Pidgey spamming Sand Attack)
         var (trainers, updated) = RouteTrainers.Refresh(data, lab);
         Assert.True(updated > 100);

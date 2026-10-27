@@ -222,6 +222,56 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         set => Update(s => s with { FixedDifficulty = value.Choice }, $"Difficulty is always {value.Label}");
     }
 
+    public bool AidesCountEveryPokemon
+    {
+        get => Settings.AidesCountEveryPokemon;
+        set => Update(s => s with { AidesCountEveryPokemon = value }, value ? "Oak's aides count every Pokémon" : "Oak's aides count Kanto's 151");
+    }
+
+    public bool TradesAskForWildPokemon
+    {
+        get => Settings.TradesAskForWildPokemon;
+        set => Update(s => s with { TradesAskForWildPokemon = value }, value ? "In-game trades ask for wild Pokémon" : "In-game trades ask for the original Pokémon");
+    }
+
+    private decimal? AideCount(int i) => i < Settings.AideCounts.Count ? Settings.AideCounts[i] : 0;
+
+    private void SetAideCount(int i, decimal? value)
+    {
+        var n = (int)Math.Clamp(value ?? 0, 0, 999);
+        Update(s => s with { AideCounts = [.. Enumerable.Range(0, 5).Select(k => k == i ? n : k < s.AideCounts.Count ? s.AideCounts[k] : 0)] }, $"Aide's number: {n}");
+    }
+
+    public decimal? AideFlash
+    {
+        get => AideCount(0);
+        set => SetAideCount(0, value);
+    }
+
+    public decimal? AideEverstone
+    {
+        get => AideCount(1);
+        set => SetAideCount(1, value);
+    }
+
+    public decimal? AideItemfinder
+    {
+        get => AideCount(2);
+        set => SetAideCount(2, value);
+    }
+
+    public decimal? AideAmuletCoin
+    {
+        get => AideCount(3);
+        set => SetAideCount(3, value);
+    }
+
+    public decimal? AideExpShare
+    {
+        get => AideCount(4);
+        set => SetAideCount(4, value);
+    }
+
     public decimal? BagItemsSlots
     {
         get => Settings.BagItemsSlots;
@@ -410,6 +460,13 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         OnPropertyChanged(nameof(DebugMenus));
         OnPropertyChanged(nameof(QuietNamingWhenPartyFull));
         OnPropertyChanged(nameof(BagItemsSlots));
+        OnPropertyChanged(nameof(AidesCountEveryPokemon));
+        OnPropertyChanged(nameof(TradesAskForWildPokemon));
+        OnPropertyChanged(nameof(AideFlash));
+        OnPropertyChanged(nameof(AideEverstone));
+        OnPropertyChanged(nameof(AideItemfinder));
+        OnPropertyChanged(nameof(AideAmuletCoin));
+        OnPropertyChanged(nameof(AideExpShare));
         OnPropertyChanged(nameof(PcItemsSlots));
         OnPropertyChanged(nameof(FixAiSwitchInMemory));
         OnPropertyChanged(nameof(OneOfEachImportantItem));

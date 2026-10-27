@@ -182,6 +182,23 @@ public static partial class StoryOrder
     public static double? AreaPosition(IReadOnlyList<string> order, string map) =>
         IndexOf(order, map) is >= 0 and var i ? i : IndexOf(order, League) + 0.25;
 
+    /// <summary>
+    /// The first major battle after a place ("Route 3", or "Route 2 House", which counts with Route 2), or null without a
+    /// playthrough order or when the place isn't in it.
+    /// </summary>
+    public static int? MilestoneOfPlace(GameData data, string place)
+    {
+        if (For(data) is not { } order || CapPositions(data) is not { } caps)
+        {
+            return null;
+        }
+
+        var area = order.Where(x => x.StartsWith("MAP_", StringComparison.Ordinal)).Select(x => (Name: AreaName(x), Map: x))
+            .Where(a => place.Equals(a.Name, StringComparison.OrdinalIgnoreCase) || place.StartsWith(a.Name + " ", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(a => a.Name.Length).Select(a => a.Map).FirstOrDefault();
+        return area is null ? null : NextBattle(caps, AreaPosition(order, area)!.Value);
+    }
+
     /// <summary>The first major battle after an area (an index into the level caps).</summary>
     public static int NextBattle(double[] caps, double areaPosition)
     {

@@ -24,7 +24,7 @@ internal static partial class GameOptionsWriter
     public const string Mark = "Poke Studio";
 
     public static IReadOnlyList<string> Files(ExpansionLayout layout) =>
-        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC, AiMain, GlobalConstants, NamingScreen, DebugConfig, BiggerBag.Global, BiggerBag.Item, BiggerBag.ItemMenu];
+        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC, AiMain, GlobalConstants, NamingScreen, DebugConfig, BiggerBag.Global, BiggerBag.Item, BiggerBag.ItemMenu, .. AideWriter.Files(layout.Root), .. TradeWriter.Files(layout.Root)];
 
     /// <summary>The expansion's debug settings.</summary>
     public const string DebugConfig = "include/config/debug.h";
@@ -357,6 +357,24 @@ internal static partial class GameOptionsWriter
         {
             var sized = WithSize(WithSize(global, "BAG_ITEMS_COUNT", 0), "PC_ITEMS_COUNT", o.PcItemsSlots);
             Put(GlobalConstants, global, BiggerBag.Apply(BiggerBag.Constants, sized, o.BagItemsSlots));
+        }
+
+        // in-game trades ask for a Pokémon that's in the wild before the trader (left alone when the plan has no data)
+        foreach (var file in TradeWriter.Files(layout.Root))
+        {
+            if ((result.TryGetValue(file, out var planned) ? planned : read(file)) is { } text && ((extras ?? Extras.None).TradeRequests.Count > 0 || !o.TradesAskForWildPokemon))
+            {
+                Put(file, text, TradeWriter.Apply(text, (extras ?? Extras.None).TradeRequests, o.TradesAskForWildPokemon));
+            }
+        }
+
+        // Professor Oak's aides: every Pokémon counts, and their numbers
+        foreach (var file in AideWriter.Files(layout.Root))
+        {
+            if ((result.TryGetValue(file, out var planned) ? planned : read(file)) is { } text)
+            {
+                Put(file, text, AideWriter.Apply(text, o.AidesCountEveryPokemon, AideWriter.CountFor(o, file)));
+            }
         }
 
         foreach (var file in new[] { BiggerBag.Global, BiggerBag.Item, BiggerBag.ItemMenu })

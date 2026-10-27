@@ -94,6 +94,22 @@ public class MartSpecialistTests
             return;
         }
 
+        // Oak's aides count every Pokémon and ask for a set number; off puts them back
+        var aide = File.ReadAllText(Path.Combine(fr, "data", "maps", "Route2_EastBuilding", "scripts.inc"));
+        var counting = AideWriter.Apply(aide, true, 15);
+        Assert.Contains("setvar VAR_0x8004, 1 @ Poke Studio: aides count every Pokémon", counting, StringComparison.Ordinal);
+        Assert.Contains(".equ REQUIRED_SEEN_MONS, 15 @ Poke Studio: aide's number (was 10)", counting, StringComparison.Ordinal);
+        Assert.Equal(counting, AideWriter.Apply(counting, true, 15));
+        Assert.Equal(aide, AideWriter.Apply(counting, false, 0));
+        Assert.Equal(5, AideWriter.Files(fr).Count());
+
+        // in-game trades: every requested line of a trade changes (Nidoran has one per game version), and comes back
+        var trades = File.ReadAllText(Path.Combine(fr, "src", "data", "ingame_trades.h"));
+        var asked = TradeWriter.Apply(trades, new Dictionary<string, string> { ["INGAME_TRADE_MR_MIME"] = "SPECIES_RALTS", ["INGAME_TRADE_NIDORAN"] = "SPECIES_BUDEW" }, true);
+        Assert.Contains(".requestedSpecies = SPECIES_RALTS // Poke Studio: trade (was SPECIES_ABRA)", asked, StringComparison.Ordinal);
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Count(asked, "SPECIES_BUDEW"));
+        Assert.Equal(trades, TradeWriter.Apply(asked, new Dictionary<string, string>(), false));
+
         var shop = File.ReadAllText(Path.Combine(fr, "src", "shop.c"));
         var patched = ShopsJson.OneOfEachPatch(shop)!;
         Assert.Contains("sText_PsAlreadyHave", patched, StringComparison.Ordinal);

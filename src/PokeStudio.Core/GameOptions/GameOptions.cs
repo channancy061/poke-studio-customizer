@@ -129,11 +129,22 @@ public sealed record GameOptionsSettings
     /// <summary>How many different items the PC's item storage holds (0 = the game's own: FireRed 30, Emerald 50).</summary>
     public int PcItemsSlots { get; init; }
 
+    /// <summary>
+    /// Professor Oak's aides count every kind of Pokémon caught, not just Kanto's 151 (a game with every generation in
+    /// the wild barely has those). <see cref="AideCounts"/>: how many each asks for, in the order HM05 Flash, Everstone,
+    /// Itemfinder, Amulet Coin, Exp. Share (0 = the game's own: 10, 20, 30, 40, 50).
+    /// </summary>
+    public bool AidesCountEveryPokemon { get; init; }
+    public IReadOnlyList<int> AideCounts { get; init; } = [0, 0, 0, 0, 0];
+
+    /// <summary>In-game trades ask for a Pokémon the player can catch before reaching the trader (the original ones are often not in the wild any more).</summary>
+    public bool TradesAskForWildPokemon { get; init; }
+
     public bool NuzlockeUsed => Nuzlocke != OptionMode.NotUsed;
 
     public bool AnyUsed => Difficulty != OptionMode.NotUsed || TrainingOff != OptionMode.NotUsed || LevelCap != OptionMode.NotUsed
         || NoItemsInBattle != OptionMode.NotUsed || InfiniteCandy != OptionMode.NotUsed || NuzlockeUsed || AdaptiveSlot != OptionMode.NotUsed
-        || CenterHelper.Enabled || MartSpecialist || BagItemsSlots > 0 || PcItemsSlots > 0;
+        || CenterHelper.Enabled || MartSpecialist || BagItemsSlots > 0 || PcItemsSlots > 0 || AidesCountEveryPokemon || AideCounts.Any(c => c > 0) || TradesAskForWildPokemon;
 
     /// <summary>The level cap code is needed (by the cap option itself or the Nuzlocke cap rule).</summary>
     public bool LevelCapCodeUsed => LevelCap != OptionMode.NotUsed || NuzRuleUsed(NuzLevelCap);

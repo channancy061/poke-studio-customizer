@@ -98,6 +98,27 @@
 
       <Border Classes="card">
         <StackPanel Spacing="8">
+          <TextBlock Text="Professor Oak's aides and in-game trades" Classes="heading" />
+          <CheckBox IsChecked="{Binding AidesCountEveryPokemon}" Content="Oak's aides count every kind of Pokémon caught, not just Kanto's 151" />
+          <TextBlock Text="Kinds of Pokémon each aide asks for (0 = the game's own: 10, 20, 30, 40, 50)" Classes="small muted" />
+          <Grid ColumnDefinitions="Auto,140" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6">
+            <TextBlock Grid.Row="0" Text="HM05 Flash (Route 2)" VerticalAlignment="Center" />
+            <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding AideFlash}" Minimum="0" Maximum="999" Increment="5" FormatString="0" AutomationProperties.Name="Pokémon needed for HM05 Flash (Route 2)" />
+            <TextBlock Grid.Row="1" Text="Everstone (Route 10)" VerticalAlignment="Center" />
+            <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding AideEverstone}" Minimum="0" Maximum="999" Increment="5" FormatString="0" AutomationProperties.Name="Pokémon needed for Everstone (Route 10)" />
+            <TextBlock Grid.Row="2" Text="Itemfinder (Route 11)" VerticalAlignment="Center" />
+            <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding AideItemfinder}" Minimum="0" Maximum="999" Increment="5" FormatString="0" AutomationProperties.Name="Pokémon needed for Itemfinder (Route 11)" />
+            <TextBlock Grid.Row="3" Text="Amulet Coin (Route 16)" VerticalAlignment="Center" />
+            <NumericUpDown Grid.Row="3" Grid.Column="1" Value="{Binding AideAmuletCoin}" Minimum="0" Maximum="999" Increment="5" FormatString="0" AutomationProperties.Name="Pokémon needed for Amulet Coin (Route 16)" />
+            <TextBlock Grid.Row="4" Text="Exp. Share (Route 15)" VerticalAlignment="Center" />
+            <NumericUpDown Grid.Row="4" Grid.Column="1" Value="{Binding AideExpShare}" Minimum="0" Maximum="999" Increment="5" FormatString="0" AutomationProperties.Name="Pokémon needed for Exp. Share (Route 15)" />
+          </Grid>
+          <CheckBox IsChecked="{Binding TradesAskForWildPokemon}" Content="In-game trades ask for a Pokémon you can catch before reaching the trader (the Pokémon they give stays)" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="8">
           <TextBlock Text="Bag and PC" Classes="heading" />
           <Grid ColumnDefinitions="Auto,140" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="6">
             <TextBlock Text="Different items in the bag's Items pocket (0 = the game's own, 150 = as many as fit)" VerticalAlignment="Center" />
