@@ -74,6 +74,20 @@
             <ToggleSwitch IsChecked="{Binding FairMoves}" Content="Moves fit the level: TMs, tutors and egg moves only up to a power that grows with the level (moves learned by level-up are always fine)" />
             <ToggleSwitch IsChecked="{Binding FairPlay}" Content="Fair play: bosses only use as many legendaries as the player could own by then" />
             <ToggleSwitch IsChecked="{Binding UniqueTypeCombos}" Content="Themed teams use varied second types (no two Water/Ground Pokémon)" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <ToggleSwitch IsChecked="{Binding RouteTypeSpread}" Content="Route trainers' types are spread out: no type on more than" />
+              <NumericUpDown Value="{Binding RouteTypeShare}" Minimum="5" Maximum="100" Increment="5" FormatString="0" Width="110" IsEnabled="{Binding RouteTypeSpread}" AutomationProperties.Name="Most of one type, percent" />
+              <TextBlock Text="% of the Pokémon between two level caps" VerticalAlignment="Center" />
+            </StackPanel>
+            <TextBlock Text="Trainer classes that keep their type (a Bird Keeper keeps birds); everyone else gets a team of different types:" Classes="small muted" TextWrapping="Wrap" IsVisible="{Binding RouteTypeSpread}" />
+            <TextBlock Text="Nightmare route trainers (six Pokémon each)" FontWeight="Bold" Margin="0,8,0,0" />
+            <ToggleSwitch IsChecked="{Binding NightmareAtLevelCap}" Content="At the level cap of their part of the game" />
+            <ToggleSwitch IsChecked="{Binding NightmareFullTraining}" Content="Fully trained: perfect IVs, 252/252 EVs, best nature and ability, the boss builder's moves" />
+            <ToggleSwitch IsChecked="{Binding NightmareHeldItems}" Content="A competitive held item each (no two alike)" />
+            <ToggleSwitch IsChecked="{Binding NightmareStrongerPokemon}" Content="Stronger evolutions allowed (Hard's limit instead of Easy's)" />
+            <ToggleSwitch IsChecked="{Binding NightmareCoverWeaknesses}" Content="Members cover each other's weaknesses" />
+            <ToggleSwitch IsChecked="{Binding NightmareSmartAi}" Content="Expert battle AI (predicts switches, plays around HP)" />
+            <TextBox Text="{Binding ThemedClasses, UpdateSourceTrigger=LostFocus}" TextWrapping="Wrap" IsVisible="{Binding RouteTypeSpread}" AutomationProperties.Name="Themed trainer classes" />
           </StackPanel>
         </Border>
         <Border Classes="card">
@@ -158,12 +172,12 @@
           <StackPanel Spacing="10">
             <TextBlock Text="Make difficulty versions" Classes="heading" />
             <TextBlock TextWrapping="Wrap" Classes="small muted"
-                       Text="Every important trainer gets extra versions built from its Normal team. Easy: lower levels, no training or items. Hard: one more Pokémon and a stronger team with the Smart AI, at the same levels. Extra Hard: two more Pokémon, one level up and a competitive team with the Champion AI. Harder means better teams, not levels above the cap. The game picks the version from the player's difficulty choice at the start of a new game." />
+                       Text="Every important trainer gets extra versions built from its Normal team. Easy: lower levels, no training or items. Hard: one more Pokémon and a stronger team with the Smart AI, at the same levels. Nightmare: two more Pokémon, one level up and a competitive team with the Champion AI. Harder means better teams, not levels above the cap. The game picks the version from the player's difficulty choice at the start of a new game." />
             <TextBlock Text="{Binding VersionsSummary}" FontWeight="Bold" />
             <StackPanel Orientation="Horizontal" Spacing="16">
               <CheckBox IsChecked="{Binding MakeEasy}" Content="Easy" />
               <CheckBox IsChecked="{Binding MakeHard}" Content="Hard" />
-              <CheckBox IsChecked="{Binding MakeExtraHard}" Content="Extra Hard" />
+              <CheckBox IsChecked="{Binding MakeExtraHard}" Content="Nightmare" />
             </StackPanel>
             <Button Classes="primary" HorizontalAlignment="Left" Content="Make versions for every important trainer" Command="{Binding GenerateVersionsCommand}" />
             <TextBlock Text="Existing versions are replaced. Edit any version afterwards on the Trainers page (they show as “@Hard” etc.)." Classes="caption muted" TextWrapping="Wrap" FontWeight="Normal" />

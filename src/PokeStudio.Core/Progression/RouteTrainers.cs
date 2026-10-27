@@ -2,6 +2,7 @@ using PokeStudio.Core.ChampionLab;
 using PokeStudio.Core.Changes;
 using PokeStudio.Core.Models;
 using PokeStudio.Core.Modules;
+using PokeStudio.Core.Trainers;
 
 namespace PokeStudio.Core.Progression;
 
@@ -10,7 +11,8 @@ namespace PokeStudio.Core.Progression;
 /// the player can meet in the wild up to that point of the playthrough, sharing a type with the one it replaces (a Bird
 /// Keeper keeps birds), at its level and evolved as far as that level allows. Moves are level-up moves only (no TMs),
 /// attacks first, never the accuracy-lowering, evasion-raising or one-hit-KO moves that make an early fight luck
-/// (a Pidgey spamming Sand Attack). Bosses and story battles are left alone.
+/// (a Pidgey spamming Sand Attack). With the type spread on (<see cref="LabSettings.RouteTypeSpread"/>) only themed
+/// classes keep their type, and no type takes over a stretch of the game. Bosses and story battles are left alone.
 /// </summary>
 public static class RouteTrainers
 {
@@ -22,8 +24,8 @@ public static class RouteTrainers
         Build(data, lab, places, extraHard: false);
 
     /// <summary>
-    /// Extra Hard versions of every ordinary trainer: six Pokémon one level up, picked the same way (wild Pokémon met by
-    /// then, the team's types first, fair level-up moves). The game uses them when the player picks Extra Hard.
+    /// Nightmare (Extra Hard in the game's data) versions of every ordinary trainer: six Pokémon one level up, picked the
+    /// same way (wild Pokémon met by then), made harder by <see cref="LabSettings.Nightmare"/>'s switches.
     /// </summary>
     public static (IChange? Change, int Count) ExtraHardTeams(GameData data, LabSettings lab, IReadOnlyDictionary<string, string>? places = null) =>
         Build(data, lab, places, extraHard: true);
@@ -61,6 +63,23 @@ public static class RouteTrainers
             return area is null ? null : StoryOrder.NextBattle(capPositions, StoryOrder.AreaPosition(order, area)!.Value);
         }
 
+        // the type spread: how often each type was picked between two level caps (themed classes keep their type)
+        var used = new Dictionary<(int, string), int>();
+        var picks = new Dictionary<int, int>();
+        bool Crowded(int stretch, string k)
+        {
+            var room = Math.Max(2, (picks.GetValueOrDefault(stretch) + 1) * lab.RouteTypeShare / 100.0);
+            return species[k].Types.Any(ty => used.GetValueOrDefault((stretch, ty)) + 1 > room);
+        }
+
+        static List<string> Prefer(List<string> list, Func<string, bool> good) => list.Where(good).ToList() is { Count: > 0 } better ? better : list;
+
+        // Nightmare (the hardest difficulty, Extra Hard inside the game's data)
+        var nm = extraHard ? lab.Nightmare : null;
+        var threats = new Dictionary<int, IReadOnlyList<string>>();
+        var presets = AiPresets.For(data.Catalog);
+        var expertAi = presets.FirstOrDefault(p => p.Id == "expert")?.Flags ?? presets.FirstOrDefault(p => p.Id == "champion")?.Flags;
+
         var parts = new List<IChange>();
         foreach (var t in data.Trainers.ToList())
         {
@@ -80,16 +99,24 @@ public static class RouteTrainers
 
             var party = new List<TrainerPokemon>();
             var boost = extraHard ? 1 : 0;
+            var capLevel = caps[Math.Min(milestone, caps.Count - 1)].Level;
+            var usedItems = new HashSet<string>(StringComparer.Ordinal);
             var teamTypes = t.Party.SelectMany(p => species.TryGetValue(p.Species, out var x) ? x.Types : []).ToHashSet(StringComparer.Ordinal);
             var top = t.Party.Max(p => p.Level);
+            var themed = !lab.RouteTypeSpread || Defaults.IsThemed(lab.ThemedClasses, t.TrainerClass);
             for (var i = 0; i < (extraHard ? 6 : t.Party.Count); i++)
             {
                 // Extra Hard: the team's own members one level up, then new ones at the top level until there are six
                 var old = i < t.Party.Count ? t.Party[i] with { Level = Math.Min(100, t.Party[i].Level + boost) }
                     : t.Party[^1] with { Level = Math.Min(100, top + boost), HeldItem = null };
+                if (nm?.AtLevelCap == true && capLevel > old.Level)
+                {
+                    old = old with { Level = Math.Min(100, capLevel) };
+                }
+
                 var oldTypes = i < t.Party.Count && species.TryGetValue(old.Species, out var known) ? known.Types : (IReadOnlyList<string>)[.. teamTypes];
                 species.TryGetValue(old.Species, out var o);
-                var limit = TeamBuilder.MaxStatTotal(old.Level, Difficulty.Easy);
+                var limit = TeamBuilder.MaxStatTotal(old.Level, nm?.StrongerPokemon == true ? Difficulty.Hard : Difficulty.Easy);
                 var options = available
                     .Select(r => FormAt(r, old.Level))
                     .Where(k => species.TryGetValue(k, out var s) && s.Stats.Total <= Math.Max(limit, o?.Stats.Total ?? 0) && party.All(p => p.Species != k))
@@ -97,15 +124,54 @@ public static class RouteTrainers
                     .ToList();
                 var sameType = options.Where(k => species[k].Types.Any(oldTypes.Contains)).ToList();
                 var pool = sameType.Count > 0 ? sameType : options;
+                if (lab.RouteTypeSpread)
+                {
+                    // a themed class keeps its type, but not always the same Pokémon of it; anyone else gets any type the
+                    // stretch hasn't had too much of, and one not on the team yet
+                    var onTeam = party.SelectMany(p => species.TryGetValue(p.Species, out var x) ? x.Types : []).ToHashSet(StringComparer.Ordinal);
+                    pool = themed
+                        ? Prefer(pool, k => !Crowded(milestone, k))
+                        : Prefer(Prefer(options, k => !Crowded(milestone, k)), k => !species[k].Types.Any(onTeam.Contains));
+                }
                 if (pool.Count == 0)
                 {
                     party.Add(old with { Moves = FairMoves(data, old.Species, old.Level) ?? old.Moves });
                     continue;
                 }
 
+                // Nightmare: members that resist what the team so far is weak to come first
+                if (nm?.CoverWeaknesses == true && party.Count > 0)
+                {
+                    var weak = TypeChart.Types.Where(a => party.Count(p => species.TryGetValue(p.Species, out var x) && TypeChart.Multiplier(a, x.Types) > 1) * 2 >= party.Count).ToList();
+                    pool = Prefer(pool, k => weak.Count == 0 || weak.Any(a => TypeChart.Multiplier(a, species[k].Types) < 1));
+                }
+
                 // the same trainer always gets the same team; different trainers different ones
                 var pick = pool.OrderBy(k => StableHash($"{t.Key}/{i}/{k}")).First();
-                party.Add(old with { Species = pick, Moves = FairMoves(data, pick, old.Level) ?? [], Ability = null, Nickname = null, Gender = null });
+                picks[milestone] = picks.GetValueOrDefault(milestone) + 1;
+                foreach (var ty in species[pick].Types.Distinct(StringComparer.Ordinal))
+                {
+                    used[(milestone, ty)] = used.GetValueOrDefault((milestone, ty)) + 1;
+                }
+
+                var member = old with { Species = pick, Moves = FairMoves(data, pick, old.Level) ?? [], Ability = null, Nickname = null, Gender = null };
+                if (nm?.FullTraining == true)
+                {
+                    if (!threats.TryGetValue(milestone, out var th))
+                    {
+                        threats[milestone] = th = TeamBuilder.ThreatTypes(data, milestone);
+                    }
+
+                    var trained = TeamBuilder.Trained(data, species[pick], old.Level, th, [.. party.Select(p => species[p.Species])], usedItems);
+                    member = member with
+                    {
+                        Moves = trained.Moves.Count > 0 ? trained.Moves : member.Moves,
+                        Nature = trained.Nature, Ability = trained.Ability, Ivs = trained.Ivs, Evs = trained.Evs, HeldItem = trained.HeldItem,
+                    };
+                }
+
+                member = nm is null ? member : member with { HeldItem = nm.HeldItems ? member.HeldItem : null };
+                party.Add(member);
             }
 
             var key = t.Key;
@@ -116,7 +182,7 @@ public static class RouteTrainers
             }
 
             // the version sits next to the trainer (replaced when it's made again)
-            var version = t with { Key = DifficultyVersions.KeyFor(t, Difficulty.ExtraHard), Party = party };
+            var version = t with { Key = DifficultyVersions.KeyFor(t, Difficulty.ExtraHard), Party = party, AiFlags = nm?.SmartAi == true && expertAi is not null ? [.. expertAi] : t.AiFlags };
             var existing = data.Trainers.FindIndex(x => x.Key == version.Key);
             if (existing >= 0)
             {

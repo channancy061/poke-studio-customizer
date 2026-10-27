@@ -132,12 +132,15 @@
               <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:DifficultyChoiceOption"><TextBlock Text="{Binding Label}" /></DataTemplate></ComboBox.ItemTemplate>
             </ComboBox>
           </StackPanel>
-          <CheckBox IsChecked="{Binding OfferExtraHard}" Content="Offer Extra Hard" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <CheckBox IsChecked="{Binding OfferExtraHard}" Content="Offer the hardest difficulty, called" />
+            <TextBox Text="{Binding HardestName, UpdateSourceTrigger=LostFocus}" Width="160" MaxLength="12" AutomationProperties.Name="Name of the hardest difficulty" />
+          </StackPanel>
           <CheckBox IsChecked="{Binding TrainerRulesByDifficulty}" Content="Difficulty changes how trainers behave" />
           <CheckBox IsChecked="{Binding HardChokepoints}" IsEnabled="{Binding TrainerRulesByDifficulty}" Margin="24,0,0,0"
                     Content="Hard and up: route trainers stand where they can't be walked past (only near their own place)" />
           <TextBlock TextWrapping="Wrap" Classes="caption muted"
-                     Text="Easy: only important battles stop the player; other trainers battle when talked to. Normal: as the original game. Hard: every trainer sees far and in every direction (no sneaking past), and Gym Leaders wait until every trainer in their Gym is beaten. Extra Hard: as Hard, with six Pokémon per trainer (make those teams on Plan wild Pokémon)." />
+                     Text="Easy: only important battles stop the player; other trainers battle when talked to. Normal: as the original game. Hard: every trainer sees far and in every direction (no sneaking past), and Gym Leaders wait until every trainer in their Gym is beaten. Nightmare (the hardest): as Hard, with six fully trained Pokémon per trainer at the level cap (make those teams on Plan wild Pokémon; what goes into them is on Champion Lab)." />
         </StackPanel>
       </Border>
 

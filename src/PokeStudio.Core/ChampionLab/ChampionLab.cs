@@ -70,6 +70,20 @@ public sealed record LabSettings
 
     /// <summary>Moves left out of the game (e.g. Dragon Rage): no learnset has them and no trainer gets them.</summary>
     public IReadOnlyList<string> LeftOutMoves { get; init; } = [];
+
+    /// <summary>
+    /// Route trainers' types are spread out: no type on more than <see cref="RouteTypeShare"/>% of the Pokémon between
+    /// two level caps, and a team without a theme doesn't repeat a type. Off: each new Pokémon shares a type with the one
+    /// it replaces (early Kanto's Caterpies and Oddishes made every team Grass, Bug or Poison).
+    /// </summary>
+    public bool RouteTypeSpread { get; init; } = true;
+    public int RouteTypeShare { get; init; } = 20;
+
+    /// <summary>What makes the hardest difficulty (Nightmare) harder for route trainers, each its own switch.</summary>
+    public NightmareRules Nightmare { get; init; } = new();
+
+    /// <summary>Trainer classes that keep their type theme under <see cref="RouteTypeSpread"/> (a Bird Keeper keeps birds).</summary>
+    public IReadOnlyList<string> ThemedClasses { get; init; } = Defaults.ThemedClasses;
     public bool FairPlay { get; init; } = true;
     public bool UniqueTypeCombos { get; init; } = true;
 
@@ -82,8 +96,37 @@ public sealed record LabSettings
         ?? new GroupRules { Group = group, Difficulty = difficulty, MaxRestricted = -1, MaxSubLegendary = -1, MaxMythical = -1, MaxUltraBeast = -1, MaxParadox = -1, MaxMega = -1, SpeciesClause = false };
 }
 
+/// <summary>
+/// Nightmare route trainers: six Pokémon always; <see cref="AtLevelCap"/> raises them to the level cap of their stretch
+/// (never lower than one above the original); <see cref="FullTraining"/> gives perfect IVs, 252/252 EVs, the best nature
+/// and ability and the boss builder's moves; <see cref="HeldItems"/> a competitive item each (no two alike);
+/// <see cref="StrongerPokemon"/> lets stronger evolutions in (the Hard stat limit instead of Easy's);
+/// <see cref="CoverWeaknesses"/> picks members that resist what the team is weak to; <see cref="SmartAi"/> the Expert AI.
+/// </summary>
+public sealed record NightmareRules
+{
+    public bool AtLevelCap { get; init; } = true;
+    public bool FullTraining { get; init; } = true;
+    public bool HeldItems { get; init; } = true;
+    public bool StrongerPokemon { get; init; } = true;
+    public bool CoverWeaknesses { get; init; } = true;
+    public bool SmartAi { get; init; } = true;
+}
+
 public static class Defaults
 {
+    /// <summary>Classes whose name promises a type: Bird Keepers, Bug Catchers, Swimmers, Hikers, Psychics…</summary>
+    public static readonly IReadOnlyList<string> ThemedClasses =
+    [
+        "BIRD_KEEPER", "BUG_CATCHER", "BUG_MANIAC", "SWIMMER_M", "SWIMMER_F", "TUBER_M", "TUBER_F", "FISHERMAN", "SAILOR",
+        "HIKER", "RUIN_MANIAC", "BLACK_BELT", "BATTLE_GIRL", "CRUSH_GIRL", "CUE_BALL", "PSYCHIC", "HEX_MANIAC", "CHANNELER",
+        "KINDLER", "BURGLAR", "GUITARIST", "ENGINEER", "DRAGON_TAMER", "AROMA_LADY", "BIKER",
+    ];
+
+    /// <summary>A class's theme counts by the end of its constant (TRAINER_CLASS_BIRD_KEEPER).</summary>
+    public static bool IsThemed(IEnumerable<string> classes, string trainerClass) =>
+        classes.Any(c => trainerClass.EndsWith("_" + c, StringComparison.OrdinalIgnoreCase) || trainerClass.Equals(c, StringComparison.OrdinalIgnoreCase));
+
     /// <summary>The defaults agreed for the app (all editable).</summary>
     public static IReadOnlyList<GroupRules> Rules()
     {
@@ -134,7 +177,7 @@ public static partial class Lab
         _ => g.ToString(),
     };
 
-    public static string Label(Difficulty d) => d == Difficulty.ExtraHard ? "Extra Hard" : d.ToString();
+    public static string Label(Difficulty d) => d == Difficulty.ExtraHard ? "Nightmare" : d.ToString();
 
     public static Difficulty DifficultyOf(Trainer t)
     {

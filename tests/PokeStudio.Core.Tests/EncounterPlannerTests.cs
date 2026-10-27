@@ -104,6 +104,23 @@ public class EncounterPlannerTests
         var wild = EncounterPlanner.Met(data).Select(m => m.Species).ToHashSet();
         var rick = data.Trainers.Single(t => t.Key == "TRAINER_BUG_CATCHER_RICK");
         Assert.All(rick.Party, p => Assert.True(wild.Any(w => Core.ChampionLab.TeamBuilder.FamilyRoot(data, w) == Core.ChampionLab.TeamBuilder.FamilyRoot(data, p.Species)), p.Species));
+        // the type spread: before Erika no type is on more than about a third of the route trainers' Pokémon (it was Grass,
+        // Bug and Poison almost everywhere)
+        var species = data.Species.ToDictionary(s => s.Key);
+        var early = data.Trainers.Where(t => !t.Key.Contains('@') && !t.NeverFought && Core.ChampionLab.Lab.GroupOf(data, lab, t) == Core.ChampionLab.TrainerGroup.Regular
+            && Core.ChampionLab.Lab.MilestoneOf(data, t) < Gym(4)).SelectMany(t => t.Party).ToList();
+        var shares = early.SelectMany(p => species[p.Species].Types.Distinct()).GroupBy(x => x).ToDictionary(g => g.Key, g => g.Count() / (double)early.Count);
+        Assert.True(shares.Values.Max() < 0.35, string.Join(", ", shares.OrderByDescending(x => x.Value).Take(5).Select(x => $"{x.Key} {x.Value:P0}")));
+
+        // Nightmare: six fully trained Pokémon with items and the Expert AI
+        var (nightmare, nightmareCount) = RouteTrainers.ExtraHardTeams(data, lab);
+        Assert.True(nightmareCount > 100);
+        nightmare!.Apply();
+        var hard = data.Trainers.Where(t => t.Key.EndsWith("@Extra Hard", StringComparison.Ordinal)).ToList();
+        Assert.All(hard, t => Assert.Equal(6, t.Party.Count));
+        Assert.True(hard.SelectMany(t => t.Party).Count(p => p.Ivs?.Attack == 31 && p.Evs is not null) > hard.Count * 5);
+        Assert.True(hard.SelectMany(t => t.Party).Count(p => p.HeldItem is not null) > hard.Count * 3);
+        Assert.All(hard, t => Assert.Contains("AI_FLAG_PREDICTION", t.AiFlags));
         string[] unfair = ["MOVE_SAND_ATTACK", "MOVE_DOUBLE_TEAM", "MOVE_FISSURE", "MOVE_SMOKESCREEN"];
         Assert.DoesNotContain(data.Trainers.Where(t => !t.Key.Contains('@') && !t.NeverFought && Core.ChampionLab.Lab.GroupOf(data, lab, t) == Core.ChampionLab.TrainerGroup.Regular)
             .SelectMany(t => t.Party).SelectMany(p => p.Moves), unfair.Contains);

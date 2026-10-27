@@ -782,7 +782,7 @@ internal static partial class GameOptionsWriter
             if (o.OfferExtraHard)
             {
                 labels.Add("PokeStudio_Text_ExtraHard");
-                Text("PokeStudio_Text_ExtraHard", "Extra Hard");
+                Text("PokeStudio_Text_ExtraHard", string.IsNullOrWhiteSpace(o.HardestName) ? "Extra Hard" : o.HardestName.Trim());
             }
 
             L("\tmessage PokeStudio_Text_AskDifficulty");

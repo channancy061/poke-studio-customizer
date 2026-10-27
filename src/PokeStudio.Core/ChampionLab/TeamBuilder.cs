@@ -322,6 +322,10 @@ public static class TeamBuilder
         return milestone >= 0 && milestone < scout.Count && scout[milestone].Types.Count > 0 ? scout[milestone].Types : TypeChart.Types;
     }
 
+    /// <summary>A fully trained team member (Nightmare route trainers): the boss builder's moves, nature, ability, item, IVs and EVs.</summary>
+    internal static TrainerPokemon Trained(GameData data, Species s, int level, IReadOnlyList<string> threats, List<Species> team, HashSet<string> usedItems) =>
+        Build(data, s, level, Difficulty.ExtraHard, threats, team, usedItems, isAce: false).Pokemon;
+
     /// <summary>Species reachable by this level: evolutions from level-up up to the level, item/trade ones from level 36.</summary>
     // forms that only exist in battle, need a story event or special item, or aren't meant for trainers
     private static readonly string[] BattleOnly =

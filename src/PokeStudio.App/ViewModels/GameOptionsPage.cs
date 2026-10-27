@@ -204,7 +204,7 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
 
     private static string Cost(int price) => price > 0 ? $" (¥{price})" : " (free)";
 
-    public static string Label(DifficultyChoice d) => d == DifficultyChoice.ExtraHard ? "Extra Hard" : d.ToString();
+    public static string Label(DifficultyChoice d) => d == DifficultyChoice.ExtraHard ? "Nightmare" : d.ToString();
 
     public bool AsksDifficulty => Settings.Difficulty == OptionMode.PlayerChooses;
     public bool FixedDifficultyShown => Settings.Difficulty == OptionMode.AlwaysOn;
@@ -270,10 +270,16 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         set => Update(s => s with { TrainerRulesByDifficulty = value }, value ? "Trainers behave by difficulty" : "Trainers behave the same on every difficulty");
     }
 
+    public string HardestName
+    {
+        get => Settings.HardestName;
+        set => Update(s => s with { HardestName = string.IsNullOrWhiteSpace(value) ? "Nightmare" : value.Trim() }, $"Hardest difficulty called {value}");
+    }
+
     public bool OfferExtraHard
     {
         get => Settings.OfferExtraHard;
-        set => Update(s => s with { OfferExtraHard = value }, value ? "Difficulty menu offers Extra Hard" : "Difficulty menu without Extra Hard");
+        set => Update(s => s with { OfferExtraHard = value }, value ? "Difficulty menu offers Nightmare" : "Difficulty menu without Nightmare");
     }
 
     public bool NoItemsAlsoWild
@@ -398,6 +404,7 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         OnPropertyChanged(nameof(DefaultDifficulty));
         OnPropertyChanged(nameof(FixedDifficulty));
         OnPropertyChanged(nameof(OfferExtraHard));
+        OnPropertyChanged(nameof(HardestName));
         OnPropertyChanged(nameof(TrainerRulesByDifficulty));
         OnPropertyChanged(nameof(HardChokepoints));
         OnPropertyChanged(nameof(DebugMenus));

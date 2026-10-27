@@ -370,11 +370,11 @@ public static class PlayersGuide
 
         if (o.Difficulty == OptionMode.PlayerChooses)
         {
-            items.Add($"Difficulty: you choose Easy, Normal, Hard{(o.OfferExtraHard ? " or Extra Hard" : "")}. It changes the important trainers' teams (see each battle below).");
+            items.Add($"Difficulty: you choose Easy, Normal, Hard{(o.OfferExtraHard ? $" or {o.HardestName}" : "")}. It changes the important trainers' teams (see each battle below).");
         }
         else if (o.Difficulty == OptionMode.AlwaysOn)
         {
-            items.Add($"Difficulty: always {(o.FixedDifficulty == DifficultyChoice.ExtraHard ? "Extra Hard" : o.FixedDifficulty.ToString())}.");
+            items.Add($"Difficulty: always {(o.FixedDifficulty == DifficultyChoice.ExtraHard ? o.HardestName : o.FixedDifficulty.ToString())}.");
         }
 
         if (o.TrainerRulesByDifficulty && o.Difficulty != OptionMode.NotUsed)
@@ -384,7 +384,7 @@ public static class PlayersGuide
             items.Add("    • Hard: every trainer spots you from far away and in every direction, so you can't sneak past. A Gym Leader only battles you once every trainer in their Gym is beaten.");
             if (o.OfferExtraHard)
             {
-                items.Add("    • Extra Hard: as Hard, and every trainer has six Pokémon, one level higher.");
+                items.Add($"    • {o.HardestName}: as Hard, and every trainer has six Pokémon at the level cap, fully trained with held items, covering each other's weaknesses, and battling with the smartest AI.");
             }
         }
 

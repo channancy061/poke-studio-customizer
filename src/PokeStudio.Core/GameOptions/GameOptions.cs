@@ -33,6 +33,9 @@ public sealed record GameOptionsSettings
     public DifficultyChoice FixedDifficulty { get; init; } = DifficultyChoice.Normal;
     public bool OfferExtraHard { get; init; } = true;
 
+    /// <summary>What the game and the guide call the hardest difficulty (Extra Hard inside the game's data).</summary>
+    public string HardestName { get; init; } = "Nightmare";
+
     /// <summary>
     /// The difficulty also changes how trainers behave: on Easy only major battles stop the player (other trainers
     /// battle only when talked to); on Hard and Extra Hard every trainer sees far in every direction, and gym leaders

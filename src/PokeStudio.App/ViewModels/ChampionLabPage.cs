@@ -187,6 +187,60 @@ public sealed partial class ChampionLabPageViewModel : ViewModelBase
         set => Update(s => s with { FairMoves = value }, value ? "Rule on: moves fit the level" : "Rule off: moves fit the level");
     }
 
+    public bool NightmareAtLevelCap
+    {
+        get => Settings.Nightmare.AtLevelCap;
+        set => Update(s => s with { Nightmare = s.Nightmare with { AtLevelCap = value } }, $"Nightmare route trainers: at the level cap {(value ? "on" : "off")}");
+    }
+
+    public bool NightmareFullTraining
+    {
+        get => Settings.Nightmare.FullTraining;
+        set => Update(s => s with { Nightmare = s.Nightmare with { FullTraining = value } }, $"Nightmare route trainers: fully trained {(value ? "on" : "off")}");
+    }
+
+    public bool NightmareHeldItems
+    {
+        get => Settings.Nightmare.HeldItems;
+        set => Update(s => s with { Nightmare = s.Nightmare with { HeldItems = value } }, $"Nightmare route trainers: held items {(value ? "on" : "off")}");
+    }
+
+    public bool NightmareStrongerPokemon
+    {
+        get => Settings.Nightmare.StrongerPokemon;
+        set => Update(s => s with { Nightmare = s.Nightmare with { StrongerPokemon = value } }, $"Nightmare route trainers: stronger evolutions {(value ? "on" : "off")}");
+    }
+
+    public bool NightmareCoverWeaknesses
+    {
+        get => Settings.Nightmare.CoverWeaknesses;
+        set => Update(s => s with { Nightmare = s.Nightmare with { CoverWeaknesses = value } }, $"Nightmare route trainers: cover weaknesses {(value ? "on" : "off")}");
+    }
+
+    public bool NightmareSmartAi
+    {
+        get => Settings.Nightmare.SmartAi;
+        set => Update(s => s with { Nightmare = s.Nightmare with { SmartAi = value } }, $"Nightmare route trainers: Expert AI {(value ? "on" : "off")}");
+    }
+
+    public bool RouteTypeSpread
+    {
+        get => Settings.RouteTypeSpread;
+        set => Update(s => s with { RouteTypeSpread = value }, value ? "Rule on: route trainers' types are spread out" : "Rule off: route trainers' types are spread out");
+    }
+
+    public decimal? RouteTypeShare
+    {
+        get => Settings.RouteTypeShare;
+        set => Update(s => s with { RouteTypeShare = (int)Math.Clamp(value ?? 20, 5, 100) }, $"Route trainers: at most {(int)Math.Clamp(value ?? 20, 5, 100)}% of one type");
+    }
+
+    public string ThemedClasses
+    {
+        get => string.Join(", ", Settings.ThemedClasses);
+        set => Update(s => s with { ThemedClasses = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(c => c.ToUpperInvariant().Replace(' ', '_')).ToList() }, "Themed trainer classes changed");
+    }
+
     public bool OfficialOnly
     {
         get => Settings.OfficialOnly;
@@ -287,6 +341,15 @@ public sealed partial class ChampionLabPageViewModel : ViewModelBase
         OnPropertyChanged(nameof(FairPlay));
         OnPropertyChanged(nameof(OfficialOnly));
         OnPropertyChanged(nameof(FairMoves));
+        OnPropertyChanged(nameof(RouteTypeSpread));
+        OnPropertyChanged(nameof(NightmareAtLevelCap));
+        OnPropertyChanged(nameof(NightmareFullTraining));
+        OnPropertyChanged(nameof(NightmareHeldItems));
+        OnPropertyChanged(nameof(NightmareStrongerPokemon));
+        OnPropertyChanged(nameof(NightmareCoverWeaknesses));
+        OnPropertyChanged(nameof(NightmareSmartAi));
+        OnPropertyChanged(nameof(RouteTypeShare));
+        OnPropertyChanged(nameof(ThemedClasses));
         OnPropertyChanged(nameof(ChampionLegends));
         OnPropertyChanged(nameof(UniqueTypeCombos));
     }
