@@ -222,6 +222,18 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         set => Update(s => s with { FixedDifficulty = value.Choice }, $"Difficulty is always {value.Label}");
     }
 
+    public decimal? BagItemsSlots
+    {
+        get => Settings.BagItemsSlots;
+        set => Update(s => s with { BagItemsSlots = (int)Math.Clamp(value ?? 0, 0, 250) }, $"Bag Items pocket: {(int)Math.Clamp(value ?? 0, 0, 250)}");
+    }
+
+    public decimal? PcItemsSlots
+    {
+        get => Settings.PcItemsSlots;
+        set => Update(s => s with { PcItemsSlots = (int)Math.Clamp(value ?? 0, 0, 250) }, $"PC item storage: {(int)Math.Clamp(value ?? 0, 0, 250)}");
+    }
+
     public bool HardChokepoints
     {
         get => Settings.HardChokepoints;
@@ -376,6 +388,8 @@ public sealed partial class GameOptionsPageViewModel : ViewModelBase
         OnPropertyChanged(nameof(OfferExtraHard));
         OnPropertyChanged(nameof(TrainerRulesByDifficulty));
         OnPropertyChanged(nameof(HardChokepoints));
+        OnPropertyChanged(nameof(BagItemsSlots));
+        OnPropertyChanged(nameof(PcItemsSlots));
         OnPropertyChanged(nameof(FixAiSwitchInMemory));
         OnPropertyChanged(nameof(OneOfEachImportantItem));
         OnPropertyChanged(nameof(NoItemsAlsoWild));

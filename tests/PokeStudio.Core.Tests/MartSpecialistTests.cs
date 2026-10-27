@@ -33,6 +33,17 @@ public class MartSpecialistTests
     }
 
     [Fact]
+    public void Bag_sizes_are_set_and_put_back()
+    {
+        const string global = "#define PC_ITEMS_COUNT      30\n#define BAG_ITEMS_COUNT     42\n";
+        var bigger = GameOptionsWriter.WithSize(GameOptionsWriter.WithSize(global, "BAG_ITEMS_COUNT", 80), "PC_ITEMS_COUNT", 50);
+        Assert.Contains("#define BAG_ITEMS_COUNT     80 // Poke Studio: size (was 42)", bigger, StringComparison.Ordinal);
+        Assert.Contains("#define PC_ITEMS_COUNT      50 // Poke Studio: size (was 30)", bigger, StringComparison.Ordinal);
+        Assert.Contains("BAG_ITEMS_COUNT     100 // Poke Studio: size (was 42)", GameOptionsWriter.WithSize(bigger, "BAG_ITEMS_COUNT", 100), StringComparison.Ordinal);
+        Assert.Equal(global, GameOptionsWriter.WithSize(GameOptionsWriter.WithSize(bigger, "BAG_ITEMS_COUNT", 0), "PC_ITEMS_COUNT", 0));
+    }
+
+    [Fact]
     public void Real_shop_and_ai_fixes_go_in_and_come_out_again_when_available()
     {
         var fr = Environment.GetEnvironmentVariable("POKESTUDIO_FIRERED_DIR");

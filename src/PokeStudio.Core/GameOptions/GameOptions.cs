@@ -105,11 +105,20 @@ public sealed record GameOptionsSettings
     /// <summary>FireRed's shops sell an important item (a reusable TM) only once, like Emerald's.</summary>
     public bool OneOfEachImportantItem { get; init; } = true;
 
+    /// <summary>
+    /// How many different items the bag's Items pocket holds (0 = the game's own: FireRed 42, Emerald 30). Bigger needs
+    /// room in the save; existing saves of the hack stop loading correctly when it changes.
+    /// </summary>
+    public int BagItemsSlots { get; init; }
+
+    /// <summary>How many different items the PC's item storage holds (0 = the game's own: FireRed 30, Emerald 50).</summary>
+    public int PcItemsSlots { get; init; }
+
     public bool NuzlockeUsed => Nuzlocke != OptionMode.NotUsed;
 
     public bool AnyUsed => Difficulty != OptionMode.NotUsed || TrainingOff != OptionMode.NotUsed || LevelCap != OptionMode.NotUsed
         || NoItemsInBattle != OptionMode.NotUsed || InfiniteCandy != OptionMode.NotUsed || NuzlockeUsed || AdaptiveSlot != OptionMode.NotUsed
-        || CenterHelper.Enabled || MartSpecialist;
+        || CenterHelper.Enabled || MartSpecialist || BagItemsSlots > 0 || PcItemsSlots > 0;
 
     /// <summary>The level cap code is needed (by the cap option itself or the Nuzlocke cap rule).</summary>
     public bool LevelCapCodeUsed => LevelCap != OptionMode.NotUsed || NuzRuleUsed(NuzLevelCap);

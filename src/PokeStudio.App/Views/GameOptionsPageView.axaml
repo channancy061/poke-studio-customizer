@@ -98,7 +98,16 @@
 
       <Border Classes="card">
         <StackPanel Spacing="8">
-          <TextBlock Text="Fixes" Classes="heading" />
+          <TextBlock Text="Bag and PC" Classes="heading" />
+          <Grid ColumnDefinitions="Auto,140" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="6">
+            <TextBlock Text="Different items in the bag's Items pocket (0 = the game's own)" VerticalAlignment="Center" />
+            <NumericUpDown Grid.Column="1" Value="{Binding BagItemsSlots}" Minimum="0" Maximum="250" Increment="10" FormatString="0" AutomationProperties.Name="Bag Items pocket size" />
+            <TextBlock Grid.Row="1" Text="Different items in the PC's item storage (0 = the game's own)" VerticalAlignment="Center" />
+            <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding PcItemsSlots}" Minimum="0" Maximum="250" Increment="10" FormatString="0" AutomationProperties.Name="PC item storage size" />
+          </Grid>
+          <TextBlock Text="FireRed holds 42 different items in the Items pocket, Emerald 30. A bigger bag takes room in the save (the build stops if there isn't enough), and saves made before the change stop loading correctly."
+                     Classes="small muted" TextWrapping="Wrap" />
+          <TextBlock Text="Fixes" Classes="heading" Margin="0,8,0,0" />
           <CheckBox IsChecked="{Binding FixAiSwitchInMemory}" Content="Battle AI forgets the Pokémon that left (otherwise a revealed Levitate makes it skip Earthquake on the next one)" />
           <CheckBox IsChecked="{Binding OneOfEachImportantItem}" Content="FireRed shops sell an important item, like a reusable TM, only once (as Emerald's do)" />
         </StackPanel>

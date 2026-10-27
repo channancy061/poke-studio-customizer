@@ -24,7 +24,31 @@ internal static partial class GameOptionsWriter
     public const string Mark = "Poke Studio";
 
     public static IReadOnlyList<string> Files(ExpansionLayout layout) =>
-        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC, AiMain];
+        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC, AiMain, GlobalConstants];
+
+    /// <summary>The game's constants with the bag and PC sizes.</summary>
+    public const string GlobalConstants = "include/constants/global.h";
+    private const string SizeMark = "Poke Studio: size";
+
+    /// <summary>
+    /// global.h with <paramref name="name"/> set to <paramref name="value"/> (the original kept in the line's comment), or
+    /// back to the original when the value is 0.
+    /// </summary>
+    internal static string WithSize(string text, string name, int value)
+    {
+        var line = Regex.Match(text, $@"^#define {name}([ \t]+)(\d+)([^\r\n]*)", RegexOptions.Multiline);
+        if (!line.Success)
+        {
+            return text;
+        }
+
+        var was = Regex.Match(line.Groups[3].Value, $@"// {SizeMark} \(was (\d+)\)");
+        var original = was.Success ? was.Groups[1].Value : line.Groups[2].Value;
+        var after = value <= 0 || value.ToString(CultureInfo.InvariantCulture) == original
+            ? $"#define {name}{line.Groups[1].Value}{original}"
+            : $"#define {name}{line.Groups[1].Value}{value.ToString(CultureInfo.InvariantCulture)} // {SizeMark} (was {original})";
+        return text.Remove(line.Index, line.Length).Insert(line.Index, after);
+    }
 
     /// <summary>The battle AI's main file (for the switch-in memory fix).</summary>
     public const string AiMain = "src/battle_ai_main.c";
@@ -278,6 +302,12 @@ internal static partial class GameOptionsWriter
             }
 
             Put(mart, martJson, clean);
+        }
+
+        // the bag's Items pocket and the PC's item storage (more evolution items and held items than the originals had)
+        if ((result.TryGetValue(GlobalConstants, out var plannedGlobal) ? plannedGlobal : read(GlobalConstants)) is { } global)
+        {
+            Put(GlobalConstants, global, WithSize(WithSize(global, "BAG_ITEMS_COUNT", o.BagItemsSlots), "PC_ITEMS_COUNT", o.PcItemsSlots));
         }
 
         // the battle AI forgets the Pokémon that left a position (a bug in the AI's switch-in memory)
