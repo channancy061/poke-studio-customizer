@@ -21,7 +21,7 @@ internal static partial class BiggerBag
     private const string Mark = "Poke Studio: bigger bag";
     private const string PocketName = "gSaveBlock3Ptr->psBagItems";
     private const string OldPocketName = "gSaveBlock1Ptr->bag.items";
-    private const string ShrinkFiller = " - sizeof(struct ItemSlot) * PS_BAG_ITEMS_COUNT";
+    private const string ShrinkFiller = " - sizeof(u32) * PS_BAG_ITEMS_COUNT";
 
     /// <summary>The largest pocket offered: room in save block 3 with plenty to spare for other features.</summary>
     public const int MaxSlots = 150;
@@ -85,7 +85,7 @@ internal static partial class BiggerBag
         }
 
         var lineStart = text.LastIndexOf('\n', close) + 1;
-        return text.Insert(lineStart, $"    struct ItemSlot psBagItems[PS_BAG_ITEMS_COUNT]; // {Mark}{nl}");
+        return text.Insert(lineStart, $"    u32 psBagItems[PS_BAG_ITEMS_COUNT]; // {Mark}: one struct ItemSlot (4 bytes) each, a type defined further down{nl}");
     }
 
     private static string WithPointer(string text)
@@ -99,8 +99,8 @@ internal static partial class BiggerBag
         var i = at.Groups[1].Value;
         var nl = CScanner.LineEnding(text);
         text = text.Insert(at.Index + at.Length,
-            $"{i}gBagPockets[POCKET_ITEMS].itemSlots = gSaveBlock3Ptr->psBagItems; // {Mark}{nl}{i}gBagPockets[POCKET_ITEMS].capacity = PS_BAG_ITEMS_COUNT; // {Mark}{nl}" +
-            $"{i}if (gSaveBlock3Ptr->psBagItems[0].itemId == ITEM_NONE && gSaveBlock1Ptr->bag.items[0].itemId != ITEM_NONE) {{ memcpy(gSaveBlock3Ptr->psBagItems, gSaveBlock1Ptr->bag.items, min(sizeof(gSaveBlock1Ptr->bag.items), sizeof(gSaveBlock3Ptr->psBagItems))); memset(gSaveBlock1Ptr->bag.items, 0, sizeof(gSaveBlock1Ptr->bag.items)); }} // {Mark}: an older save's items move over{nl}");
+            $"{i}gBagPockets[POCKET_ITEMS].itemSlots = (struct ItemSlot *)gSaveBlock3Ptr->psBagItems; // {Mark}{nl}{i}STATIC_ASSERT(sizeof(struct ItemSlot) == sizeof(u32), PsBagSlotSize); // {Mark}{nl}{i}gBagPockets[POCKET_ITEMS].capacity = PS_BAG_ITEMS_COUNT; // {Mark}{nl}" +
+            $"{i}if (((struct ItemSlot *)gSaveBlock3Ptr->psBagItems)[0].itemId == ITEM_NONE && gSaveBlock1Ptr->bag.items[0].itemId != ITEM_NONE) {{ memcpy(gSaveBlock3Ptr->psBagItems, gSaveBlock1Ptr->bag.items, min(sizeof(gSaveBlock1Ptr->bag.items), sizeof(gSaveBlock3Ptr->psBagItems))); memset(gSaveBlock1Ptr->bag.items, 0, sizeof(gSaveBlock1Ptr->bag.items)); }} // {Mark}: an older save's items move over{nl}");
 
         // a new game empties the pocket too
         var clear = Regex.Match(text, @"^([ \t]*)CpuFastFill\(0, &gSaveBlock1Ptr->bag, sizeof\(struct Bag\)\);[^\n]*\n", RegexOptions.Multiline);

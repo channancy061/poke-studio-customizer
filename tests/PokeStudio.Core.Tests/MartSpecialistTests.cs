@@ -64,11 +64,11 @@ public class MartSpecialistTests
                     Assert.Contains("#define PS_BAG_ITEMS_COUNT 150 // Poke Studio: bigger bag", bigger, StringComparison.Ordinal);
                     break;
                 case BiggerBag.Global:
-                    Assert.Contains("struct ItemSlot psBagItems[PS_BAG_ITEMS_COUNT];", bigger, StringComparison.Ordinal);
-                    Assert.Equal(hasFiller, bigger.Contains("- sizeof(struct ItemSlot) * PS_BAG_ITEMS_COUNT]", StringComparison.Ordinal));
+                    Assert.Contains("u32 psBagItems[PS_BAG_ITEMS_COUNT];", bigger, StringComparison.Ordinal);
+                    Assert.Equal(hasFiller, bigger.Contains("- sizeof(u32) * PS_BAG_ITEMS_COUNT]", StringComparison.Ordinal));
                     break;
                 case BiggerBag.Item:
-                    Assert.Contains("gBagPockets[POCKET_ITEMS].itemSlots = gSaveBlock3Ptr->psBagItems;", bigger, StringComparison.Ordinal);
+                    Assert.Contains("gBagPockets[POCKET_ITEMS].itemSlots = (struct ItemSlot *)gSaveBlock3Ptr->psBagItems;", bigger, StringComparison.Ordinal);
                     Assert.Contains("CpuFastFill(0, gSaveBlock3Ptr->psBagItems", bigger, StringComparison.Ordinal);
                     break;
                 case BiggerBag.ItemMenu:
