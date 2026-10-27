@@ -86,7 +86,7 @@ public class ChokepointTests
         Assert.DoesNotContain("PokeStudio_Area", AreaLock.MapJson(locked, null, "OBJ_EVENT_GFX_POLICEMAN"), StringComparison.Ordinal);
         var script = Read("data/maps/Route3/scripts.inc")!;
         var lockedScript = AreaLock.Script(script, "Route3", plan, AreaLock.FirstGuardId(json));
-        Assert.Contains("goto_if_undefeated TRAINER_", lockedScript, StringComparison.Ordinal);
+        Assert.Contains("checktrainerflag TRAINER_", lockedScript, StringComparison.Ordinal);
         Assert.Equal(script, AreaLock.Script(lockedScript, "Route3", null, 0));
     }
 

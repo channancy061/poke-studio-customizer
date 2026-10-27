@@ -396,7 +396,8 @@ internal static partial class AreaLock
                     L($"\tgoto_if_set {t.Flag}, {label}_{tag}{i}");
                 }
 
-                L($"\tgoto_if_undefeated {t.Id}, {whenSo}");
+                L($"\tchecktrainerflag {t.Id}");
+                L($"\tgoto_if FALSE, {whenSo}");
                 if (t.Flag is not null)
                 {
                     L($"{label}_{tag}{i}:");
