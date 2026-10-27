@@ -66,7 +66,7 @@ internal static partial class GameOptionsWriter
     private static readonly string[] CodeFlagNames =
         ["FLAG_PS_NUZ_FIRST", "FLAG_PS_NUZ_FAINT", "FLAG_PS_NUZ_DUPES", "FLAG_PS_NUZ_EEVEE", "FLAG_PS_NUZ_SHINY", "FLAG_PS_NUZ_NICK", "FLAG_PS_NUZ_STATIC", "FLAG_PS_ADAPTIVE", "FLAG_PS_NO_CATCH", "FLAG_PS_NUZ_WIPE_ENDS", "FLAG_PS_NUZ_OVER"];
 
-    private static bool CodeUsed(GameOptionsSettings o) => o.NuzlockeUsed || o.AdaptiveSlot != OptionMode.NotUsed || o.CenterHelper.AnyService || TrainerRules(o);
+    private static bool CodeUsed(GameOptionsSettings o) => o.PlayerTools || o.NuzlockeUsed || o.AdaptiveSlot != OptionMode.NotUsed || o.CenterHelper.AnyService || TrainerRules(o);
 
     /// <summary>Trainers behave by difficulty (needs the difficulty option).</summary>
     internal static bool TrainerRules(GameOptionsSettings o) => o.TrainerRulesByDifficulty && o.Difficulty != OptionMode.NotUsed;
@@ -640,6 +640,8 @@ internal static partial class GameOptionsWriter
         bool32 PokeStudio_TrainersSeeFar(void);
         void PokeStudio_HardTrainers(void);
         void PokeStudio_GymTrainersLeft(void);
+        void PokeStudio_ToolsBlocked(void);
+        void PokeStudio_ToolsFly(void);
         bool32 PokeStudio_NuzCanBattle(void);
         void PokeStudio_NuzAfterWipe(void);
         u32 PokeStudio_PickNone(const struct Trainer *trainer, u8 *poolIndexArray, u32 partyIndex, u32 monsCount, u32 battleTypeFlags, struct PoolRules *rules);
@@ -675,6 +677,10 @@ internal static partial class GameOptionsWriter
         L("#include \"trainer_pools.h\"");
         L("#include \"constants/region_map_sections.h\"");
         L("#include \"battle_setup.h\"");
+        L("#include \"event_object_movement.h\"");
+        L("#include \"main.h\"");
+        L("#include \"region_map.h\"");
+        L("#include \"constants/trainer_types.h\"");
         L("#include \"difficulty.h\"");
         L("#include \"constants/difficulty.h\"");
         L("#include \"constants/opponents.h\"");
@@ -1134,6 +1140,34 @@ internal static partial class GameOptionsWriter
                     if (!HasTrainerBeenFought(*t))
                         gSpecialVar_Result++;
                 }
+            }
+
+            // The Tools menu on Hard and up: VAR_RESULT = TRUE while a trainer on this map is still unbeaten (no healing or
+            // PC in the middle of a gym or a locked area).
+            void PokeStudio_ToolsBlocked(void)
+            {
+                gSpecialVar_Result = FALSE;
+                if (!PokeStudio_TrainersSeeFar())
+                    return;
+                for (u32 i = 0; i < OBJECT_EVENTS_COUNT; i++)
+                {
+                    const struct ObjectEvent *o = &gObjectEvents[i];
+                    if (o->active && !o->isPlayer && o->trainerType != TRAINER_TYPE_NONE)
+                    {
+                        const u8 *script = GetObjectEventScriptPointerByObjectEventId(o->localId);
+                        if (script != NULL && !GetTrainerFlagFromScriptPointer(script))
+                        {
+                            gSpecialVar_Result = TRUE;
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // The Tools menu: the Fly map, to any town already visited.
+            void PokeStudio_ToolsFly(void)
+            {
+                SetMainCallback2(CB2_OpenFlyMap);
             }
             """.ReplaceLineEndings("\n"));
         return sb.ToString();

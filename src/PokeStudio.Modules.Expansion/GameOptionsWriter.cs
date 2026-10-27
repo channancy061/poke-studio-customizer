@@ -24,7 +24,7 @@ internal static partial class GameOptionsWriter
     public const string Mark = "Poke Studio";
 
     public static IReadOnlyList<string> Files(ExpansionLayout layout) =>
-        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC, AiMain, GlobalConstants, NamingScreen, DebugConfig, DexNavConfig, EncountersFile.File, NightWriter.Overworld, BiggerBag.Global, BiggerBag.Item, BiggerBag.ItemMenu, .. AideWriter.Files(layout.Root), .. TradeWriter.Files(layout.Root),
+        [Header, Script, FlagsFile, EventScripts, Pokemon, PartyMenu, ItemsEnum, StartMapScripts(layout), .. CodeFiles, .. WhiteOutFiles, .. CenterPlacement.CenterMaps(layout.Root), .. CenterPlacement.MartMaps(layout.Root), ShopsJson.File, ShopsJson.ShopC, AiMain, GlobalConstants, NamingScreen, DebugConfig, DexNavConfig, EncountersFile.File, NightWriter.Overworld, ToolsWriter.StartMenu, BiggerBag.Global, BiggerBag.Item, BiggerBag.ItemMenu, .. AideWriter.Files(layout.Root), .. TradeWriter.Files(layout.Root),
          .. Chokepoints.Routes(layout.Root, indoors: true).Select(m => $"data/maps/{m}/map.json")];
 
     /// <summary>The expansion's debug settings.</summary>
@@ -357,7 +357,14 @@ internal static partial class GameOptionsWriter
         // 3. the generated script, included by event_scripts.s
         var specialist = o.MartSpecialist && (extras ?? Extras.None).SpecialistTiers.Count == 9;
         Put(Script, read(Script), BuildScript(o, ids, layout.IsFireRedBase) + (specialist ? SpecialistScript((extras ?? Extras.None).SpecialistTiers, layout.IsFireRedBase) : "")
-            + (TrainerRules(o) && o.AreaLock ? AreaLock.Shared("\n") : ""));
+            + (TrainerRules(o) && o.AreaLock ? AreaLock.Shared("\n") : "")
+            + (o.PlayerTools ? ToolsWriter.Script(TrainerRules(o), "\n") : ""));
+
+        // the Tools line in the start menu
+        if ((result.TryGetValue(ToolsWriter.StartMenu, out var plannedMenu) ? plannedMenu : read(ToolsWriter.StartMenu)) is { } startMenu)
+        {
+            Put(ToolsWriter.StartMenu, startMenu, ToolsWriter.Patch(startMenu, o.PlayerTools));
+        }
 
         // the Mart Specialist: a second person behind every Mart's counter (taken out again when switched off)
         foreach (var mart in CenterPlacement.MartMaps(layout.Root))

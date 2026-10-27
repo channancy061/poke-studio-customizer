@@ -163,6 +163,28 @@ public class MartSpecialistTests
         Assert.Equal(ai, System.Text.RegularExpressions.Regex.Replace(fixedAi, @"^[^\n]*Poke Studio: forget the Pokémon that left[^\n]*\r?\n", "", System.Text.RegularExpressions.RegexOptions.Multiline));
     }
 
+    [Theory]
+    [InlineData("POKESTUDIO_FIRERED_DIR")]
+    [InlineData("POKESTUDIO_EXPANSION_DIR")]
+    public void Real_start_menu_gets_the_tools_and_loses_them_again_when_available(string variable)
+    {
+        var root = Environment.GetEnvironmentVariable(variable);
+        if (root is null || !Directory.Exists(root))
+        {
+            return;
+        }
+
+        var menu = File.ReadAllText(Path.Combine(root, "src", "start_menu.c"));
+        var tools = ToolsWriter.Patch(menu, true);
+        foreach (var piece in new[] { "    MENU_ACTION_PS_TOOLS,", "[MENU_ACTION_PS_TOOLS] =", "AddStartMenuAction(MENU_ACTION_PS_TOOLS);", "&& gMenuCallback != StartMenuPsToolsCallback", "ScriptContext_SetupScript(PokeStudio_EventScript_Tools);" })
+        {
+            Assert.Contains(piece, tools, StringComparison.Ordinal);
+        }
+
+        Assert.Equal(tools, ToolsWriter.Patch(tools, true));
+        Assert.Equal(menu, ToolsWriter.Patch(tools, false));
+    }
+
     [Fact]
     public void Real_firered_marts_get_the_specialist_behind_the_counter_when_available() => RealProject(Environment.GetEnvironmentVariable("POKESTUDIO_FIRERED_DIR"));
 
